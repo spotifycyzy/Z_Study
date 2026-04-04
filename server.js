@@ -170,7 +170,7 @@ function broadcastOnline(roomId) {
   room.clients.forEach(c => { if (c.readyState === 1) c.send(data); });
 }
 
-/* ── Start ───────────────────────────────────────────────── */
-server.listen(PORT, () => {
-  console.log(`zerox chat running on http://localhost:${PORT}`);
+/* ── Start — must bind 0.0.0.0 for Railway/Render ─────── */
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`zerox chat running on port ${PORT}`);
 });
