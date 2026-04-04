@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title id="pageTitle">StudyVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,600&family=Cinzel+Decorative:wght@700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="study.css" />
+  <link rel="stylesheet" href="chat.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     STUDY SITE (visible by default)
+══════════════════════════════════════════════════════════ -->
+<div id="studySite">
+
+  <!-- Nav -->
+  <nav class="study-nav">
+    <div class="nav-brand">
+      <span class="brand-icon">📚</span>
+      <span class="brand-name" id="brandName">StudyVault</span>
+    </div>
+    <div class="nav-links">
+      <a href="#subjects">Subjects</a>
+      <a href="#recent">Recent</a>
+      <a href="#bookmarks">Saved</a>
+    </div>
+    <div class="nav-search">
+      <input type="text" placeholder="Search topics…" />
+      <span class="search-icon">🔍</span>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="study-hero">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Welcome back</p>
+      <h1 class="hero-title" id="heroTitle">Your personal<br /><em>knowledge library</em></h1>
+      <p class="hero-sub">Pick up where you left off. Everything organised, everything searchable.</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-n">5</span><span class="stat-l">Subjects</span></div>
+        <div class="stat"><span class="stat-n">24</span><span class="stat-l">Chapters</span></div>
+        <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="book-stack">
+        <div class="book b1"></div>
+        <div class="book b2"></div>
+        <div class="book b3"></div>
+        <div class="book b4"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Subjects grid -->
+  <section class="study-subjects" id="subjects">
+    <h2 class="section-title">Subjects</h2>
+    <div class="subjects-grid" id="subjectsGrid"></div>
+  </section>
+
+  <!-- Recent activity (fake) -->
+  <section class="study-recent" id="recent">
+    <h2 class="section-title">Recently Viewed</h2>
+    <div class="recent-list" id="recentList"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="study-footer">
+    <p>© 2025 StudyVault · All notes are private &amp; encrypted</p>
+  </footer>
+
+</div><!-- /studySite -->
+
+<!-- ══════════════════════════════════════════════════════
+     GESTURE CANVAS (invisible overlay — draws the Z)
+══════════════════════════════════════════════════════════ -->
+<canvas id="gestureCanvas"></canvas>
+
+<!-- ══════════════════════════════════════════════════════
+     CHAT APP (hidden until unlocked)
+══════════════════════════════════════════════════════════ -->
+<div id="chatApp" class="hidden">
+
+  <!-- Unlock screen (name entry) -->
+  <div id="unlockScreen" class="unlock-screen">
+    <div class="unlock-card">
+      <div class="unlock-logo">
+        <span class="unlock-z">Z</span>
+        <span class="unlock-name-brand">erox</span>
+      </div>
+      <p class="unlock-sub">private space · just us</p>
+      <input id="nameInput" class="unlock-input" type="text" placeholder="your name…" maxlength="24" autocomplete="off" />
+      <button id="enterChat" class="unlock-btn">Enter <span>💗</span></button>
+      <p class="unlock-hint">room: <code id="roomHint"></code></p>
+    </div>
+  </div>
+
+  <!-- Main chat UI -->
+  <div id="chatMain" class="chat-main hidden">
+
+    <!-- Sidebar -->
+    <aside id="chatSidebar" class="chat-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">zerox</span>
+        <button class="icon-btn" id="closeSidebar" title="Close">✕</button>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Theme</p>
+        <div class="theme-swatches" id="themeSwatches"></div>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Wallpaper</p>
+        <div class="wallpaper-grid" id="wallpaperGrid"></div>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Room</p>
+        <div class="room-info">
+          <span id="sidebarRoom"></span>
+          <span id="sidebarOnline" class="online-pill">● 0 online</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button>
+      </div>
+    </aside>
+
+    <!-- Chat window -->
+    <div class="chat-window" id="chatWindow">
+
+      <!-- Header -->
+      <header class="chat-header">
+        <button class="icon-btn" id="openSidebar" title="Menu">☰</button>
+        <div class="chat-header-info">
+          <span class="chat-room-name" id="chatRoomName">zerox</span>
+          <span class="chat-online" id="chatOnline">● 0 online</span>
+        </div>
+        <button class="icon-btn" id="hideChatBtn" title="Back to study site">📚</button>
+      </header>
+
+      <!-- Messages -->
+      <div class="messages-area" id="messagesArea">
+        <div class="messages-inner" id="messagesInner"></div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div class="typing-bar" id="typingBar"></div>
+
+      <!-- Sticker picker -->
+      <div class="sticker-picker hidden" id="stickerPicker">
+        <div class="sticker-tabs" id="stickerTabs"></div>
+        <div class="sticker-grid" id="stickerGrid"></div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="input-bar">
+        <button class="icon-btn sticker-toggle" id="stickerToggle" title="Stickers">😊</button>
+        <textarea
+          id="msgInput"
+          class="msg-input"
+          placeholder="Message…"
+          rows="1"
+          maxlength="2000"
+        ></textarea>
+        <button class="send-btn" id="sendBtn" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+    </div><!-- /chat-window -->
+  </div><!-- /chatMain -->
+</div><!-- /chatApp -->
+
+<script src="config.js"></script>
+<script src="gesture.js"></script>
+<script src="chat.js"></script>
+</body>
+</html>
