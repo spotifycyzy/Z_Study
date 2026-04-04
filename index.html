@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title id="pageTitle">StudyVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,600&family=Cinzel+Decorative:wght@700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="study.css" />
+  <link rel="stylesheet" href="chat.css" />
+  <link rel="stylesheet" href="player.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     MUSIC PLAYER BAR (always on top)
+══════════════════════════════════════════════════════════ -->
+<div id="musicBar">
+  <div class="music-bar-inner">
+    <button class="mp-btn" id="mpToggleBtn" title="Open Player">🎵</button>
+    <div class="mp-track-info">
+      <span class="mp-title" id="mpTitle">No track playing</span>
+      <span class="mp-sub"  id="mpSub">Add a song to begin</span>
+    </div>
+    <div class="mp-controls">
+      <button class="mp-btn" id="mpPrev">⏮</button>
+      <button class="mp-btn mp-play" id="mpPlay">▶</button>
+      <button class="mp-btn" id="mpNext">⏭</button>
+    </div>
+    <div class="mp-right">
+      <span class="mp-sync-pill" id="mpSyncPill">🔴 solo</span>
+      <button class="mp-btn" id="mpOpenFull" title="Full player">⬆</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     FULL MUSIC PLAYER PANEL
+══════════════════════════════════════════════════════════ -->
+<div id="musicPanel" class="hidden">
+  <div class="music-panel-inner">
+    <div class="mp-panel-header">
+      <span class="mp-panel-title">🎵 zerox player</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo mode</span>
+        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
+        <button class="mp-btn" id="mpClosePanel">✕</button>
+      </div>
+    </div>
+
+    <!-- Source tabs -->
+    <div class="mp-tabs">
+      <button class="mp-tab active" data-tab="url">URL / Local</button>
+      <button class="mp-tab" data-tab="youtube">YouTube</button>
+      <button class="mp-tab" data-tab="spotify">Spotify</button>
+      <button class="mp-tab" data-tab="queue">Queue</button>
+    </div>
+
+    <!-- URL tab -->
+    <div class="mp-tab-content active" id="tab-url">
+      <div class="mp-input-row">
+        <input id="urlInput" class="mp-input" type="text" placeholder="Paste audio URL or YouTube/Spotify link…" />
+        <button class="mp-add-btn" id="urlAddBtn">Add</button>
+      </div>
+      <label class="mp-file-label">
+        <input type="file" id="fileInput" accept="audio/*" style="display:none" />
+        <span>📁 Choose local file</span>
+      </label>
+      <!-- Native audio player for direct files/urls -->
+      <audio id="nativeAudio" controls style="width:100%;margin-top:12px;display:none"></audio>
+    </div>
+
+    <!-- YouTube tab -->
+    <div class="mp-tab-content" id="tab-youtube">
+      <div class="mp-input-row">
+        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube URL…" />
+        <button class="mp-add-btn" id="ytAddBtn">Load</button>
+      </div>
+      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none">
+        <iframe id="ytFrame" width="100%" height="200"
+          src="" frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <!-- Spotify tab -->
+    <div class="mp-tab-content" id="tab-spotify">
+      <div class="mp-input-row">
+        <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify track/playlist URL…" />
+        <button class="mp-add-btn" id="spAddBtn">Load</button>
+      </div>
+      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none">
+        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px;"
+          src="" frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"></iframe>
+      </div>
+    </div>
+
+    <!-- Queue tab -->
+    <div class="mp-tab-content" id="tab-queue">
+      <div class="mp-queue-list" id="queueList">
+        <p class="mp-empty">Queue is empty. Add songs from other tabs.</p>
+      </div>
+    </div>
+
+    <!-- Sync info -->
+    <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
+      <p>🔗 Listening together — playback synced with other users in the room</p>
+      <button class="mp-btn" id="mpUnsyncBtn">Leave sync</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     STUDY SITE
+══════════════════════════════════════════════════════════ -->
+<div id="studySite">
+
+  <nav class="study-nav">
+    <div class="nav-brand">
+      <span class="brand-icon">📚</span>
+      <span class="brand-name" id="brandName">StudyVault</span>
+    </div>
+    <div class="nav-links">
+      <a href="#subjects">Subjects</a>
+      <a href="#recent">Recent</a>
+      <a href="#bookmarks">Saved</a>
+    </div>
+    <div class="nav-search">
+      <input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off" />
+      <span class="search-icon">🔍</span>
+    </div>
+  </nav>
+
+  <section class="study-hero">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Welcome back</p>
+      <h1 class="hero-title" id="heroTitle">StudyVault<br /><em>knowledge library</em></h1>
+      <p class="hero-sub">Click any chapter to read AI-generated notes. Everything organised, searchable.</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-n" id="statSubjects">5</span><span class="stat-l">Subjects</span></div>
+        <div class="stat"><span class="stat-n" id="statChapters">0</span><span class="stat-l">Chapters</span></div>
+        <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="book-stack">
+        <div class="book b1"></div>
+        <div class="book b2"></div>
+        <div class="book b3"></div>
+        <div class="book b4"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="study-subjects" id="subjects">
+    <h2 class="section-title">Subjects</h2>
+    <div class="subjects-grid" id="subjectsGrid"></div>
+  </section>
+
+  <section class="study-recent" id="recent">
+    <h2 class="section-title">Recently Viewed</h2>
+    <div class="recent-list" id="recentList"></div>
+  </section>
+
+  <footer class="study-footer">
+    <p>© 2025 StudyVault · All notes are private &amp; encrypted</p>
+  </footer>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     NOTES VIEWER (opens when chapter clicked)
+══════════════════════════════════════════════════════════ -->
+<div id="notesViewer" class="hidden">
+  <div class="notes-header">
+    <button class="notes-back" id="notesBack">← Back</button>
+    <div class="notes-title-wrap">
+      <span class="notes-subject" id="notesSubject"></span>
+      <h2 class="notes-title" id="notesTitle"></h2>
+    </div>
+    <button class="notes-bookmark" id="notesBookmark" title="Bookmark">🔖</button>
+  </div>
+  <div class="notes-body" id="notesBody">
+    <div class="notes-loading" id="notesLoading">
+      <div class="notes-spinner"></div>
+      <p>Generating notes…</p>
+    </div>
+    <div class="notes-content" id="notesContent" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     GESTURE CANVAS (invisible — no trail shown)
+══════════════════════════════════════════════════════════ -->
+<canvas id="gestureCanvas"></canvas>
+
+<!-- ══════════════════════════════════════════════════════
+     CHAT APP
+══════════════════════════════════════════════════════════ -->
+<div id="chatApp" class="hidden">
+  <div id="unlockScreen" class="unlock-screen">
+    <div class="unlock-card">
+      <div class="unlock-logo">
+        <span class="unlock-z">Z</span><span class="unlock-name-brand">erox</span>
+      </div>
+      <p class="unlock-sub">private space · just us</p>
+      <input id="nameInput" class="unlock-input" type="text" placeholder="your name…" maxlength="24" autocomplete="off" />
+      <button id="enterChat" class="unlock-btn">Enter <span>💗</span></button>
+      <p class="unlock-hint">room: <code id="roomHint"></code></p>
+    </div>
+  </div>
+
+  <div id="chatMain" class="chat-main hidden">
+    <aside id="chatSidebar" class="chat-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">zerox</span>
+        <button class="icon-btn" id="closeSidebar">✕</button>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Theme</p>
+        <div class="theme-swatches" id="themeSwatches"></div>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Wallpaper</p>
+        <div class="wallpaper-grid" id="wallpaperGrid"></div>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Room</p>
+        <div class="room-info">
+          <span id="sidebarRoom"></span>
+          <span id="sidebarOnline" class="online-pill">● 0 online</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button>
+      </div>
+    </aside>
+
+    <div class="chat-window" id="chatWindow">
+      <header class="chat-header">
+        <button class="icon-btn" id="openSidebar">☰</button>
+        <div class="chat-header-info">
+          <span class="chat-room-name" id="chatRoomName">zerox</span>
+          <span class="chat-online" id="chatOnline">● 0 online</span>
+        </div>
+        <button class="icon-btn" id="hideChatBtn" title="Back to study site">📚</button>
+      </header>
+      <div class="messages-area" id="messagesArea">
+        <div class="messages-inner" id="messagesInner"></div>
+      </div>
+      <div class="typing-bar" id="typingBar"></div>
+      <div class="sticker-picker hidden" id="stickerPicker">
+        <div class="sticker-tabs" id="stickerTabs"></div>
+        <div class="sticker-grid" id="stickerGrid"></div>
+      </div>
+      <div class="input-bar">
+        <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
+        <textarea id="msgInput" class="msg-input" placeholder="Message…" rows="1" maxlength="2000"></textarea>
+        <button class="send-btn" id="sendBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="gesture.js"></script>
+<script src="player.js"></script>
+<script src="notes.js"></script>
+<script src="chat.js"></script>
+</body>
+</html>

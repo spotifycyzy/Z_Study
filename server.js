@@ -126,6 +126,13 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      /* ── MUSIC SYNC — relay to all in room ────────────── */
+      case 'musicSync': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { ...msg, type: 'musicSync' }, ws);
+        break;
+      }
+
       /* ── CLEAR history (both users confirm) ─────────── */
       case 'clear': {
         if (!currentRoom) return;
