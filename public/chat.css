@@ -1,4 +1,40 @@
 /* ═══════════════════════════════════════════════════════════
+   GLOBAL LAG-FIX HEADER (Paste at the Top of your 694 lines)
+═══════════════════════════════════════════════════════════ */
+
+/* 1. Force the Graphics Chip (GPU) to handle all heavy visuals */
+.blossom, 
+.chat-sparkle, 
+.msg-bubble, 
+.unlock-card, 
+.unlock-logo, 
+.chat-header, 
+.input-bar,
+.voice-waveform span {
+    will-change: transform, opacity;
+    transform: translateZ(0) !important;
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* 2. The "Solid" Scrolling Fix: Stops the phone from 'overthinking' layout */
+.messages-area {
+    contain: layout !important; 
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 3. Global Optimization for all Keyframe Animations */
+* {
+    animation-fill-mode: both !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   END OF LAG-FIX (Your original 694 lines start below this)
+   ═══════════════════════════════════════════════════════════ */
+
+
+
+/* ═══════════════════════════════════════════════════════════
    CHAT — chat.css   FULL VISUAL OVERHAUL
    Blossoms ✓  Neon glows ✓  Sparkles ✓  Animated grid ✓
 ═══════════════════════════════════════════════════════════ */
