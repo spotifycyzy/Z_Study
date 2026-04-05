@@ -133,6 +133,20 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      /* ── WALLPAPER SYNC — broadcast to other client ── */
+      case 'wallpaperSync': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { type: 'wallpaperSync', data: msg.data }, ws);
+        break;
+      }
+
+      /* ── THEME SYNC — broadcast to other client ─────── */
+      case 'themeSync': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { type: 'themeSync', themeName: msg.themeName }, ws);
+        break;
+      }
+
       /* ── MEDIA (image/file/voice — relay dataURL) ────── */
       case 'media':
       case 'voice': {
