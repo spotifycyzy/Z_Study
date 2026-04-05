@@ -156,6 +156,16 @@ window._chatUnlock = function() {
    ENTER CHAT
 ════════════════════════════════════════════════════════ */
 nameInput.value = localStorage.getItem('zerox_name') || '';
+
+/* Restore custom background from localStorage on load */
+(function() {
+  const custom = localStorage.getItem('zerox_custom_bg');
+  const idx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
+  if (custom && idx === -1) {
+    /* Will be applied once chatWindow exists — deferred to enterChat */
+  }
+})();
+
 enterChatBtn.addEventListener('click', enterChat);
 nameInput.addEventListener('keydown', e => { if (e.key==='Enter') enterChat(); });
 
@@ -169,6 +179,10 @@ function enterChat() {
   chatMain.classList.remove('hidden');
   spawnChatBlossoms();
   connectWS();
+  /* Restore custom bg after chatWindow is visible */
+  const _customBg = localStorage.getItem('zerox_custom_bg');
+  const _wpIdx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
+  if (_customBg && _wpIdx === -1) applyWallpaperDirect(_customBg);
 }
 
 function spawnChatBlossoms() {
@@ -232,6 +246,8 @@ function handleIncoming(msg) {
       allMessages = {};
       msg.messages.forEach(m => { allMessages[m.id] = m; renderMessage(m); });
       scrollBottom();
+      /* Apply server-stored default background if set */
+      if (msg.defaultBg) applyDefaultBg(msg.defaultBg);
       break;
 
     case 'message':
@@ -261,6 +277,16 @@ function handleIncoming(msg) {
       messagesInner.innerHTML = '';
       allMessages = {};
       renderSystem('History cleared');
+      break;
+
+    /* Server-side default background set by admin */
+    case 'defaultBg':
+      applyDefaultBg(msg.url || '');
+      break;
+
+    /* Personal wallpaper synced from other client */
+    case 'wallpaperSync':
+      applyWallpaperDirect(msg.data?.url || '');
       break;
 
     case 'reaction':
@@ -657,12 +683,39 @@ ZEROX_CONFIG.wallpapers.forEach((url, i) => {
   thumb.addEventListener('click', () => setWallpaper(url, i));
   wallpaperGrid.appendChild(thumb);
 });
-setWallpaper(ZEROX_CONFIG.wallpapers[parseInt(localStorage.getItem('zerox_wallpaper')||'0')]||'', parseInt(localStorage.getItem('zerox_wallpaper')||'0'));
+/* Restore saved personal wallpaper */
+const _savedWpIdx = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
+setWallpaper(ZEROX_CONFIG.wallpapers[_savedWpIdx] || '', _savedWpIdx);
 
+/* Apply a wallpaper URL directly (used by defaultBg and wallpaperSync) */
+function applyWallpaperDirect(url) {
+  chatWindow.style.setProperty('--wallpaper-url', url ? `url('${url}')` : 'none');
+  /* Persist locally */
+  if (url) {
+    localStorage.setItem('zerox_custom_bg', url);
+    localStorage.setItem('zerox_wallpaper', '-1');
+  }
+}
+
+/* Apply default background set by admin — overrides personal choice */
+function applyDefaultBg(url) {
+  applyWallpaperDirect(url);
+  /* Update UI: deselect all preset thumbs since a custom one is active */
+  document.querySelectorAll('.wallpaper-thumb').forEach(t => t.classList.remove('active'));
+}
+
+/* Custom background upload */
 customBgInput.addEventListener('change', () => {
   const file = customBgInput.files[0]; if (!file) return;
-  const url = URL.createObjectURL(file);
-  chatWindow.style.setProperty('--wallpaper-url', `url('${url}')`);
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    /* Apply locally */
+    applyWallpaperDirect(dataUrl);
+    /* Sync to other client immediately */
+    send({ type: 'wallpaperSync', data: { url: dataUrl } });
+  };
+  reader.readAsDataURL(file);
 });
 
 /* ════════════════════════════════════════════════════════
@@ -670,6 +723,32 @@ customBgInput.addEventListener('change', () => {
 ════════════════════════════════════════════════════════ */
 openSidebar.addEventListener('click',  () => chatSidebar.classList.add('open'));
 closeSidebar.addEventListener('click', () => chatSidebar.classList.remove('open'));
+
+/* ── "Set as default background for everyone" button ────────
+   Injects a button below the wallpaper grid in the sidebar.
+   When clicked, broadcasts the current wallpaper URL to all
+   connected clients AND stores it on the server so new joiners
+   also receive it.
+──────────────────────────────────────────────────────────── */
+(function() {
+  const wpSection = wallpaperGrid.parentElement; // sidebar-section
+  const setDefaultBtn = document.createElement('button');
+  setDefaultBtn.className = 'set-default-bg-btn';
+  setDefaultBtn.innerHTML = '🌐 Set background for everyone';
+  setDefaultBtn.title = 'Broadcasts your current wallpaper to all users. New visitors will also see it.';
+  setDefaultBtn.addEventListener('click', () => {
+    /* Read current wallpaper from CSS variable */
+    const raw = chatWindow.style.getPropertyValue('--wallpaper-url') || '';
+    /* Extract URL from  url('...') */
+    const match = raw.match(/url\(['"]?(.*?)['"]?\)/);
+    const url = match ? match[1] : '';
+    if (!url) { alert('No wallpaper selected. Choose one first.'); return; }
+    send({ type: 'setBg', url });
+    setDefaultBtn.textContent = '✓ Set for everyone!';
+    setTimeout(() => { setDefaultBtn.innerHTML = '🌐 Set background for everyone'; }, 2500);
+  });
+  wpSection.appendChild(setDefaultBtn);
+})();
 hideChatBtn.addEventListener('click', () => {
   chatApp.classList.remove('visible');
   setTimeout(() => chatApp.classList.add('hidden'), 400);
