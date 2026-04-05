@@ -680,3 +680,15 @@
   box-shadow:0 0 18px rgba(232,67,106,0.4);transform:translateY(-1px);
 }
 .set-default-bg-btn:active { transform:scale(0.97); }
+
+[class*="blossom"] {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Also optimize the sparkles while we are at it */
+.chat-sparkle {
+    will-change: transform;
+    transform: translateZ(0);
+}
