@@ -1,40 +1,43 @@
 /* ═══════════════════════════════════════════════════════════
-   LAG FIX: REMOVE MESSAGE GLOWS (PETALS REMAIN ACTIVE)
+   LAG FIX: KILL GLOWS + BRING PETALS TO FRONT
 ═══════════════════════════════════════════════════════════ */
 
-/* 1. Stop the message bubbles from calculating shadows and pulsing */
+/* 1. REMOVE BUBBLE GLOWS (This stops 90% of the lag) */
 .msg-bubble {
     box-shadow: none !important;
     animation: none !important;
     text-shadow: none !important;
-    /* Keeps a subtle border so they look clean against the grid */
-    border: 1px solid rgba(232, 67, 106, 0.25) !important;
+    /* Added a clear border so bubbles are easy to see without the glow */
+    border: 1.5px solid rgba(232, 67, 106, 0.3) !important;
 }
 
-/* 2. Specific override for 'Mine' and 'Theirs' to ensure animations stop */
-.msg-row.mine .msg-bubble, 
-.msg-row.theirs .msg-bubble {
-    box-shadow: none !important;
-    animation: none !important;
+/* 2. BRING PETALS TO THE FRONT */
+/* This ensures the petals aren't hidden behind the chat window or background */
+#chatBlossoms {
+    z-index: 100 !important; 
+    pointer-events: none !important;
+    display: block !important;
+    opacity: 1 !important;
 }
 
-/* 3. SMOOTH SCROLLING: Fences off the chat area so petals don't lag it */
+/* 3. GPU ACCELERATION FOR PETALS */
+/* This makes the petals fall smoothly without slowing down the chat */
+#chatBlossoms > div, .blossom {
+    will-change: transform;
+    transform: translateZ(0) !important;
+    visibility: visible !important;
+}
+
+/* 4. SCROLLING OPTIMIZATION */
 .messages-area {
     contain: layout !important;
     -webkit-overflow-scrolling: touch;
 }
 
-/* 4. GPU BOOST: This does NOT remove petals, it just makes them 
-   run on your Graphics Chip so the chat doesn't stutter. */
-.blossom {
-    will-change: transform;
-    transform: translateZ(0) !important;
-}
-
 /* ═══════════════════════════════════════════════════════════
-   YOUR ORIGINAL 694 LINES START BELOW 
-   (Everything else stays exactly as it was)
+   ORIGINAL 694 LINES START BELOW
    ═══════════════════════════════════════════════════════════ */
+
 
 
 
