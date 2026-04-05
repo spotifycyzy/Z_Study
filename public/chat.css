@@ -1,4 +1,37 @@
 /* ═══════════════════════════════════════════════════════════
+   GLOW OPTIMIZATION PATCH (Paste at the top of your 694 lines)
+═══════════════════════════════════════════════════════════ */
+
+/* 1. Force the Graphics Chip (GPU) to pre-render the glows */
+.msg-bubble, 
+.unlock-card, 
+.chat-header, 
+.input-box, 
+.send-btn {
+    /* Moves the 'box-shadow' calculation to the GPU */
+    transform: translateZ(0); 
+    will-change: transform, filter;
+    
+    /* This stops the 'flicker' during scrolling */
+    backface-visibility: hidden; 
+}
+
+/* 2. The "Layout" Fix: Prevents the glow from affecting the rest of the page */
+.messages-area {
+    contain: layout !important;
+    /* Forces the browser to treat the chat as a separate 'layer' */
+}
+
+/* 3. Reduce the 'Paint' cost of falling blossoms */
+.blossom {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+
+
+
+/* ═══════════════════════════════════════════════════════════
    CHAT — chat.css   FULL VISUAL OVERHAUL
    Blossoms ✓  Neon glows ✓  Sparkles ✓  Animated grid ✓
 ═══════════════════════════════════════════════════════════ */
