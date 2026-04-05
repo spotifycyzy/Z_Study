@@ -1,260 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title id="pageTitle">StudyVault</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,600&family=Cinzel+Decorative:wght@700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="study.css"/>
-  <link rel="stylesheet" href="chat.css"/>
-  <link rel="stylesheet" href="player.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --c-bg: #05000A;
+      --c-surface: #0E0018;
+      --c-surfaceHigh: #160028;
+      --c-border: rgba(180, 80, 255, 0.15);
+      --c-rose: #B450FF;
+      --c-blush: #D4A5FF;
+      --c-magenta: #7A28FF;
+      --c-text: #F0E8FF;
+      --c-textMuted: rgba(240, 232, 255, 0.5);
+      --c-myBubble: linear-gradient(135deg, #B450FF, #7A28FF);
+      --c-herBubble: #160028;
+      --font-main: 'Sora', sans-serif;
+      --font-ui: 'Outfit', sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--c-bg); color: var(--c-text); font-family: var(--font-main); overflow: hidden; }
+
+    /* Performance Optimized Blossoms */
+    .blossom-container { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+    .blossom {
+      position: absolute;
+      top: -10%;
+      border-radius: 50% 10% 50% 10% / 50% 20% 50% 20%;
+      animation: blossomFall linear infinite;
+      will-change: transform; /* GPU Acceleration */
+      transform: translateZ(0);
+    }
+    @keyframes blossomFall {
+      0% { transform: translateY(0) translateX(0) rotate(0) translateZ(0); opacity: 0; }
+      10% { opacity: 0.8; }
+      90% { opacity: 0.8; }
+      100% { transform: translateY(110vh) translateX(var(--bx)) rotate(720deg) translateZ(0); opacity: 0; }
+    }
+
+    /* Study Site UI */
+    .study-site { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; background: radial-gradient(circle at 50% -20%, rgba(180,80,255,0.15), transparent); }
+    .nav { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--c-border); backdrop-filter: blur(10px); }
+    .nav-brand { font-size: 20px; font-weight: 700; color: var(--c-text); letter-spacing: -0.5px; }
+    .nav-search { position: relative; flex: 1; max-width: 400px; margin: 0 20px; }
+    .nav-search input { width: 100%; background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: 12px; padding: 10px 16px; color: var(--c-text); font-family: var(--font-ui); transition: 0.2s; }
+    .nav-search input:focus { border-color: var(--c-rose); box-shadow: 0 0 15px rgba(180,80,255,0.2); }
+
+    .hero { padding: 40px 20px; text-align: center; }
+    .hero h1 { font-size: 32px; margin-bottom: 10px; background: linear-gradient(to right, #FFF, #B450FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-stats { display: flex; justify-content: center; gap: 24px; margin-top: 20px; }
+    .stat-item { background: var(--c-surface); padding: 12px 20px; border-radius: 16px; border: 1px solid var(--c-border); }
+    .stat-val { display: block; font-size: 20px; font-weight: 700; color: var(--c-rose); }
+    .stat-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-textMuted); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; overflow-y: auto; flex: 1; }
+    .subject-card { background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: 24px; padding: 24px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+    .subject-card:hover { transform: translateY(-5px); border-color: var(--c-rose); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .subject-icon { font-size: 40px; margin-bottom: 16px; }
+    .subject-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .subject-chapters { color: var(--c-textMuted); font-size: 14px; }
+    .subject-tag { position: absolute; bottom: 24px; right: 24px; color: var(--c-rose); font-weight: 600; font-size: 13px; opacity: 0; transition: 0.2s; }
+    .subject-card:hover .subject-tag { opacity: 1; }
+
+    /* Chat App Layer */
+    #chatApp { position: fixed; inset: 0; z-index: 2000; background: var(--c-bg); display: none; flex-direction: column; opacity: 0; transition: opacity 0.4s ease; }
+    #chatApp.hidden { display: none; }
+    #chatApp.visible { display: flex; opacity: 1; }
+
+    /* Unlock Screen */
+    #unlockScreen { position: absolute; inset: 0; z-index: 2100; background: var(--c-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .gesture-area { width: 280px; height: 320px; background: rgba(180,80,255,0.03); border: 2px dashed var(--c-border); border-radius: 30px; position: relative; margin-bottom: 30px; }
+    .unlock-input { background: var(--c-surfaceHigh); border: 1.5px solid var(--c-border); border-radius: 14px; padding: 14px 20px; color: var(--c-text); width: 100%; max-width: 280px; text-align: center; margin-bottom: 16px; }
+    .unlock-btn { background: var(--c-rose); border: none; border-radius: 14px; padding: 14px 40px; color: #FFF; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(180,80,255,0.3); }
+
+    /* Chat UI */
+    #chatMain { flex: 1; display: flex; overflow: hidden; position: relative; }
+    .chat-sidebar { width: 280px; background: var(--c-surface); border-right: 1px solid var(--c-border); display: flex; flex-direction: column; transition: 0.3s; }
+    .chat-window { flex: 1; display: flex; flex-direction: column; background-size: cover; background-position: center; position: relative; }
+    .chat-header { height: 64px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; padding: 0 16px; backdrop-filter: blur(15px); background: rgba(14,0,24,0.7); z-index: 10; }
+    
+    /* Smooth Scrolling Messages */
+    .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+    .msg-row { display: flex; align-items: flex-end; gap: 10px; max-width: 85%; will-change: transform; }
+    .msg-row.mine { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-bubble { 
+        padding: 12px 16px; border-radius: 20px; font-size: 14.5px; line-height: 1.5; position: relative; 
+        transform: translateZ(0); /* GPU Accelerated Bubbles */
+    }
+    .mine .msg-bubble { background: var(--c-myBubble); color: #FFF; border-bottom-right-radius: 4px; }
+    .theirs .msg-bubble { background: var(--c-herBubble); border: 1px solid var(--c-border); border-bottom-left-radius: 4px; }
+
+    /* Input Area */
+    .input-wrap { padding: 16px; background: var(--c-surface); border-top: 1px solid var(--c-border); }
+    .input-box { background: var(--c-surfaceHigh); border-radius: 24px; display: flex; align-items: flex-end; padding: 8px 12px; border: 1px solid var(--c-border); }
+    .input-box textarea { flex: 1; background: transparent; border: none; color: var(--c-text); padding: 8px; resize: none; max-height: 120px; font-family: var(--font-main); }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .chat-sidebar { position: absolute; left: -280px; top: 0; bottom: 0; z-index: 100; }
+      .chat-sidebar.open { left: 0; box-shadow: 20px 0 50px rgba(0,0,0,0.8); }
+      .nav-search { display: none; }
+    }
+  </style>
 </head>
 <body>
-<div id="blossomContainer"></div>
 
-<div id="musicBar">
-  <div class="music-bar-inner">
-    <button class="mp-btn" id="mpToggleBtn">🎵</button>
-    <div class="mp-track-info">
-      <span class="mp-title" id="mpTitle">No track</span>
-      <span class="mp-sub" id="mpSub">Add a song</span>
-    </div>
-    <div class="mp-controls">
-      <button class="mp-btn" id="mpPrev">⏮</button>
-      <button class="mp-btn mp-play" id="mpPlay">▶</button>
-      <button class="mp-btn" id="mpNext">⏭</button>
-    </div>
-    <div class="mp-right">
-      <span class="mp-sync-pill" id="mpSyncPill">🔴 solo</span>
-      <button class="mp-btn" id="mpOpenFull">⬆</button>
-    </div>
-  </div>
-</div>
+  <div class="blossom-container" id="blossomContainer"></div>
 
-<div id="musicPanel" class="hidden">
-  <div class="music-panel-inner">
-    <div class="mp-panel-header">
-      <span class="mp-panel-title">🎵 zerox player</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
-        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
-        <button class="mp-btn" id="mpClosePanel">✕</button>
+  <div class="study-site">
+    <nav class="nav">
+      <div class="nav-brand" id="brandName">StudyVault</div>
+      <div class="nav-search">
+        <input type="text" id="searchInput" placeholder="Search notes, chapters...">
       </div>
-    </div>
-    <div class="mp-tabs">
-      <button class="mp-tab active" data-tab="url">URL / File</button>
-      <button class="mp-tab" data-tab="youtube">YouTube</button>
-      <button class="mp-tab" data-tab="spotify">Spotify</button>
-      <button class="mp-tab" data-tab="queue">Queue</button>
-    </div>
-    <div class="mp-tab-content active" id="tab-url">
-      <div class="mp-input-row">
-        <input id="urlInput" class="mp-input" type="text" placeholder="Paste audio/YouTube/Spotify URL…"/>
-        <button class="mp-add-btn" id="urlAddBtn">Add</button>
+      <div style="display:flex; gap:10px;">
+        <button id="openSidebar" style="background:none; border:none; color:var(--c-text); font-size:20px;">☰</button>
       </div>
-      <label class="mp-file-label">
-        <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
-        <span>📁 Choose local file</span>
-      </label>
-      <audio id="nativeAudio" controls style="width:100%;margin-top:12px;display:none;filter:hue-rotate(300deg)"></audio>
-    </div>
-    <div class="mp-tab-content" id="tab-youtube">
-      <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube URL…"/>
-        <button class="mp-add-btn" id="ytAddBtn">Load</button>
-      </div>
-      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none">
-        <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>
-      </div>
-    </div>
-    <div class="mp-tab-content" id="tab-spotify">
-      <div class="mp-input-row">
-        <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
-        <button class="mp-add-btn" id="spAddBtn">Load</button>
-      </div>
-      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none">
-        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>
-      </div>
-    </div>
-    <div class="mp-tab-content" id="tab-queue">
-      <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
-    </div>
-    <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
-      <p>🔗 Listening together — synced</p>
-      <button class="mp-btn" id="mpUnsyncBtn">Leave sync</button>
-    </div>
-  </div>
-</div>
+    </nav>
 
-<div id="studySite">
-  <nav class="study-nav">
-    <div class="nav-brand">
-      <span class="brand-icon">📚</span>
-      <span class="brand-name" id="brandName">StudyVault</span>
-    </div>
-    <div class="nav-links">
-      <a href="#subjects">Subjects</a>
-      <a href="#recent">Recent</a>
-      <a href="#bookmarks">Saved</a>
-    </div>
-    <div class="nav-search">
-      <input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/>
-      <span class="search-icon">🔍</span>
-    </div>
-  </nav>
-  <section class="study-hero">
-    <div class="hero-content">
-      <p class="hero-eyebrow">Welcome back</p>
-      <h1 class="hero-title" id="heroTitle">StudyVault<br/><em>knowledge library</em></h1>
-      <p class="hero-sub">Click any chapter to read AI-generated notes.</p>
+    <div class="hero">
+      <h1>Hello, Study Buddy</h1>
+      <p style="color:var(--c-textMuted)">Everything you need to ace your exams.</p>
       <div class="hero-stats">
-        <div class="stat"><span class="stat-n" id="statSubjects">5</span><span class="stat-l">Subjects</span></div>
-        <div class="stat"><span class="stat-n" id="statChapters">0</span><span class="stat-l">Chapters</span></div>
-        <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
+        <div class="stat-item"><span class="stat-val" id="statSubjects">0</span><span class="stat-lbl">Subjects</span></div>
+        <div class="stat-item"><span class="stat-val" id="statChapters">0</span><span class="stat-lbl">Chapters</span></div>
       </div>
     </div>
-    <div class="hero-visual" aria-hidden="true">
-      <div class="book-stack">
-        <div class="book b1"></div><div class="book b2"></div>
-        <div class="book b3"></div><div class="book b4"></div>
-      </div>
-    </div>
-  </section>
-  <section class="study-subjects" id="subjects">
-    <h2 class="section-title">Subjects</h2>
-    <div class="subjects-grid" id="subjectsGrid"></div>
-  </section>
-  <section class="study-recent" id="recent">
-    <h2 class="section-title">Recently Viewed</h2>
-    <div class="recent-list" id="recentList"></div>
-  </section>
-  <section class="study-bookmarks" id="bookmarks">
-    <h2 class="section-title">Saved Notes</h2>
-    <div id="bookmarksList"></div>
-  </section>
-  <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
-</div>
 
-<div id="notesViewer" class="hidden">
-  <div class="notes-header">
-    <button class="notes-back" id="notesBack">← Back</button>
-    <div class="notes-title-wrap">
-      <span class="notes-subject" id="notesSubject"></span>
-      <h2 class="notes-title" id="notesTitle"></h2>
-    </div>
-    <button class="notes-bookmark" id="notesBookmark">🔲</button>
-  </div>
-  <div class="notes-body" id="notesBody">
-    <div class="notes-loading" id="notesLoading"><div class="notes-spinner"></div><p>Generating notes…</p></div>
-    <div class="notes-content" id="notesContent" style="display:none"></div>
-  </div>
-</div>
-
-<canvas id="gestureCanvas"></canvas>
-
-<div id="chatApp" class="hidden">
-  <div id="chatBlossoms"></div>
-
-  <div id="unlockScreen" class="unlock-screen">
-    <div class="unlock-card">
-      <div class="unlock-logo"><span class="unlock-z">Z</span><span class="unlock-name-brand">erox</span></div>
-      <p class="unlock-sub">private space · just us</p>
-      <input id="nameInput" class="unlock-input" type="text" placeholder="your name…" maxlength="24" autocomplete="off"/>
-      <button id="enterChat" class="unlock-btn">Enter <span>💗</span></button>
-      <p class="unlock-hint">room: <code id="roomHint"></code></p>
-    </div>
+    <div class="grid" id="subjectsGrid"></div>
   </div>
 
-  <div id="chatMain" class="chat-main hidden">
-    <aside id="chatSidebar" class="chat-sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-logo">zerox</span>
-        <button class="icon-btn" id="closeSidebar">✕</button>
+  <div id="chatApp">
+    <div id="unlockScreen">
+      <div class="gesture-area" id="gestureCanvas">
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--c-textMuted); pointer-events:none; font-size:12px; text-transform:uppercase;">Draw "Z" to Unlock</div>
       </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Theme</p>
-        <div class="theme-swatches" id="themeSwatches"></div>
-      </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Wallpaper</p>
-        <div class="wallpaper-grid" id="wallpaperGrid"></div>
-        <label class="custom-bg-label">
-          <input type="file" id="customBgInput" accept="image/*" style="display:none"/>
-          <span>📁 Custom background</span>
-        </label>
-      </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Room</p>
-        <div class="room-info">
-          <span id="sidebarRoom"></span>
-          <span id="sidebarOnline" class="online-pill">● 0 online</span>
+      <input type="text" id="nameInput" class="unlock-input" placeholder="Your Name">
+      <button id="enterChat" class="unlock-btn">Enter Room</button>
+      <div id="roomHint" style="margin-top:20px; font-size:11px; color:var(--c-textMuted); letter-spacing:1px;"></div>
+    </div>
+
+    <div id="chatMain" class="hidden">
+      <div class="blossom-container" id="chatBlossoms"></div>
+      
+      <aside class="chat-sidebar" id="chatSidebar">
+        <div style="padding:20px; border-bottom:1px solid var(--c-border); display:flex; justify-content:space-between;">
+          <span style="font-weight:700;">Settings</span>
+          <button id="closeSidebar" style="background:none; border:none; color:var(--c-rose);">✕</button>
         </div>
-      </div>
-      <div class="sidebar-section">
-        <button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button>
-      </div>
-    </aside>
-
-    <div class="chat-window" id="chatWindow">
-      <header class="chat-header">
-        <button class="icon-btn" id="openSidebar">☰</button>
-        <div class="chat-header-info">
-          <span class="chat-room-name" id="chatRoomName">zerox</span>
-          <span class="chat-online" id="chatOnline">● 0 online</span>
+        <div style="flex:1; overflow-y:auto; padding:16px;">
+          <div style="margin-bottom:24px;">
+            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Room ID</label>
+            <div id="sidebarRoom" style="font-weight:600; margin-top:4px;">-</div>
+          </div>
+          <div style="margin-bottom:24px;">
+            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Themes</label>
+            <div id="themeSwatches" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;"></div>
+          </div>
+          <div style="margin-bottom:24px;">
+            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Wallpapers</label>
+            <div id="wallpaperGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;"></div>
+            <input type="file" id="customBgInput" style="display:none;" accept="image/*">
+            <button onclick="document.getElementById('customBgInput').click()" style="width:100%; margin-top:10px; background:var(--c-surfaceHigh); border:1px solid var(--c-border); color:var(--c-text); padding:8px; border-radius:8px; font-size:12px;">+ Custom BG</button>
+          </div>
         </div>
-        <button class="icon-btn" id="callBtn" title="Voice call">📞</button>
-        <button class="icon-btn" id="hideChatBtn" title="Back">📚</button>
-      </header>
+        <div style="padding:16px; border-top:1px solid var(--c-border);">
+          <button id="hideChatBtn" style="width:100%; padding:10px; border-radius:10px; background:rgba(255,50,50,0.1); color:#FF5555; border:none; cursor:pointer;">Exit Chat</button>
+        </div>
+      </aside>
 
-      <div class="messages-area" id="messagesArea">
-        <div class="messages-inner" id="messagesInner"></div>
-      </div>
-      <div class="typing-bar" id="typingBar"></div>
+      <main class="chat-window">
+        <header class="chat-header">
+          <div style="flex:1;">
+            <div id="chatRoomName" style="font-weight:700; font-size:16px;">-</div>
+            <div id="chatOnline" style="font-size:11px; color:var(--c-rose);">Connecting...</div>
+          </div>
+          <div style="display:flex; gap:16px;">
+            <button id="callBtn" style="background:none; border:none; font-size:20px; cursor:pointer;">📞</button>
+          </div>
+        </header>
 
-      <div class="reply-bar" id="replyBar">
-        <span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span>
-        <span class="reply-bar-text" id="replyBarText"></span>
-        <button class="reply-bar-cancel" id="replyBarCancel">✕</button>
-      </div>
+        <div class="messages-area" id="messagesArea">
+          <div id="messagesInner" style="display:flex; flex-direction:column; gap:12px;"></div>
+          <div id="typingBar" style="font-size:11px; color:var(--c-textMuted); margin-top:8px; height:14px;"></div>
+        </div>
 
-      <div class="sticker-picker hidden" id="stickerPicker">
-        <div class="sticker-tabs" id="stickerTabs"></div>
-        <div class="sticker-grid" id="stickerGrid"></div>
-      </div>
+        <div id="replyBar" style="padding:8px 16px; background:var(--c-surfaceHigh); border-top:1px solid var(--c-border); display:none; align-items:center; justify-content:space-between;">
+           <div id="replyBarText" style="font-size:12px; color:var(--c-textMuted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+           <button id="replyBarCancel" style="background:none; border:none; color:var(--c-rose);">✕</button>
+        </div>
 
-      <div class="input-bar">
-        <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
-        <button class="attach-btn" id="attachBtn">📎</button>
-        <input type="file" id="mediaInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip" style="display:none"/>
-        <button class="voice-record-btn" id="voiceBtn">🎙</button>
-        <textarea id="msgInput" class="msg-input" placeholder="Message…" rows="1" maxlength="2000"></textarea>
-        <button class="send-btn" id="sendBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
-      </div>
+        <div class="input-wrap">
+          <div class="input-box">
+            <button id="stickerToggle" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">😊</button>
+            <textarea id="msgInput" placeholder="Message..." rows="1"></textarea>
+            <button id="attachBtn" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">📎</button>
+            <button id="voiceBtn" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">🎙️</button>
+            <button id="sendBtn" style="background:var(--c-rose); border:none; width:36px; height:36px; border-radius:50%; color:white; font-size:18px; margin-left:8px; cursor:pointer;">↑</button>
+          </div>
+          <input type="file" id="mediaInput" style="display:none;">
+        </div>
+
+        <div id="stickerPicker" class="hidden" style="position:absolute; bottom:80px; left:16px; width:280px; height:320px; background:var(--c-surface); border:1px solid var(--c-border); border-radius:20px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.5); z-index:100;">
+          <div id="stickerTabs" style="display:flex; background:var(--c-bg); border-bottom:1px solid var(--c-border); overflow-x:auto;"></div>
+          <div id="stickerGrid" style="flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:15px;"></div>
+        </div>
+      </main>
+    </div>
+
+    <div id="callOverlay" class="hidden" style="position:fixed; inset:0; background:rgba(5,0,10,0.95); z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+       <div id="callAvatar" style="width:100px; height:100px; border-radius:50%; background:var(--c-myBubble); display:flex; align-items:center; justify-content:center; font-size:40px; margin-bottom:20px;">?</div>
+       <div id="callName" style="font-size:24px; font-weight:700; margin-bottom:8px;">User</div>
+       <div id="callStatus" style="color:var(--c-textMuted); margin-bottom:60px;">Calling...</div>
+       <div style="display:flex; gap:30px;">
+          <button id="callMute" style="width:60px; height:60px; border-radius:50%; border:2px solid var(--c-border); background:none; color:white; font-size:24px;">🎤</button>
+          <button id="callEnd" style="width:60px; height:60px; border-radius:50%; border:none; background:#FF3B30; color:white; font-size:24px;">📞</button>
+       </div>
     </div>
   </div>
-</div>
 
-<div class="call-overlay hidden" id="callOverlay">
-  <div class="call-avatar" id="callAvatar">?</div>
-  <div class="call-name" id="callName">Calling…</div>
-  <div class="call-status" id="callStatus">connecting…</div>
-  <div class="call-actions">
-    <button class="call-btn mute" id="callMute">🎤</button>
-    <button class="call-btn end" id="callEnd">📵</button>
-  </div>
-</div>
-
-<script src="config.js"></script>
-<script src="gesture.js"></script>
-<script src="player.js"></script>
-<script src="notes.js"></script>
-<script type="module" src="chat.js"></script>
+  <script src="config.js"></script>
+  <script type="module" src="chat.js"></script>
+  <script>
+    /* Gesture Logic - Remains identical but isolated */
+    (function() {
+      const canvas = document.getElementById('gestureCanvas');
+      let points = []; let isDrawing = false;
+      canvas.addEventListener('pointerdown', e => { isDrawing = true; points = [[e.offsetX, e.offsetY]]; });
+      canvas.addEventListener('pointermove', e => {
+        if (!isDrawing) return;
+        points.push([e.offsetX, e.offsetY]);
+        if (points.length > 500) points.shift();
+      });
+      canvas.addEventListener('pointerup', () => {
+        isDrawing = false;
+        if (checkZ(points)) window._chatUnlock();
+        points = [];
+      });
+      function checkZ(pts) {
+        if (pts.length < 10) return false;
+        const left = Math.min(...pts.map(p => p[0])), right = Math.max(...pts.map(p => p[0]));
+        const top = Math.min(...pts.map(p => p[1])), bottom = Math.max(...pts.map(p => p[1]));
+        const w = right - left, h = bottom - top;
+        if (w < 40 || h < 40) return false;
+        const start = pts[0], end = pts[pts.length - 1];
+        return start[0] < left + w/3 && start[1] < top + h/3 && end[0] > right - w/3 && end[1] > bottom - h/3;
+      }
+    })();
+  </script>
 </body>
 </html>
