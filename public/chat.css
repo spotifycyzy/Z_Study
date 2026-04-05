@@ -1,42 +1,42 @@
 /* ═══════════════════════════════════════════════════════════
-   LAG FIX: KILL GLOWS + BRING PETALS TO FRONT
+   FINAL FIX: KILL GLOWS + BRING PETALS TO FRONT
 ═══════════════════════════════════════════════════════════ */
 
-/* 1. REMOVE BUBBLE GLOWS (This stops 90% of the lag) */
+/* 1. REMOVE BUBBLE GLOWS (STOPS THE LAG) */
 .msg-bubble {
     box-shadow: none !important;
     animation: none !important;
     text-shadow: none !important;
-    /* Added a clear border so bubbles are easy to see without the glow */
-    border: 1.5px solid rgba(232, 67, 106, 0.3) !important;
+    /* Keeps a visible border so they look sharp */
+    border: 1px solid rgba(232, 67, 106, 0.4) !important;
 }
 
-/* 2. BRING PETALS TO THE FRONT */
-/* This ensures the petals aren't hidden behind the chat window or background */
-#chatBlossoms {
-    z-index: 100 !important; 
-    pointer-events: none !important;
+/* 2. FORCE PETALS TO THE FRONT OF EVERYTHING */
+#chatBlossoms, .blossom-container, #blossomContainer {
     display: block !important;
-    opacity: 1 !important;
-}
-
-/* 3. GPU ACCELERATION FOR PETALS */
-/* This makes the petals fall smoothly without slowing down the chat */
-#chatBlossoms > div, .blossom {
-    will-change: transform;
-    transform: translateZ(0) !important;
     visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important; /* High number = Front of the line */
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
 }
 
-/* 4. SCROLLING OPTIMIZATION */
+/* 3. ENSURE INDIVIDUAL PETALS AREN'T HIDDEN */
+.blossom, [class*="blossom"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 0.8 !important;
+    /* GPU Boost so they don't lag the chat */
+    transform: translateZ(0) !important; 
+}
+
+/* 4. OPTIMIZE THE CHAT AREA */
 .messages-area {
     contain: layout !important;
-    -webkit-overflow-scrolling: touch;
+    background: transparent !important; /* Ensures background doesn't hide petals */
 }
 
-/* ═══════════════════════════════════════════════════════════
-   ORIGINAL 694 LINES START BELOW
-   ═══════════════════════════════════════════════════════════ */
 
 
 
