@@ -1,4 +1,46 @@
 /* ═══════════════════════════════════════════════════════════
+   LAG KILLER: REMOVE ALL BUBBLE GLOWS & PULSING
+═══════════════════════════════════════════════════════════ */
+
+/* 1. Remove glows and animations from all chat bubbles */
+.msg-bubble {
+    box-shadow: none !important;
+    animation: none !important;
+    text-shadow: none !important;
+    /* Optional: Add a subtle border so bubbles remain visible against the grid */
+    border: 1px solid rgba(232, 67, 106, 0.2) !important;
+}
+
+/* 2. Specific override for 'Mine' and 'Theirs' bubbles */
+.msg-row.mine .msg-bubble, 
+.msg-row.theirs .msg-bubble {
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+/* 3. Professional Performance Patch (Keep this for smooth scrolling) */
+.messages-area {
+    contain: layout !important;
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+}
+
+/* 4. Force blossoms to GPU so they don't fight the text */
+.blossom {
+    will-change: transform;
+    transform: translateZ(0) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ORIGINAL 694 LINES START BELOW
+   ═══════════════════════════════════════════════════════════ */
+
+
+
+
+
+
+/* ═══════════════════════════════════════════════════════════
    CHAT — chat.css   FULL VISUAL OVERHAUL
    Blossoms ✓  Neon glows ✓  Sparkles ✓  Animated grid ✓
 ═══════════════════════════════════════════════════════════ */
