@@ -13,7 +13,7 @@ const path      = require('path');
 
 const app    = express();
 const server = http.createServer(app);
-const wss    = new WebSocketServer({ server });
+const wss    = new WebSocketServer({ server, maxPayload: 100 * 1024 * 1024 }); // 100 MB — allows large media
 
 const PORT   = process.env.PORT || 3000;
 
@@ -28,7 +28,7 @@ const MAX_HISTORY = 200; // keep last 200 messages per room
 
 function getRoom(roomId) {
   if (!rooms[roomId]) {
-    rooms[roomId] = { clients: new Set(), history: [] };
+    rooms[roomId] = { clients: new Set(), history: [], defaultBg: '' };
   }
   return rooms[roomId];
 }
@@ -54,10 +54,11 @@ wss.on('connection', (ws) => {
         const room = getRoom(currentRoom);
         room.clients.add(ws);
 
-        // Send history to the newcomer
+        // Send history + current default background to newcomer
         ws.send(JSON.stringify({
-          type:    'history',
-          messages: room.history,
+          type:     'history',
+          messages:  room.history,
+          defaultBg: room.defaultBg || '',
         }));
 
         // Notify others
@@ -170,6 +171,24 @@ wss.on('connection', (ws) => {
       case 'callEnd': {
         if (!currentRoom) return;
         broadcast(currentRoom, { ...msg, name: userName }, ws);
+        break;
+      }
+
+      /* ── SET DEFAULT BACKGROUND (admin sets for all users) ── */
+      case 'setBg': {
+        if (!currentRoom) return;
+        const room3 = getRoom(currentRoom);
+        // Store on server so new joiners also get it
+        room3.defaultBg = msg.url || '';
+        // Broadcast to all currently connected clients
+        broadcast(currentRoom, { type: 'defaultBg', url: room3.defaultBg });
+        break;
+      }
+
+      /* ── WALLPAPER SYNC (personal, not stored on server) ── */
+      case 'wallpaperSync': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { type: 'wallpaperSync', data: msg.data }, ws);
         break;
       }
 
