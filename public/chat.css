@@ -653,3 +653,19 @@
   .chat-sidebar.open { transform:translateX(0); }
   .sticker-grid { grid-template-columns:repeat(6,1fr); }
 }
+
+/* ── Set Default Background button ──────────────────────── */
+.set-default-bg-btn {
+  width:100%;margin-top:10px;padding:9px 12px;
+  background:linear-gradient(135deg,rgba(232,67,106,0.18),rgba(194,0,95,0.14));
+  border:1.5px solid rgba(232,67,106,0.45);border-radius:10px;
+  cursor:pointer;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;
+  color:var(--c-blush,#FFB5C8);letter-spacing:0.03em;
+  transition:background 0.2s,box-shadow 0.2s,transform 0.15s;
+  box-shadow:0 0 10px rgba(232,67,106,0.2);
+}
+.set-default-bg-btn:hover {
+  background:linear-gradient(135deg,rgba(232,67,106,0.28),rgba(194,0,95,0.22));
+  box-shadow:0 0 18px rgba(232,67,106,0.4);transform:translateY(-1px);
+}
+.set-default-bg-btn:active { transform:scale(0.97); }
