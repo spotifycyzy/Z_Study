@@ -12,10 +12,8 @@
   <link rel="stylesheet" href="player.css"/>
 </head>
 <body>
-<!-- blossoms layer (study site) -->
 <div id="blossomContainer"></div>
 
-<!-- MUSIC BAR -->
 <div id="musicBar">
   <div class="music-bar-inner">
     <button class="mp-btn" id="mpToggleBtn">🎵</button>
@@ -35,7 +33,6 @@
   </div>
 </div>
 
-<!-- MUSIC PANEL -->
 <div id="musicPanel" class="hidden">
   <div class="music-panel-inner">
     <div class="mp-panel-header">
@@ -91,7 +88,6 @@
   </div>
 </div>
 
-<!-- STUDY SITE -->
 <div id="studySite">
   <nav class="study-nav">
     <div class="nav-brand">
@@ -141,7 +137,6 @@
   <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
 </div>
 
-<!-- NOTES VIEWER -->
 <div id="notesViewer" class="hidden">
   <div class="notes-header">
     <button class="notes-back" id="notesBack">← Back</button>
@@ -157,14 +152,11 @@
   </div>
 </div>
 
-<!-- GESTURE CANVAS -->
 <canvas id="gestureCanvas"></canvas>
 
-<!-- CHAT APP -->
 <div id="chatApp" class="hidden">
   <div id="chatBlossoms"></div>
 
-  <!-- Unlock -->
   <div id="unlockScreen" class="unlock-screen">
     <div class="unlock-card">
       <div class="unlock-logo"><span class="unlock-z">Z</span><span class="unlock-name-brand">erox</span></div>
@@ -175,7 +167,6 @@
     </div>
   </div>
 
-  <!-- Chat main -->
   <div id="chatMain" class="chat-main hidden">
     <aside id="chatSidebar" class="chat-sidebar">
       <div class="sidebar-header">
@@ -222,20 +213,17 @@
       </div>
       <div class="typing-bar" id="typingBar"></div>
 
-      <!-- Reply bar -->
       <div class="reply-bar" id="replyBar">
         <span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span>
         <span class="reply-bar-text" id="replyBarText"></span>
         <button class="reply-bar-cancel" id="replyBarCancel">✕</button>
       </div>
 
-      <!-- Sticker picker -->
       <div class="sticker-picker hidden" id="stickerPicker">
         <div class="sticker-tabs" id="stickerTabs"></div>
         <div class="sticker-grid" id="stickerGrid"></div>
       </div>
 
-      <!-- Input bar -->
       <div class="input-bar">
         <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
         <button class="attach-btn" id="attachBtn">📎</button>
@@ -253,7 +241,6 @@
   </div>
 </div>
 
-<!-- Voice call overlay -->
 <div class="call-overlay hidden" id="callOverlay">
   <div class="call-avatar" id="callAvatar">?</div>
   <div class="call-name" id="callName">Calling…</div>
@@ -268,6 +255,6 @@
 <script src="gesture.js"></script>
 <script src="player.js"></script>
 <script src="notes.js"></script>
-<script src="chat.js"></script>
+<script type="module" src="chat.js"></script>
 </body>
 </html>
