@@ -33,7 +33,7 @@
       top: -10%;
       border-radius: 50% 10% 50% 10% / 50% 20% 50% 20%;
       animation: blossomFall linear infinite;
-      will-change: transform; /* GPU Acceleration */
+      will-change: transform;
       transform: translateZ(0);
     }
     @keyframes blossomFall {
@@ -43,89 +43,117 @@
       100% { transform: translateY(110vh) translateX(var(--bx)) rotate(720deg) translateZ(0); opacity: 0; }
     }
 
-    /* Study Site UI */
-    .study-site { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; background: radial-gradient(circle at 50% -20%, rgba(180,80,255,0.15), transparent); }
-    .nav { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--c-border); backdrop-filter: blur(10px); }
+    /* Study Site Core */
+    .study-site { 
+      position: relative; 
+      z-index: 10; 
+      width: 100%; 
+      height: 100vh; 
+      display: flex; 
+      flex-direction: column; 
+      background: radial-gradient(circle at 50% -20%, rgba(180,80,255,0.15), transparent); 
+    }
+
+    .nav { 
+      height: 60px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      padding: 0 20px; 
+      border-bottom: 1px solid var(--c-border); 
+      backdrop-filter: blur(10px); 
+      flex-shrink: 0;
+    }
     .nav-brand { font-size: 20px; font-weight: 700; color: var(--c-text); letter-spacing: -0.5px; }
     .nav-search { position: relative; flex: 1; max-width: 400px; margin: 0 20px; }
     .nav-search input { width: 100%; background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: 12px; padding: 10px 16px; color: var(--c-text); font-family: var(--font-ui); transition: 0.2s; }
-    .nav-search input:focus { border-color: var(--c-rose); box-shadow: 0 0 15px rgba(180,80,255,0.2); }
 
-    .hero { padding: 40px 20px; text-align: center; }
-    .hero h1 { font-size: 32px; margin-bottom: 10px; background: linear-gradient(to right, #FFF, #B450FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .hero-stats { display: flex; justify-content: center; gap: 24px; margin-top: 20px; }
-    .stat-item { background: var(--c-surface); padding: 12px 20px; border-radius: 16px; border: 1px solid var(--c-border); }
-    .stat-val { display: block; font-size: 20px; font-weight: 700; color: var(--c-rose); }
-    .stat-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-textMuted); }
+    .hero { padding: 30px 20px; text-align: center; flex-shrink: 0; }
+    .hero h1 { font-size: 28px; margin: 0 0 8px 0; background: linear-gradient(to right, #FFF, #B450FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-stats { display: flex; justify-content: center; gap: 16px; margin-top: 15px; }
+    .stat-item { background: var(--c-surface); padding: 10px 16px; border-radius: 14px; border: 1px solid var(--c-border); }
+    .stat-val { display: block; font-size: 18px; font-weight: 700; color: var(--c-rose); }
+    .stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-textMuted); }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; overflow-y: auto; flex: 1; }
-    .subject-card { background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: 24px; padding: 24px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
-    .subject-card:hover { transform: translateY(-5px); border-color: var(--c-rose); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .subject-icon { font-size: 40px; margin-bottom: 16px; }
-    .subject-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .subject-chapters { color: var(--c-textMuted); font-size: 14px; }
-    .subject-tag { position: absolute; bottom: 24px; right: 24px; color: var(--c-rose); font-weight: 600; font-size: 13px; opacity: 0; transition: 0.2s; }
-    .subject-card:hover .subject-tag { opacity: 1; }
-
-    /* Chat App Layer */
-    #chatApp { position: fixed; inset: 0; z-index: 2000; background: var(--c-bg); display: none; flex-direction: column; opacity: 0; transition: opacity 0.4s ease; }
-    #chatApp.hidden { display: none; }
-    #chatApp.visible { display: flex; opacity: 1; }
-
-    /* Unlock Screen */
-    #unlockScreen { position: absolute; inset: 0; z-index: 2100; background: var(--c-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .gesture-area { width: 280px; height: 320px; background: rgba(180,80,255,0.03); border: 2px dashed var(--c-border); border-radius: 30px; position: relative; margin-bottom: 30px; }
-    .unlock-input { background: var(--c-surfaceHigh); border: 1.5px solid var(--c-border); border-radius: 14px; padding: 14px 20px; color: var(--c-text); width: 100%; max-width: 280px; text-align: center; margin-bottom: 16px; }
-    .unlock-btn { background: var(--c-rose); border: none; border-radius: 14px; padding: 14px 40px; color: #FFF; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(180,80,255,0.3); }
-
-    /* Chat UI */
-    #chatMain { flex: 1; display: flex; overflow: hidden; position: relative; }
-    .chat-sidebar { width: 280px; background: var(--c-surface); border-right: 1px solid var(--c-border); display: flex; flex-direction: column; transition: 0.3s; }
-    .chat-window { flex: 1; display: flex; flex-direction: column; background-size: cover; background-position: center; position: relative; }
-    .chat-header { height: 64px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; padding: 0 16px; backdrop-filter: blur(15px); background: rgba(14,0,24,0.7); z-index: 10; }
-    
-    /* Smooth Scrolling Messages */
-    .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
-    .msg-row { display: flex; align-items: flex-end; gap: 10px; max-width: 85%; will-change: transform; }
-    .msg-row.mine { align-self: flex-end; flex-direction: row-reverse; }
-    .msg-bubble { 
-        padding: 12px 16px; border-radius: 20px; font-size: 14.5px; line-height: 1.5; position: relative; 
-        transform: translateZ(0); /* GPU Accelerated Bubbles */
+    /* FIXED GRID SYSTEM */
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+      grid-auto-rows: min-content; 
+      gap: 16px; 
+      padding: 20px; 
+      max-width: 1000px; 
+      margin: 0 auto; 
+      overflow-y: auto; 
+      flex: 1; 
+      width: 100%;
+      -webkit-overflow-scrolling: touch;
     }
+
+    .subject-card { 
+      background: var(--c-surface); 
+      border: 1.5px solid var(--c-border); 
+      border-radius: 20px; 
+      padding: 20px; 
+      cursor: pointer; 
+      transition: 0.3s; 
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      height: auto;
+      min-height: 150px;
+    }
+    .subject-card:active { transform: scale(0.97); background: var(--c-surfaceHigh); }
+    .subject-icon { font-size: 32px; margin-bottom: 12px; }
+    .subject-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; color: var(--c-text); }
+    .subject-chapters { color: var(--c-textMuted); font-size: 12px; }
+
+    /* Mobile-Specific Tweaks */
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; }
+      .nav-search { display: none; }
+      .hero h1 { font-size: 24px; }
+    }
+
+    /* Chat App Styles */
+    #chatApp { position: fixed; inset: 0; z-index: 2000; background: var(--c-bg); display: none; flex-direction: column; opacity: 0; transition: opacity 0.4s ease; }
+    #chatApp.visible { display: flex; opacity: 1; }
+    #unlockScreen { position: absolute; inset: 0; z-index: 2100; background: var(--c-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .gesture-area { width: 260px; height: 300px; background: rgba(180,80,255,0.03); border: 2px dashed var(--c-border); border-radius: 30px; position: relative; margin-bottom: 20px; }
+    .unlock-input { background: var(--c-surfaceHigh); border: 1.5px solid var(--c-border); border-radius: 12px; padding: 12px; color: var(--c-text); width: 100%; max-width: 260px; text-align: center; margin-bottom: 12px; font-family: var(--font-ui); }
+    .unlock-btn { background: var(--c-rose); border: none; border-radius: 12px; padding: 12px 40px; color: #FFF; font-weight: 700; cursor: pointer; width: 100%; max-width: 260px; }
+
+    #chatMain { flex: 1; display: flex; overflow: hidden; position: relative; }
+    .chat-window { flex: 1; display: flex; flex-direction: column; position: relative; background-size: cover; background-position: center; }
+    .chat-header { height: 60px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; padding: 0 16px; backdrop-filter: blur(15px); background: rgba(14,0,24,0.7); z-index: 10; }
+    .messages-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 85%; }
+    .msg-row.mine { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-bubble { padding: 10px 14px; border-radius: 18px; font-size: 14px; transform: translateZ(0); }
     .mine .msg-bubble { background: var(--c-myBubble); color: #FFF; border-bottom-right-radius: 4px; }
     .theirs .msg-bubble { background: var(--c-herBubble); border: 1px solid var(--c-border); border-bottom-left-radius: 4px; }
 
-    /* Input Area */
-    .input-wrap { padding: 16px; background: var(--c-surface); border-top: 1px solid var(--c-border); }
-    .input-box { background: var(--c-surfaceHigh); border-radius: 24px; display: flex; align-items: flex-end; padding: 8px 12px; border: 1px solid var(--c-border); }
-    .input-box textarea { flex: 1; background: transparent; border: none; color: var(--c-text); padding: 8px; resize: none; max-height: 120px; font-family: var(--font-main); }
+    .input-wrap { padding: 12px; background: var(--c-surface); border-top: 1px solid var(--c-border); }
+    .input-box { background: var(--c-surfaceHigh); border-radius: 20px; display: flex; align-items: center; padding: 6px 12px; border: 1px solid var(--c-border); }
+    .input-box textarea { flex: 1; background: transparent; border: none; color: var(--c-text); padding: 8px; resize: none; max-height: 100px; font-size: 14px; }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-      .chat-sidebar { position: absolute; left: -280px; top: 0; bottom: 0; z-index: 100; }
-      .chat-sidebar.open { left: 0; box-shadow: 20px 0 50px rgba(0,0,0,0.8); }
-      .nav-search { display: none; }
-    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
   <div class="blossom-container" id="blossomContainer"></div>
 
-  <div class="study-site">
+  <div class="study-site" id="studySite">
     <nav class="nav">
       <div class="nav-brand" id="brandName">StudyVault</div>
-      <div class="nav-search">
-        <input type="text" id="searchInput" placeholder="Search notes, chapters...">
-      </div>
-      <div style="display:flex; gap:10px;">
-        <button id="openSidebar" style="background:none; border:none; color:var(--c-text); font-size:20px;">☰</button>
-      </div>
+      <div class="nav-search"><input type="text" id="searchInput" placeholder="Search notes..."></div>
+      <button id="openSidebar" style="background:none; border:none; color:var(--c-text); font-size:22px;">☰</button>
     </nav>
 
     <div class="hero">
       <h1>Hello, Study Buddy</h1>
-      <p style="color:var(--c-textMuted)">Everything you need to ace your exams.</p>
+      <p style="color:var(--c-textMuted); font-size:14px; margin:0;">Access your exam notes instantly.</p>
       <div class="hero-stats">
         <div class="stat-item"><span class="stat-val" id="statSubjects">0</span><span class="stat-lbl">Subjects</span></div>
         <div class="stat-item"><span class="stat-val" id="statChapters">0</span><span class="stat-lbl">Chapters</span></div>
@@ -135,111 +163,61 @@
     <div class="grid" id="subjectsGrid"></div>
   </div>
 
-  <div id="chatApp">
+  <div id="chatApp" class="hidden">
     <div id="unlockScreen">
       <div class="gesture-area" id="gestureCanvas">
-        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--c-textMuted); pointer-events:none; font-size:12px; text-transform:uppercase;">Draw "Z" to Unlock</div>
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--c-textMuted); font-size:11px; text-transform:uppercase; text-align:center; padding:20px;">Draw "Z" to Unlock Chat</div>
       </div>
-      <input type="text" id="nameInput" class="unlock-input" placeholder="Your Name">
-      <button id="enterChat" class="unlock-btn">Enter Room</button>
-      <div id="roomHint" style="margin-top:20px; font-size:11px; color:var(--c-textMuted); letter-spacing:1px;"></div>
+      <input type="text" id="nameInput" class="unlock-input" placeholder="Enter Name">
+      <button id="enterChat" class="unlock-btn">Join Chat</button>
+      <div id="roomHint" style="margin-top:15px; font-size:10px; color:var(--c-textMuted); letter-spacing:1px;"></div>
     </div>
 
     <div id="chatMain" class="hidden">
       <div class="blossom-container" id="chatBlossoms"></div>
       
-      <aside class="chat-sidebar" id="chatSidebar">
-        <div style="padding:20px; border-bottom:1px solid var(--c-border); display:flex; justify-content:space-between;">
-          <span style="font-weight:700;">Settings</span>
-          <button id="closeSidebar" style="background:none; border:none; color:var(--c-rose);">✕</button>
-        </div>
-        <div style="flex:1; overflow-y:auto; padding:16px;">
-          <div style="margin-bottom:24px;">
-            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Room ID</label>
-            <div id="sidebarRoom" style="font-weight:600; margin-top:4px;">-</div>
-          </div>
-          <div style="margin-bottom:24px;">
-            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Themes</label>
-            <div id="themeSwatches" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;"></div>
-          </div>
-          <div style="margin-bottom:24px;">
-            <label style="font-size:11px; text-transform:uppercase; color:var(--c-textMuted);">Wallpapers</label>
-            <div id="wallpaperGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;"></div>
-            <input type="file" id="customBgInput" style="display:none;" accept="image/*">
-            <button onclick="document.getElementById('customBgInput').click()" style="width:100%; margin-top:10px; background:var(--c-surfaceHigh); border:1px solid var(--c-border); color:var(--c-text); padding:8px; border-radius:8px; font-size:12px;">+ Custom BG</button>
-          </div>
-        </div>
-        <div style="padding:16px; border-top:1px solid var(--c-border);">
-          <button id="hideChatBtn" style="width:100%; padding:10px; border-radius:10px; background:rgba(255,50,50,0.1); color:#FF5555; border:none; cursor:pointer;">Exit Chat</button>
-        </div>
-      </aside>
-
       <main class="chat-window">
         <header class="chat-header">
           <div style="flex:1;">
-            <div id="chatRoomName" style="font-weight:700; font-size:16px;">-</div>
-            <div id="chatOnline" style="font-size:11px; color:var(--c-rose);">Connecting...</div>
+            <div id="chatRoomName" style="font-weight:700; font-size:15px;">-</div>
+            <div id="chatOnline" style="font-size:10px; color:var(--c-rose);">Connecting...</div>
           </div>
-          <div style="display:flex; gap:16px;">
-            <button id="callBtn" style="background:none; border:none; font-size:20px; cursor:pointer;">📞</button>
-          </div>
+          <button id="callBtn" style="background:none; border:none; font-size:18px;">📞</button>
         </header>
 
         <div class="messages-area" id="messagesArea">
-          <div id="messagesInner" style="display:flex; flex-direction:column; gap:12px;"></div>
-          <div id="typingBar" style="font-size:11px; color:var(--c-textMuted); margin-top:8px; height:14px;"></div>
-        </div>
-
-        <div id="replyBar" style="padding:8px 16px; background:var(--c-surfaceHigh); border-top:1px solid var(--c-border); display:none; align-items:center; justify-content:space-between;">
-           <div id="replyBarText" style="font-size:12px; color:var(--c-textMuted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-           <button id="replyBarCancel" style="background:none; border:none; color:var(--c-rose);">✕</button>
+          <div id="messagesInner" style="display:flex; flex-direction:column; gap:10px;"></div>
+          <div id="typingBar" style="font-size:10px; color:var(--c-textMuted); height:12px; margin-top:5px;"></div>
         </div>
 
         <div class="input-wrap">
           <div class="input-box">
-            <button id="stickerToggle" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">😊</button>
+            <button id="stickerToggle" style="background:none; border:none; font-size:20px;">😊</button>
             <textarea id="msgInput" placeholder="Message..." rows="1"></textarea>
-            <button id="attachBtn" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">📎</button>
-            <button id="voiceBtn" style="background:none; border:none; font-size:22px; cursor:pointer; padding:0 8px;">🎙️</button>
-            <button id="sendBtn" style="background:var(--c-rose); border:none; width:36px; height:36px; border-radius:50%; color:white; font-size:18px; margin-left:8px; cursor:pointer;">↑</button>
+            <button id="attachBtn" style="background:none; border:none; font-size:20px;">📎</button>
+            <button id="sendBtn" style="background:var(--c-rose); border:none; width:32px; height:32px; border-radius:50%; color:white; font-size:16px; margin-left:8px;">↑</button>
           </div>
-          <input type="file" id="mediaInput" style="display:none;">
-        </div>
-
-        <div id="stickerPicker" class="hidden" style="position:absolute; bottom:80px; left:16px; width:280px; height:320px; background:var(--c-surface); border:1px solid var(--c-border); border-radius:20px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.5); z-index:100;">
-          <div id="stickerTabs" style="display:flex; background:var(--c-bg); border-bottom:1px solid var(--c-border); overflow-x:auto;"></div>
-          <div id="stickerGrid" style="flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:15px;"></div>
+          <input type="file" id="mediaInput" class="hidden">
         </div>
       </main>
-    </div>
-
-    <div id="callOverlay" class="hidden" style="position:fixed; inset:0; background:rgba(5,0,10,0.95); z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-       <div id="callAvatar" style="width:100px; height:100px; border-radius:50%; background:var(--c-myBubble); display:flex; align-items:center; justify-content:center; font-size:40px; margin-bottom:20px;">?</div>
-       <div id="callName" style="font-size:24px; font-weight:700; margin-bottom:8px;">User</div>
-       <div id="callStatus" style="color:var(--c-textMuted); margin-bottom:60px;">Calling...</div>
-       <div style="display:flex; gap:30px;">
-          <button id="callMute" style="width:60px; height:60px; border-radius:50%; border:2px solid var(--c-border); background:none; color:white; font-size:24px;">🎤</button>
-          <button id="callEnd" style="width:60px; height:60px; border-radius:50%; border:none; background:#FF3B30; color:white; font-size:24px;">📞</button>
-       </div>
     </div>
   </div>
 
   <script src="config.js"></script>
   <script type="module" src="chat.js"></script>
   <script>
-    /* Gesture Logic - Remains identical but isolated */
+    /* Optimized Gesture Logic */
     (function() {
       const canvas = document.getElementById('gestureCanvas');
       let points = []; let isDrawing = false;
       canvas.addEventListener('pointerdown', e => { isDrawing = true; points = [[e.offsetX, e.offsetY]]; });
-      canvas.addEventListener('pointermove', e => {
-        if (!isDrawing) return;
-        points.push([e.offsetX, e.offsetY]);
-        if (points.length > 500) points.shift();
-      });
+      canvas.addEventListener('pointermove', e => { if (!isDrawing) return; points.push([e.offsetX, e.offsetY]); });
       canvas.addEventListener('pointerup', () => {
         isDrawing = false;
-        if (checkZ(points)) window._chatUnlock();
+        if (checkZ(points)) {
+            document.getElementById('chatApp').classList.remove('hidden');
+            document.getElementById('chatApp').classList.add('visible');
+        }
         points = [];
       });
       function checkZ(pts) {
