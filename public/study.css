@@ -10,7 +10,7 @@
   --neon-rose:0 0 8px #E8436A,0 0 20px #C2005F88;
   --s-font:'Sora',sans-serif;
 }
-html,body{font-family:var(--s-font);background:var(--s-bg);color:var(--s-text);line-height:1.6;overflow-x:hidden}
+html,body{-webkit-tap-highlight-color:transparent;font-family:var(--s-font);background:var(--s-bg);color:var(--s-text);line-height:1.6;overflow-x:hidden}
 /* blossoms */
 #blossomContainer{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
 .blossom{position:absolute;opacity:0;animation:blossomFall linear infinite;border-radius:50% 10% 50% 10%}
