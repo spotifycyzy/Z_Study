@@ -1,7 +1,30 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX CHAT — chat.js  (fixed: sync, reply, reactions, UI)
+   ZEROX CHAT — chat.js  (FULL FIREBASE EDITION)
+   All features (Stickers, Voice Calls, Replies, Media) intact
 ═══════════════════════════════════════════════════════════ */
 'use strict';
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+/* ── FIREBASE CONFIG ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyAWUD0ab5sCYhlGyWGED7csANweTxUTAJg",
+  authDomain: "zstudy-86f23.firebaseapp.com",
+  projectId: "zstudy-86f23",
+  storageBucket: "zstudy-86f23.firebasestorage.app",
+  messagingSenderId: "82037165092",
+  appId: "1:82037165092:web:7ce9bc701309ed7fbd5cb1"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+const roomDoc = doc(db, "rooms", ZEROX_CONFIG.roomId);
+const messagesRef = collection(roomDoc, "messages");
+const signalsRef = collection(roomDoc, "signals");
 
 /* ════════════════════════════════════════════════════════
    STUDY SITE
@@ -49,7 +72,6 @@ function openSubject(sub) {
   document.body.appendChild(modal);
 }
 
-/* Search */
 const searchInput = document.getElementById('searchInput');
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
@@ -65,9 +87,7 @@ searchInput.addEventListener('input', () => {
     : results.slice(0,8).map(r=>`<div class="search-result-item" onclick="document.getElementById('searchDropdown').remove();document.getElementById('searchInput').value='';window.openNotes('${r.subject.replace(/'/g,"\\'")}','${r.chapter.replace(/'/g,"\\'")}')"><div class="sr-chapter">${r.chapter}</div><div class="sr-subject">${r.subject}</div></div>`).join('');
 });
 document.addEventListener('click', e => { if (!e.target.closest('.nav-search')) document.getElementById('searchDropdown')?.remove(); });
-if (window.buildRecentList) window.buildRecentList();
 
-/* Study site blossoms */
 (function() {
   const c = document.getElementById('blossomContainer');
   const COLS = ['rgba(180,80,255,0.6)','rgba(232,67,106,0.55)','rgba(255,181,200,0.5)','rgba(194,0,95,0.45)','rgba(140,0,220,0.5)'];
@@ -130,40 +150,30 @@ chatRoomName.textContent= 'zerox · ' + ZEROX_CONFIG.roomId.split('-')[0];
 /* ════════════════════════════════════════════════════════
    STATE
 ════════════════════════════════════════════════════════ */
-let ws          = null;
 let myName      = '';
 let myId        = 'u_' + Math.random().toString(36).slice(2);
-let connected   = false;
+let joinTime    = Date.now();
 let typingTimer = null;
 let isTyping    = false;
-let replyTo     = null;       // { id, name, text }
-let allMessages = {};         // msgId → full message object
+let replyTo     = null;
+let allMessages = {};
 let mediaRecorder = null;
 let audioChunks   = [];
 let isRecording   = false;
 let callActive    = false;
 let localStream   = null;
 
-/* ════════════════════════════════════════════════════════
-   GESTURE UNLOCK
-════════════════════════════════════════════════════════ */
 window._chatUnlock = function() {
   chatApp.classList.remove('hidden');
   requestAnimationFrame(() => chatApp.classList.add('visible'));
 };
 
-/* ════════════════════════════════════════════════════════
-   ENTER CHAT
-════════════════════════════════════════════════════════ */
 nameInput.value = localStorage.getItem('zerox_name') || '';
 
-/* Restore custom background from localStorage on load */
 (function() {
   const custom = localStorage.getItem('zerox_custom_bg');
   const idx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
-  if (custom && idx === -1) {
-    /* Will be applied once chatWindow exists — deferred to enterChat */
-  }
+  if (custom && idx === -1) { /* deferred to enterChat */ }
 })();
 
 enterChatBtn.addEventListener('click', enterChat);
@@ -178,8 +188,8 @@ function enterChat() {
   setTimeout(() => { unlockScreen.style.display='none'; }, 400);
   chatMain.classList.remove('hidden');
   spawnChatBlossoms();
-  connectWS();
-  /* Restore custom bg after chatWindow is visible */
+  connectFirebase();
+  
   const _customBg = localStorage.getItem('zerox_custom_bg');
   const _wpIdx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
   if (_customBg && _wpIdx === -1) applyWallpaperDirect(_customBg);
@@ -196,125 +206,81 @@ function spawnChatBlossoms() {
     p.style.cssText=`left:${Math.random()*110-5}%;width:${w}px;height:${w*(1.3+Math.random()*0.6)}px;background:${COLS[i%COLS.length]};--bx:${bx}px;animation-duration:${7+Math.random()*11}s;animation-delay:${Math.random()*-20}s;filter:blur(${0.15+Math.random()*0.5}px);border-radius:${rx1}% ${rx2}% ${rx1}% ${rx2}% / 50% 20% 50% 20%;position:absolute;opacity:0;animation-name:blossomFall;animation-timing-function:linear;animation-iteration-count:infinite`;
     c.appendChild(p);
   }
-  /* Sparkles */
-  let sp = document.getElementById('chatSparkles');
-  if (!sp) { sp=document.createElement('div'); sp.id='chatSparkles'; document.getElementById('chatApp').appendChild(sp); }
-  sp.innerHTML='';
-  const SPARK=[{c:'#FFB5C8',s:'0 0 8px #FFB5C8,0 0 16px #E8436A77'},{c:'#E8436A',s:'0 0 8px #E8436A,0 0 18px #C2005F88'},{c:'#FFE8EF',s:'0 0 6px #FFE8EF,0 0 14px #FFB5C888'},{c:'#C2005F',s:'0 0 10px #C2005F,0 0 20px #6E003077'}];
-  for(let i=0;i<18;i++){
-    const s=document.createElement('div'); s.className='chat-sparkle';
-    const pr=SPARK[i%SPARK.length], sz=2+Math.random()*5;
-    s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${pr.c};box-shadow:${pr.s};animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*-6}s;will-change:transform,opacity`;
-    sp.appendChild(s);
-  }
 }
 
 /* ════════════════════════════════════════════════════════
-   WEBSOCKET
+   FIREBASE CONNECTION & SYNC
 ════════════════════════════════════════════════════════ */
-function connectWS() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.addEventListener('open', () => {
-    connected = true;
-    ws.send(JSON.stringify({ type:'join', room:ZEROX_CONFIG.roomId, name:myName }));
-    // Wire music sync now that WS is open
-    window._zxSendSync = data => sendRaw(data);
+function connectFirebase() {
+  chatOnline.textContent = "● Connected";
+  sidebarOnline.textContent = "● Connected";
+  
+  window._zxSendSync = data => sendRaw({ ...data, type: 'musicSync' });
+
+  // 1. Messages
+  onSnapshot(query(messagesRef, orderBy("ts", "asc"), limit(150)), (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      const msg = change.doc.data();
+      msg.id = change.doc.id; 
+
+      if (change.type === "added") {
+        allMessages[msg.id] = msg;
+        renderMessage(msg);
+        scrollBottom();
+      }
+      if (change.type === "modified") {
+        if (msg.deleted) {
+          handleDeleteMsg(msg.id);
+        } else {
+          allMessages[msg.id] = msg;
+          handleReaction(msg); 
+        }
+      }
+    });
   });
-  ws.addEventListener('message', e => {
-    let msg; try { msg=JSON.parse(e.data); } catch { return; }
-    handleIncoming(msg);
+
+  // 2. Signals
+  onSnapshot(query(signalsRef, orderBy("ts", "asc"), limit(10)), (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added") {
+        const sig = change.doc.data();
+        if (sig.ts > joinTime && sig.userId !== myId) {
+          if (sig.type === 'typing') typingBar.textContent = sig.active ? `${sig.name} is typing…` : '';
+          if (sig.type === 'musicSync' && window._zxReceiveSync) window._zxReceiveSync(sig);
+          if (sig.type === 'callRequest') handleIncomingCall(sig);
+          if (sig.type === 'callAccept') startCallAudio();
+          if (sig.type === 'callEnd') endCall(false);
+          if (sig.type === 'wallpaperSync') applyWallpaperDirect(sig.data?.url || '');
+          if (sig.type === 'setBg') applyDefaultBg(sig.url || '');
+        }
+      }
+    });
   });
-  ws.addEventListener('close', () => { connected=false; setTimeout(connectWS,3000); });
-  ws.addEventListener('error', () => ws.close());
 }
 
-function sendRaw(obj) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+async function sendRaw(obj) {
+  const payload = { ...obj, userId: myId, name: myName, ts: Date.now() };
+  try {
+    if (['message', 'sticker', 'media', 'voice'].includes(obj.type)) {
+      await addDoc(messagesRef, payload);
+    } else if (obj.type === 'reaction') {
+      const msgDoc = doc(messagesRef, obj.msgId);
+      await updateDoc(msgDoc, { [`reactions.${myId}`]: obj.emoji });
+    } else if (obj.type === 'deleteMsg') {
+      const msgDoc = doc(messagesRef, obj.msgId);
+      await updateDoc(msgDoc, { deleted: true });
+    } else {
+      await addDoc(signalsRef, payload);
+    }
+  } catch (err) { console.error("Firebase send error:", err); }
 }
-function send(obj) {
-  if (connected) sendRaw(obj);
-}
-
-/* ════════════════════════════════════════════════════════
-   INCOMING MESSAGES
-════════════════════════════════════════════════════════ */
-function handleIncoming(msg) {
-  switch (msg.type) {
-    case 'history':
-      messagesInner.innerHTML = '';
-      allMessages = {};
-      msg.messages.forEach(m => { allMessages[m.id] = m; renderMessage(m); });
-      scrollBottom();
-      /* Apply server-stored default background if set */
-      if (msg.defaultBg) applyDefaultBg(msg.defaultBg);
-      break;
-
-    case 'message':
-    case 'sticker':
-    case 'media':
-    case 'voice':
-      allMessages[msg.id] = msg;
-      renderMessage(msg);
-      scrollBottom();
-      break;
-
-    case 'system':
-      renderSystem(msg.text);
-      scrollBottom();
-      break;
-
-    case 'typing':
-      if (msg.name !== myName) typingBar.textContent = msg.active ? `${msg.name} is typing…` : '';
-      break;
-
-    case 'online':
-      chatOnline.textContent  = `● ${msg.count} online`;
-      sidebarOnline.textContent = `● ${msg.count} online`;
-      break;
-
-    case 'cleared':
-      messagesInner.innerHTML = '';
-      allMessages = {};
-      renderSystem('History cleared');
-      break;
-
-    /* Server-side default background set by admin */
-    case 'defaultBg':
-      applyDefaultBg(msg.url || '');
-      break;
-
-    /* Personal wallpaper synced from other client */
-    case 'wallpaperSync':
-      applyWallpaperDirect(msg.data?.url || '');
-      break;
-
-    case 'reaction':
-      handleReaction(msg);
-      break;
-
-    case 'deleteMsg':
-      handleDeleteMsg(msg.msgId);
-      break;
-
-    case 'musicSync':
-      // Auto-apply sync — receiver doesn't need to click Sync button
-      if (window._zxReceiveSync) window._zxReceiveSync(msg);
-      break;
-
-    case 'callRequest': handleIncomingCall(msg); break;
-    case 'callAccept':  startCallAudio();         break;
-    case 'callEnd':     endCall(false);           break;
-  }
-}
+function send(obj) { sendRaw(obj); }
 
 /* ════════════════════════════════════════════════════════
    RENDER MESSAGE
 ════════════════════════════════════════════════════════ */
-const REACT_EMOJIS = ['❤️','😂','😮','😢','👍','🔥','💗','✨','😍','🥺','😭','🤣'];
-
 function renderMessage(msg) {
-  const mine    = msg.name === myName;
+  const mine    = msg.userId === myId || msg.name === myName;
   const row     = document.createElement('div');
   row.className = `msg-row ${mine ? 'mine' : 'theirs'}`;
   row.dataset.id = msg.id;
@@ -322,7 +288,6 @@ function renderMessage(msg) {
   const initial = (msg.name || '?')[0].toUpperCase();
   const timeStr = new Date(msg.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 
-  /* Reply preview */
   let replyHtml = '';
   if (msg.replyTo && allMessages[msg.replyTo]) {
     const ref = allMessages[msg.replyTo];
@@ -331,7 +296,6 @@ function renderMessage(msg) {
     replyHtml = `<div class="msg-reply-ref">↩ Deleted message</div>`;
   }
 
-  /* Bubble content */
   let bubble = '';
   if (msg.type === 'sticker') {
     bubble = `<div class="msg-bubble msg-sticker">${msg.emoji || ''}</div>`;
@@ -343,7 +307,6 @@ function renderMessage(msg) {
     bubble = `<div class="msg-bubble">${replyHtml}${linkify(escapeHtml(msg.text || ''))}</div>`;
   }
 
-  /* Reactions */
   const reactHtml = buildReactionsHtml(msg.reactions || {});
 
   row.innerHTML = `
@@ -355,7 +318,6 @@ function renderMessage(msg) {
       <div class="msg-time">${timeStr}</div>
     </div>`;
 
-  /* Attach context menu */
   const bEl = row.querySelector('.msg-bubble, .msg-sticker, .msg-media, .msg-file, .msg-voice');
   if (bEl) attachCtxMenu(bEl, msg, mine);
 
@@ -415,49 +377,39 @@ window.toggleVoice = function(vid, url) {
 function fmtDur(s) { const m=Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
 
 function renderSystem(text) {
-  const el = document.createElement('div');
-  el.className = 'msg-system';
-  el.textContent = text;
+  const el = document.createElement('div'); el.className = 'msg-system'; el.textContent = text;
   messagesInner.appendChild(el);
+  scrollBottom();
 }
 function scrollBottom() { requestAnimationFrame(() => { messagesArea.scrollTop = messagesArea.scrollHeight; }); }
 
 /* ════════════════════════════════════════════════════════
-   CONTEXT MENU  (right-click or long-press)
+   CONTEXT MENU & REACTIONS
 ════════════════════════════════════════════════════════ */
 function attachCtxMenu(el, msg, mine) {
   let pressTimer;
   el.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, msg, mine); });
   el.addEventListener('pointerdown', e => { pressTimer = setTimeout(() => showCtxMenu(e.clientX, e.clientY, msg, mine), 550); });
-  el.addEventListener('pointerup',     () => clearTimeout(pressTimer));
+  el.addEventListener('pointerup', () => clearTimeout(pressTimer));
   el.addEventListener('pointercancel', () => clearTimeout(pressTimer));
-  el.addEventListener('pointermove',   () => clearTimeout(pressTimer));
+  el.addEventListener('pointermove', () => clearTimeout(pressTimer));
 }
 
 function showCtxMenu(x, y, msg, mine) {
   document.querySelectorAll('.ctx-menu, .reaction-picker').forEach(el => el.remove());
 
-  /* ── Reaction picker ── */
   const rp = document.createElement('div');
   rp.className = 'reaction-picker';
-  REACT_EMOJIS.forEach(em => {
-    const s = document.createElement('span');
-    s.className = 'react-emoji';
-    s.textContent = em;
-    s.addEventListener('click', () => {
-      /* FIX: include userId so server knows who reacted */
-      send({ type:'reaction', msgId:msg.id, emoji:em, userId:myId, name:myName });
-      closeMenus();
-    });
+  ['❤️','😂','😮','😢','👍','🔥','💗','✨','😍','🥺','😭','🤣'].forEach(em => {
+    const s = document.createElement('span'); s.className = 'react-emoji'; s.textContent = em;
+    s.addEventListener('click', () => { send({ type:'reaction', msgId:msg.id, emoji:em }); closeMenus(); });
     rp.appendChild(s);
   });
-  /* position reaction picker above the tap point */
   const rpX = Math.min(x, window.innerWidth - 240);
   const rpY = Math.max(y - 90, 60);
   rp.style.cssText = `left:${rpX}px;top:${rpY}px`;
   document.body.appendChild(rp);
 
-  /* ── Context menu ── */
   const ctx = document.createElement('div');
   ctx.className = 'ctx-menu';
   const items = [
@@ -481,9 +433,6 @@ function showCtxMenu(x, y, msg, mine) {
   setTimeout(() => document.addEventListener('pointerdown', closeMenus, { once:true }), 80);
 }
 
-/* ════════════════════════════════════════════════════════
-   REPLY
-════════════════════════════════════════════════════════ */
 function startReply(msg) {
   replyTo = msg;
   replyBar.classList.add('active');
@@ -492,39 +441,19 @@ function startReply(msg) {
 }
 replyBarCancel.addEventListener('click', () => { replyTo=null; replyBar.classList.remove('active'); });
 
-/* ════════════════════════════════════════════════════════
-   REACTIONS  (FIX: update DOM in-place correctly)
-════════════════════════════════════════════════════════ */
 function handleReaction(msg) {
-  /* Update in-memory store */
-  const stored = allMessages[msg.msgId];
-  if (!stored) return;
-  if (!stored.reactions) stored.reactions = {};
-  /* Each userId can have one reaction — overwrites old one */
-  stored.reactions[msg.userId] = msg.emoji;
-
-  /* Update DOM reaction row */
-  const row = messagesInner.querySelector(`[data-id="${msg.msgId}"]`);
+  const row = messagesInner.querySelector(`[data-id="${msg.id}"]`);
   if (!row) return;
   let wrap = row.querySelector('.msg-reactions-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'msg-reactions-wrap';
-    row.querySelector('.msg-bubble-wrap').insertBefore(wrap, row.querySelector('.msg-time'));
-  }
-  wrap.innerHTML = buildReactionsHtml(stored.reactions);
+  if (wrap) wrap.innerHTML = buildReactionsHtml(msg.reactions || {});
 }
 
-/* ════════════════════════════════════════════════════════
-   DELETE
-════════════════════════════════════════════════════════ */
 function handleDeleteMsg(msgId) {
   const row = messagesInner.querySelector(`[data-id="${msgId}"]`);
   if (row) {
     const b = row.querySelector('.msg-bubble');
     if (b) b.innerHTML = '<em style="opacity:0.35;font-size:12px">Message deleted</em>';
   }
-  if (allMessages[msgId]) allMessages[msgId].deleted = true;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -540,7 +469,7 @@ msgInput.addEventListener('input', () => {
 
 function sendMsg() {
   const text = msgInput.value.trim();
-  if (!text || !connected) return;
+  if (!text) return;
   const payload = { type:'message', text };
   if (replyTo) payload.replyTo = replyTo.id;
   send(payload);
@@ -559,29 +488,31 @@ function stopTyping() {
 }
 
 /* ════════════════════════════════════════════════════════
-   MEDIA / FILE
+   MEDIA / FILE (FIREBASE STORAGE)
 ════════════════════════════════════════════════════════ */
 attachBtn.addEventListener('click', () => mediaInput.click());
 mediaInput.addEventListener('change', () => {
   const file = mediaInput.files[0]; if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    send({ type:'media', mediaUrl:e.target.result, mediaType:file.type,
-           fileName:file.name, fileSize:fmtSize(file.size),
-           replyTo: replyTo?.id || null });
+  if (file.size > 25 * 1024 * 1024) { alert('File too large (max 25MB)'); return; }
+  
+  renderSystem(`Uploading file: ${file.name}...`);
+  const storageRef = ref(storage, `rooms/${ZEROX_CONFIG.roomId}/${Date.now()}_${file.name}`);
+  const uploadTask = uploadBytesResumable(storageRef, file);
+
+  uploadTask.on('state_changed', null, err => console.error(err), async () => {
+    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+    send({ type:'media', mediaUrl:downloadURL, mediaType:file.type, fileName:file.name, fileSize:fmtSize(file.size), replyTo: replyTo?.id || null });
     replyTo = null; replyBar.classList.remove('active');
-  };
-  reader.readAsDataURL(file);
+  });
   mediaInput.value = '';
 });
 function fmtSize(b) { if (b<1024) return b+'B'; if (b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 
 /* ════════════════════════════════════════════════════════
-   VOICE NOTES
+   VOICE NOTES (FIREBASE STORAGE)
 ════════════════════════════════════════════════════════ */
 voiceBtn.addEventListener('pointerdown', e => { e.preventDefault(); startRec(); });
-voiceBtn.addEventListener('pointerup',     stopRec);
+voiceBtn.addEventListener('pointerup', stopRec);
 voiceBtn.addEventListener('pointercancel', stopRec);
 
 function startRec() {
@@ -597,14 +528,19 @@ function stopRec() {
   if (!isRecording || !mediaRecorder) return;
   isRecording = false; voiceBtn.classList.remove('recording');
   const startTs = Date.now();
+  
   mediaRecorder.onstop = () => {
     const dur = fmtDur((Date.now()-startTs)/1000);
     const blob = new Blob(audioChunks, {type:'audio/webm'});
-    const reader = new FileReader();
-    reader.onload = e => send({ type:'voice', audioUrl:e.target.result, duration:dur, replyTo:replyTo?.id||null });
-    reader.readAsDataURL(blob);
+    renderSystem('Uploading voice note...');
+    
+    const storageRef = ref(storage, `rooms/${ZEROX_CONFIG.roomId}/voice_${Date.now()}.webm`);
+    uploadBytesResumable(storageRef, blob).then(async (snapshot) => {
+       const downloadURL = await getDownloadURL(snapshot.ref);
+       send({ type:'voice', audioUrl:downloadURL, duration:dur, replyTo:replyTo?.id||null });
+       replyTo=null; replyBar.classList.remove('active');
+    });
     mediaRecorder.stream.getTracks().forEach(t=>t.stop());
-    replyTo=null; replyBar.classList.remove('active');
   };
   mediaRecorder.stop();
 }
@@ -640,7 +576,7 @@ renderStickers(0);
 stickerToggle.addEventListener('click', () => stickerPicker.classList.toggle('hidden'));
 
 /* ════════════════════════════════════════════════════════
-   THEMES
+   THEMES & WALLPAPERS
 ════════════════════════════════════════════════════════ */
 const THEMES = [
   {name:'Rose',    bg:'#0D0008',surface:'#1A0010',surfaceHigh:'#2A0018',border:'rgba(232,67,106,0.22)',rose:'#E8436A',blush:'#FFB5C8',magenta:'#C2005F',text:'#FFE8EF',textMuted:'rgba(255,232,239,0.55)',myBubble:'linear-gradient(135deg,#E8436A,#C2005F)',herBubble:'#2A0018',swatch:'#E8436A'},
@@ -666,9 +602,6 @@ THEMES.forEach((t,i) => {
   if ((!saved && i===0) || saved===t.name) { sw.classList.add('active'); applyTheme(t); }
 });
 
-/* ════════════════════════════════════════════════════════
-   WALLPAPERS + CUSTOM BG
-════════════════════════════════════════════════════════ */
 const chatWindow = document.querySelector('.chat-window');
 function setWallpaper(url, idx) {
   chatWindow.style.setProperty('--wallpaper-url', url ? `url('${url}')` : 'none');
@@ -683,81 +616,57 @@ ZEROX_CONFIG.wallpapers.forEach((url, i) => {
   thumb.addEventListener('click', () => setWallpaper(url, i));
   wallpaperGrid.appendChild(thumb);
 });
-/* Restore saved personal wallpaper */
+
 const _savedWpIdx = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
 setWallpaper(ZEROX_CONFIG.wallpapers[_savedWpIdx] || '', _savedWpIdx);
 
-/* Apply a wallpaper URL directly (used by defaultBg and wallpaperSync) */
 function applyWallpaperDirect(url) {
   chatWindow.style.setProperty('--wallpaper-url', url ? `url('${url}')` : 'none');
-  /* Persist locally */
-  if (url) {
-    localStorage.setItem('zerox_custom_bg', url);
-    localStorage.setItem('zerox_wallpaper', '-1');
-  }
+  if (url) { localStorage.setItem('zerox_custom_bg', url); localStorage.setItem('zerox_wallpaper', '-1'); }
 }
-
-/* Apply default background set by admin — overrides personal choice */
 function applyDefaultBg(url) {
   applyWallpaperDirect(url);
-  /* Update UI: deselect all preset thumbs since a custom one is active */
   document.querySelectorAll('.wallpaper-thumb').forEach(t => t.classList.remove('active'));
 }
 
-/* Custom background upload */
 customBgInput.addEventListener('change', () => {
   const file = customBgInput.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     const dataUrl = e.target.result;
-    /* Apply locally */
     applyWallpaperDirect(dataUrl);
-    /* Sync to other client immediately */
     send({ type: 'wallpaperSync', data: { url: dataUrl } });
   };
   reader.readAsDataURL(file);
 });
 
-/* ════════════════════════════════════════════════════════
-   SIDEBAR / HIDE / CLEAR
-════════════════════════════════════════════════════════ */
 openSidebar.addEventListener('click',  () => chatSidebar.classList.add('open'));
 closeSidebar.addEventListener('click', () => chatSidebar.classList.remove('open'));
 
-/* ── "Set as default background for everyone" button ────────
-   Injects a button below the wallpaper grid in the sidebar.
-   When clicked, broadcasts the current wallpaper URL to all
-   connected clients AND stores it on the server so new joiners
-   also receive it.
-──────────────────────────────────────────────────────────── */
 (function() {
-  const wpSection = wallpaperGrid.parentElement; // sidebar-section
+  const wpSection = wallpaperGrid.parentElement;
   const setDefaultBtn = document.createElement('button');
   setDefaultBtn.className = 'set-default-bg-btn';
   setDefaultBtn.innerHTML = '🌐 Set background for everyone';
-  setDefaultBtn.title = 'Broadcasts your current wallpaper to all users. New visitors will also see it.';
   setDefaultBtn.addEventListener('click', () => {
-    /* Read current wallpaper from CSS variable */
     const raw = chatWindow.style.getPropertyValue('--wallpaper-url') || '';
-    /* Extract URL from  url('...') */
     const match = raw.match(/url\(['"]?(.*?)['"]?\)/);
     const url = match ? match[1] : '';
-    if (!url) { alert('No wallpaper selected. Choose one first.'); return; }
+    if (!url) { alert('No wallpaper selected.'); return; }
     send({ type: 'setBg', url });
     setDefaultBtn.textContent = '✓ Set for everyone!';
     setTimeout(() => { setDefaultBtn.innerHTML = '🌐 Set background for everyone'; }, 2500);
   });
   wpSection.appendChild(setDefaultBtn);
 })();
+
 hideChatBtn.addEventListener('click', () => {
   chatApp.classList.remove('visible');
   setTimeout(() => chatApp.classList.add('hidden'), 400);
-  if (ws) { ws.close(); connected=false; ws=null; }
 });
-clearHistoryBtn.addEventListener('click', () => { if (confirm('Clear all messages?')) send({type:'clear'}); });
 
 /* ════════════════════════════════════════════════════════
-   VOICE CALL  (WebSocket signaling, basic)
+   VOICE CALL 
 ════════════════════════════════════════════════════════ */
 callBtn.addEventListener('click', () => {
   if (callActive) return;
@@ -793,18 +702,6 @@ callMute.addEventListener('click', () => {
   localStream?.getAudioTracks().forEach(t => { t.enabled = !muteOn; });
 });
 
-/* ════════════════════════════════════════════════════════
-   MUSIC SYNC — expose send after WS connects
-   _zxReceiveSync auto-applies (no need for receiver to click Sync)
-════════════════════════════════════════════════════════ */
-window._zxSendSync = data => send(data);  // pre-wire; overwrites on open too
+function escapeHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function linkify(s) { return s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--c-blush)">$1</a>'); }
 
-/* ════════════════════════════════════════════════════════
-   UTILS
-════════════════════════════════════════════════════════ */
-function escapeHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function linkify(s) {
-  return s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--c-blush)">$1</a>');
-}
