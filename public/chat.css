@@ -1,39 +1,41 @@
 /* ═══════════════════════════════════════════════════════════
-   LAG KILLER: REMOVE ALL BUBBLE GLOWS & PULSING
+   LAG FIX: REMOVE MESSAGE GLOWS (PETALS REMAIN ACTIVE)
 ═══════════════════════════════════════════════════════════ */
 
-/* 1. Remove glows and animations from all chat bubbles */
+/* 1. Stop the message bubbles from calculating shadows and pulsing */
 .msg-bubble {
     box-shadow: none !important;
     animation: none !important;
     text-shadow: none !important;
-    /* Optional: Add a subtle border so bubbles remain visible against the grid */
-    border: 1px solid rgba(232, 67, 106, 0.2) !important;
+    /* Keeps a subtle border so they look clean against the grid */
+    border: 1px solid rgba(232, 67, 106, 0.25) !important;
 }
 
-/* 2. Specific override for 'Mine' and 'Theirs' bubbles */
+/* 2. Specific override for 'Mine' and 'Theirs' to ensure animations stop */
 .msg-row.mine .msg-bubble, 
 .msg-row.theirs .msg-bubble {
     box-shadow: none !important;
     animation: none !important;
 }
 
-/* 3. Professional Performance Patch (Keep this for smooth scrolling) */
+/* 3. SMOOTH SCROLLING: Fences off the chat area so petals don't lag it */
 .messages-area {
     contain: layout !important;
     -webkit-overflow-scrolling: touch;
-    transform: translateZ(0);
 }
 
-/* 4. Force blossoms to GPU so they don't fight the text */
+/* 4. GPU BOOST: This does NOT remove petals, it just makes them 
+   run on your Graphics Chip so the chat doesn't stutter. */
 .blossom {
     will-change: transform;
     transform: translateZ(0) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ORIGINAL 694 LINES START BELOW
+   YOUR ORIGINAL 694 LINES START BELOW 
+   (Everything else stays exactly as it was)
    ═══════════════════════════════════════════════════════════ */
+
 
 
 
