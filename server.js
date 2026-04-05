@@ -126,14 +126,52 @@ wss.on('connection', (ws) => {
         break;
       }
 
-      /* ── MUSIC SYNC — relay to all in room ────────────── */
+      /* ── MUSIC SYNC ─────────────────────────────────── */
       case 'musicSync': {
         if (!currentRoom) return;
         broadcast(currentRoom, { ...msg, type: 'musicSync' }, ws);
         break;
       }
 
-      /* ── CLEAR history (both users confirm) ─────────── */
+      /* ── MEDIA (image/file/voice — relay dataURL) ────── */
+      case 'media':
+      case 'voice': {
+        if (!currentRoom) return;
+        const room = getRoom(currentRoom);
+        const payload = { ...msg, id: uuidv4(), userId, name: userName, ts: Date.now() };
+        room.history.push(payload);
+        if (room.history.length > MAX_HISTORY) room.history.shift();
+        broadcast(currentRoom, payload);
+        break;
+      }
+
+      /* ── REACTION ────────────────────────────────────── */
+      case 'reaction': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { type:'reaction', msgId:msg.msgId, emoji:msg.emoji, userId, name:userName });
+        break;
+      }
+
+      /* ── DELETE ──────────────────────────────────────── */
+      case 'deleteMsg': {
+        if (!currentRoom) return;
+        // Remove from history
+        const room2 = getRoom(currentRoom);
+        room2.history = room2.history.filter(m => m.id !== msg.msgId);
+        broadcast(currentRoom, { type:'deleteMsg', msgId:msg.msgId });
+        break;
+      }
+
+      /* ── CALL SIGNALING ──────────────────────────────── */
+      case 'callRequest':
+      case 'callAccept':
+      case 'callEnd': {
+        if (!currentRoom) return;
+        broadcast(currentRoom, { ...msg, name: userName }, ws);
+        break;
+      }
+
+      /* ── CLEAR history ───────────────────────────────── */
       case 'clear': {
         if (!currentRoom) return;
         rooms[currentRoom].history = [];
