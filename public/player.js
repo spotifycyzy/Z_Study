@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   Supports: Background Audio, Multi-Server YT Search, Deep Sync
+   Supports: Background Audio, Search Results List, Deep Sync
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -112,7 +112,7 @@
     playAudio(url, file.name);
   });
 
-  /* ── YouTube Integration (Multi-Server Search + Normal Player) ──────────── */
+  /* ── YouTube Integration ────────────────────────────────── */
   const tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
   const firstScriptTag = document.getElementsByTagName('script')[0];
@@ -123,7 +123,6 @@
     
     ytPlayer = new YT.Player('ytPlayerDiv', {
       height: '200', width: '100%',
-      // controls: 1 keeps normal UI. playsinline: 1 supports mobile background
       playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
       events: {
         'onReady': () => { isYtReady = true; },
@@ -157,34 +156,77 @@
     return m ? m[1] : null;
   }
 
-  // Multi-Server Fallback API for Searching
+  // Fetch search results and return an Array of videos
   async function searchYouTubeApi(query) {
-    const endpoints = [
-      `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`,
-      `https://invidious.jing.rocks/api/v1/search?q=${encodeURIComponent(query)}`,
-      `https://invidious.nerdvpn.de/api/v1/search?q=${encodeURIComponent(query)}`
+    const instances = [
+      'vid.puffyan.us',
+      'inv.tux.pizza',
+      'invidious.fdn.fr',
+      'pipedapi.kavin.rocks'
     ];
 
-    for (const api of endpoints) {
+    for (const instance of instances) {
       try {
-        const res = await fetch(api);
+        const isPiped = instance.includes('piped');
+        const path = isPiped ? `/search?q=${encodeURIComponent(query)}&filter=videos` : `/api/v1/search?q=${encodeURIComponent(query)}`;
+        const targetUrl = `https://${instance}${path}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        
+        const res = await fetch(proxyUrl);
         if (!res.ok) continue;
         const data = await res.json();
         
-        // Handle Piped API format
-        if (data.items && data.items.length > 0) {
-          const vid = data.items.find(i => i.type === 'stream' || (i.url && i.url.includes('watch?v=')));
-          if (vid) return { id: vid.url.split('v=')[1].split('&')[0], title: vid.title };
-        }
-        // Handle Invidious API format
-        if (Array.isArray(data) && data.length > 0) {
-          return { id: data[0].videoId, title: data[0].title };
+        if (isPiped && data.items && data.items.length > 0) {
+          return data.items
+            .filter(i => i.url && i.url.includes('watch?v='))
+            .map(i => ({ id: i.url.split('v=')[1].split('&')[0], title: i.title, channel: i.uploaderName }));
+        } else if (!isPiped && Array.isArray(data) && data.length > 0) {
+          return data
+            .filter(i => i.videoId)
+            .map(i => ({ id: i.videoId, title: i.title, channel: i.author }));
         }
       } catch (e) {
-        console.warn("Search server busy, trying backup...", api);
+        console.warn(`Search failed on ${instance}, moving to backup...`);
       }
     }
-    return null; // All servers failed
+    return null; 
+  }
+
+  // Renders the list of results right inside the panel
+  function displaySearchResults(results) {
+    let listWrap = document.getElementById('ytSearchResults');
+    if (!listWrap) {
+      listWrap = document.createElement('div');
+      listWrap.id = 'ytSearchResults';
+      listWrap.style.cssText = 'max-height: 200px; overflow-y: auto; background: var(--c-surfaceHigh, #2A0018); border: 1px solid var(--c-border, rgba(232,67,106,0.3)); border-radius: 12px; margin-top: 12px;';
+      ytFrameWrap.parentNode.insertBefore(listWrap, ytFrameWrap);
+    }
+    
+    listWrap.innerHTML = ''; // Clear old results
+    listWrap.style.display = 'block';
+    ytFrameWrap.style.display = 'none'; // Hide player while selecting
+    
+    results.slice(0, 10).forEach(res => {
+      const item = document.createElement('div');
+      item.style.cssText = 'padding: 10px 12px; border-bottom: 1px solid rgba(232,67,106,0.15); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.2s;';
+      
+      item.innerHTML = `
+        <span style="font-size: 13px; font-weight: 600; color: #FFE8EF; line-height: 1.3;">${res.title}</span>
+        <span style="font-size: 11px; color: rgba(255,181,200,0.6);">▶ ${res.channel}</span>
+      `;
+      
+      item.onmouseover = () => item.style.background = 'rgba(232,67,106,0.1)';
+      item.onmouseout  = () => item.style.background = 'transparent';
+      
+      item.onclick = () => {
+        listWrap.style.display = 'none'; // Hide results
+        ytFrameWrap.style.display = 'block'; // Show player
+        ytInput.value = ''; // Clear search bar
+        executeYtPlay(res.id, res.title);
+      };
+      
+      listWrap.appendChild(item);
+    });
   }
 
   function loadYouTube(queryOrUrl) {
@@ -192,36 +234,45 @@
     
     activeType = 'youtube';
     spFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
-    ytFrameWrap.style.display = 'block';
 
     const id = extractYouTubeId(queryOrUrl);
     
     if (id) {
-      // It's a standard link, play immediately
-      executeYtPlay(id, 'YouTube Link', queryOrUrl);
+      // Direct Link provided: Play immediately
+      ytFrameWrap.style.display = 'block';
+      let listWrap = document.getElementById('ytSearchResults');
+      if (listWrap) listWrap.style.display = 'none';
+      
+      executeYtPlay(id, 'YouTube Link');
       ytInput.value = '';
     } else {
-      // It's a search term! Use the backup servers
+      // Search term provided: Fetch and show list
       ytInput.value = 'Searching...';
-      searchYouTubeApi(queryOrUrl).then(result => {
-        if (result) {
-          executeYtPlay(result.id, result.title, queryOrUrl);
-          ytInput.value = '';
+      searchYouTubeApi(queryOrUrl).then(results => {
+        if (results && results.length > 0) {
+          ytInput.value = queryOrUrl; // Restore the text so user knows what they searched
+          displaySearchResults(results);
         } else {
-          alert('Search servers are currently busy. Please paste a direct YouTube link for now.');
+          alert('Search networks are overloaded. Please paste a direct YouTube link.');
           ytInput.value = '';
         }
       });
     }
   }
 
-  function executeYtPlay(vidId, title, originalQuery) {
-    ytPlayer.loadVideoById(vidId);
+  function executeYtPlay(vidId, title) {
+    if(ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+        ytPlayer.loadVideoById(vidId);
+    }
     setTrackInfo(title, 'YouTube');
-    addToQueue({ type: 'youtube', title: title, url: originalQuery });
+    
+    const directLink = `https://youtube.com/watch?v=${vidId}`;
+    
+    addToQueue({ type: 'youtube', title: title, url: directLink });
     updateMediaSession(title, 'StudyVault YouTube');
     document.querySelector('[data-tab="youtube"]').click();
-    if (synced) broadcastSync({ action: 'load_youtube', url: originalQuery });
+    
+    if (synced) broadcastSync({ action: 'load_youtube', url: directLink });
   }
 
   /* ── Spotify ────────────────────────────────────────────── */
@@ -237,6 +288,11 @@
     spFrame.src = embedUrl;
     spFrameWrap.style.display = 'block';
     ytFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
+    
+    // Hide YT results if they were open
+    let listWrap = document.getElementById('ytSearchResults');
+    if (listWrap) listWrap.style.display = 'none';
+
     activeType = 'spotify';
     setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
     updateMediaSession('Spotify Session', 'StudyVault');
@@ -250,6 +306,11 @@
     nativeAudio.src = url;
     nativeAudio.style.display = 'block';
     ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
+    
+    // Hide YT results if they were open
+    let listWrap = document.getElementById('ytSearchResults');
+    if (listWrap) listWrap.style.display = 'none';
+
     nativeAudio.play().catch(() => {});
     activeType = 'audio';
     setTrackInfo(title, 'Direct audio');
@@ -316,7 +377,11 @@
     mpSyncBadge.textContent = '🟢 Synced — listening together'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
     
-    if (activeType === 'youtube') broadcastSync({ action: 'load_youtube', url: ytInput.value });
+    if (activeType === 'youtube' && ytPlayer) {
+        // Need to grab the actual video ID being played right now
+        const vidUrl = ytPlayer.getVideoUrl ? ytPlayer.getVideoUrl() : ytInput.value;
+        broadcastSync({ action: 'load_youtube', url: vidUrl });
+    }
     if (activeType === 'spotify') broadcastSync({ action: 'load_spotify', url: spInput.value });
     if (activeType === 'audio')   broadcastSync({ action: 'load_audio', url: nativeAudio.src, title: mpTitle.textContent });
   });
