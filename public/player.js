@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   TRUE TWO-WAY SYNC ENGINE + P2P WEBTORRENT + QUEUE SYNC
+   TRUE TWO-WAY SYNC ENGINE + P2P WEBTORRENT (SAFE TRACKERS)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -20,7 +20,7 @@
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const nativeAudio = document.getElementById('nativeAudio'); // Video tag in HTML
+  const nativeAudio = document.getElementById('nativeAudio'); // Video tag
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -42,17 +42,26 @@
   let ytPlayer        = null; 
   let isYtReady       = false;
   
-  // Anti-Loop Logic (Jab remote se signal aaye toh local broadcast roko)
+  // Anti-Loop Logic 
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
     isRemoteAction = true;
     clearTimeout(remoteTimer);
-    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); // 1.5s buffer
+    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
   }
 
   // P2P WebTorrent Client
   let wtClient = null;
+
+  /* 🔥 SAFE P2P TRACKERS (Bypasses browser warnings) 🔥 */
+  const SAFE_TRACKERS = {
+    announce: [
+      'wss://tracker.webtorrent.dev',
+      'wss://tracker.files.fm:7073/announce',
+      'wss://tracker.openwebtorrent.com'
+    ]
+  };
 
   /* ── TOAST LOGIC ───────────────────────────────────────── */
   function showToast(msg) {
@@ -102,7 +111,6 @@
     });
   };
 
-  // TRUE TWO-WAY SYNC FOR YOUTUBE
   function onPlayerStateChange(event) {
     if (!synced || isRemoteAction) {
       if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); }
@@ -138,7 +146,7 @@
     addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = '';
   });
 
-  /* 🔥 P2P FILE UPLOAD LOGIC 🔥 */
+  /* 🔥 SECURE P2P FILE UPLOAD LOGIC 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     
@@ -146,8 +154,10 @@
       const wt = getWT();
       if (!wt) return showToast("⚠️ WebTorrent is loading, try again in 2 seconds!");
       
-      showToast("🌐 Creating P2P Network (Do not close tab!)");
-      wt.seed(file, (torrent) => {
+      showToast("🌐 Creating Secure P2P Network (Do not close tab!)");
+      
+      // Using SAFE_TRACKERS to prevent browser block
+      wt.seed(file, SAFE_TRACKERS, (torrent) => {
         showToast("✅ File ready for partner! Playing now...");
         addToQueue({ type: 'torrent', title: file.name, magnet: torrent.magnetURI });
       });
@@ -165,7 +175,6 @@
   function addToQueue(item) {
     if(queue.length > 0 && queue[queue.length-1].url === item.url && queue[queue.length-1].title === item.title) return;
     queue.push(item); saveQueue(); renderQueue();
-    // Auto play if it's the first item added
     if (queue.length === 1 || activeType === 'none') playQueueItem(queue.length - 1);
   }
   
@@ -184,13 +193,11 @@
     });
   }
 
-  // CORE PLAY FUNCTION (Triggers Sync)
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; 
     currentIdx = i; saveQueue(); renderQueue();
     const item = queue[i];
 
-    // Tell partner to change song to THIS EXACT ITEM
     if (synced && !isRemoteAction) {
       broadcastSync({ action: 'change_song', item: item });
     }
@@ -203,7 +210,6 @@
   mpNext.addEventListener('click', () => { if(queue.length > 0) playNext(); });
   mpPrev.addEventListener('click', () => { if(queue.length > 0) playPrev(); });
 
-  // Renders the media locally without sending broadcast
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
@@ -231,12 +237,12 @@
       setTrackInfo(item.title, '📡 Connecting to P2P...');
       const wt = getWT();
       if (wt) {
-        // Find existing or add new
         const existing = wt.get(item.magnet);
         if (existing) {
           playTorrentMedia(existing);
         } else {
-          wt.add(item.magnet, (torrent) => { playTorrentMedia(torrent); });
+          // Using SAFE_TRACKERS when receiving as well
+          wt.add(item.magnet, SAFE_TRACKERS, (torrent) => { playTorrentMedia(torrent); });
         }
       }
     }
@@ -250,7 +256,7 @@
     isPlaying = true; updatePlayBtn();
   }
 
-  /* ── TRUE TWO-WAY SYNC FOR NATIVE MEDIA (Audio & Torrent) ── */
+  /* ── TRUE TWO-WAY SYNC FOR NATIVE MEDIA ── */
   nativeAudio.addEventListener('play',  () => { 
     isPlaying = true; updatePlayBtn(); 
     if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
@@ -297,7 +303,6 @@
 
   // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
-    // 1. Partner asked for our state
     if (data.action === 'request_sync') {
       if (synced && queue.length > 0) {
         broadcastSync({ action: 'change_song', item: queue[currentIdx] });
@@ -307,31 +312,16 @@
 
     if (!synced) return; 
 
-    // Lock local broadcasts to prevent loop
     setRemoteAction();
 
-    // 2. Partner changed the song
     if (data.action === 'change_song') {
       showToast('🎵 Partner changed the track');
-      
-      // Check if we already have it in queue
       let idx = queue.findIndex(q => (q.url && q.url === data.item.url) || (q.magnet && q.magnet === data.item.magnet));
-      
-      // If not, add it
-      if (idx === -1) {
-        queue.push(data.item);
-        idx = queue.length - 1;
-      }
-      
-      // Update local state and play it
-      currentIdx = idx;
-      saveQueue();
-      renderQueue();
-      renderMedia(data.item);
+      if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
+      currentIdx = idx; saveQueue(); renderQueue(); renderMedia(data.item);
       return;
     }
 
-    // 3. Play, Pause, Seek commands
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
