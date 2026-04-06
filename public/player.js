@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   TRUE TWO-WAY SYNC ENGINE + P2P WEBTORRENT (SAFE TRACKERS)
+   TRUE TWO-WAY SYNC + P2P WEBTORRENT (PREMIUM TRACKERS FIX)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -20,7 +20,7 @@
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const nativeAudio = document.getElementById('nativeAudio'); // Video tag
+  const nativeAudio = document.getElementById('nativeAudio'); // HTML mein <video> tag
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -42,7 +42,7 @@
   let ytPlayer        = null; 
   let isYtReady       = false;
   
-  // Anti-Loop Logic 
+  // Anti-Loop Logic (True Two-Way Sync ke liye)
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
@@ -54,12 +54,13 @@
   // P2P WebTorrent Client
   let wtClient = null;
 
-  /* 🔥 SAFE P2P TRACKERS (Bypasses browser warnings) 🔥 */
-  const SAFE_TRACKERS = {
+  /* 🔥 PREMIUM SAFE P2P TRACKERS (Unblocked) 🔥 */
+  const P2P_OPTS = {
     announce: [
-      'wss://tracker.webtorrent.dev',
+      'wss://tracker.openwebtorrent.com',
+      'wss://tracker.btorrent.xyz',
       'wss://tracker.files.fm:7073/announce',
-      'wss://tracker.openwebtorrent.com'
+      'wss://qot.zbook.lol:8443/announce'
     ]
   };
 
@@ -73,12 +74,15 @@
       style.innerHTML = `@keyframes fadeInOut { 0%{opacity:0;transform:translate(-50%,10px)} 10%{opacity:1;transform:translate(-50%,0)} 90%{opacity:1} 100%{opacity:0} }`;
       document.head.appendChild(style);
     }
-    document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
+    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
   }
 
   /* ── WebTorrent Setup ───────────────────────────────────── */
   function getWT() {
-    if (!wtClient && window.WebTorrent) { wtClient = new window.WebTorrent(); }
+    if (!wtClient && window.WebTorrent) { 
+      wtClient = new window.WebTorrent(); 
+      wtClient.on('error', (err) => { console.error('P2P Error:', err); showToast('⚠️ P2P Connection Error! Try again.'); });
+    }
     return wtClient;
   }
 
@@ -146,7 +150,7 @@
     addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = '';
   });
 
-  /* 🔥 SECURE P2P FILE UPLOAD LOGIC 🔥 */
+  /* 🔥 SECURE P2P FILE UPLOAD LOGIC (SENDER) 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     
@@ -154,11 +158,12 @@
       const wt = getWT();
       if (!wt) return showToast("⚠️ WebTorrent is loading, try again in 2 seconds!");
       
-      showToast("🌐 Creating Secure P2P Network (Do not close tab!)");
+      showToast("🌐 Connecting to secure P2P server...");
+      setTrackInfo(file.name, '🌐 Creating Network...');
       
-      // Using SAFE_TRACKERS to prevent browser block
-      wt.seed(file, SAFE_TRACKERS, (torrent) => {
-        showToast("✅ File ready for partner! Playing now...");
+      wt.seed(file, P2P_OPTS, (torrent) => {
+        showToast("✅ File live! Sending stream link to partner...");
+        setTrackInfo(file.name, '▶ Seeding to partner');
         addToQueue({ type: 'torrent', title: file.name, magnet: torrent.magnetURI });
       });
     } else {
@@ -210,6 +215,7 @@
   mpNext.addEventListener('click', () => { if(queue.length > 0) playNext(); });
   mpPrev.addEventListener('click', () => { if(queue.length > 0) playPrev(); });
 
+  /* ── Render Media to View ───────────────────────────────── */
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
@@ -218,7 +224,7 @@
       const id = extractYouTubeId(item.url); if (!id) return;
       activeType = 'youtube'; ytFrameWrap.style.display = 'block';
       if (isYtReady) ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
-      setTrackInfo('YouTube', 'Deep Sync Active');
+      setTrackInfo('YouTube', 'Live Sync Active');
     } 
     else if (item.type === 'spotify') {
       activeType = 'spotify'; spFrameWrap.style.display = 'block';
@@ -234,15 +240,25 @@
     }
     else if (item.type === 'torrent') {
       activeType = 'torrent'; nativeAudio.style.display = 'block';
-      setTrackInfo(item.title, '📡 Connecting to P2P...');
+      setTrackInfo(item.title, '📡 Finding peers...');
       const wt = getWT();
       if (wt) {
         const existing = wt.get(item.magnet);
         if (existing) {
           playTorrentMedia(existing);
         } else {
-          // Using SAFE_TRACKERS when receiving as well
-          wt.add(item.magnet, SAFE_TRACKERS, (torrent) => { playTorrentMedia(torrent); });
+          // Add with Premium Trackers
+          wt.add(item.magnet, P2P_OPTS, (torrent) => { 
+            playTorrentMedia(torrent); 
+            // Live buffering progress for receiver
+            torrent.on('download', () => {
+               if(nativeAudio.paused && !isRemoteAction) {
+                   setTrackInfo(torrent.name, `⬇ Buffering: ${(torrent.progress * 100).toFixed(1)}%`);
+               } else {
+                   setTrackInfo(torrent.name, '▶ P2P Stream Active');
+               }
+            });
+          });
         }
       }
     }
@@ -301,7 +317,7 @@
 
   function broadcastSync(data) { if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); }
 
-  // 📥 RECEIVER ENGINE
+  // 📥 RECEIVER ENGINE (Handles Two-Way Incoming Commands)
   window._zxReceiveSync = function (data) {
     if (data.action === 'request_sync') {
       if (synced && queue.length > 0) {
@@ -312,7 +328,7 @@
 
     if (!synced) return; 
 
-    setRemoteAction();
+    setRemoteAction(); // Lock loop
 
     if (data.action === 'change_song') {
       showToast('🎵 Partner changed the track');
@@ -322,6 +338,7 @@
       return;
     }
 
+    // Handles Play/Pause/Seek Commands for whoever is playing
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
