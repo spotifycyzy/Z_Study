@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX MUSIC & MOVIE PLAYER — player.js
-   THE HACKER WAY: P2P WebTorrent Streaming + Universal Controller
+   ZEROX MUSIC PLAYER — player.js
+   TRUE TWO-WAY SYNC ENGINE + P2P WEBTORRENT + QUEUE SYNC
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -20,7 +20,7 @@
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const nativeAudio = document.getElementById('nativeAudio'); // Ab yeh <video> hai
+  const nativeAudio = document.getElementById('nativeAudio'); // Video tag in HTML
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -41,9 +41,16 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
-  let ignoreNextSync  = false; 
-  let currentTrackUrl = ''; 
   
+  // Anti-Loop Logic (Jab remote se signal aaye toh local broadcast roko)
+  let isRemoteAction  = false;
+  let remoteTimer     = null;
+  function setRemoteAction() {
+    isRemoteAction = true;
+    clearTimeout(remoteTimer);
+    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); // 1.5s buffer
+  }
+
   // P2P WebTorrent Client
   let wtClient = null;
 
@@ -53,25 +60,20 @@
     t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
     if (!document.getElementById('toastStyles')) {
-      const style = document.createElement('style');
-      style.id = 'toastStyles';
+      const style = document.createElement('style'); style.id = 'toastStyles';
       style.innerHTML = `@keyframes fadeInOut { 0%{opacity:0;transform:translate(-50%,10px)} 10%{opacity:1;transform:translate(-50%,0)} 90%{opacity:1} 100%{opacity:0} }`;
       document.head.appendChild(style);
     }
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 3500);
+    document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
   }
 
-  /* ── P2P Engine Init ────────────────────────────────────── */
-  function initTorrent() {
-    if (window.WebTorrent && !wtClient) {
-      wtClient = new window.WebTorrent();
-      console.log('🌐 WebTorrent P2P Engine Online');
-    }
+  /* ── WebTorrent Setup ───────────────────────────────────── */
+  function getWT() {
+    if (!wtClient && window.WebTorrent) { wtClient = new window.WebTorrent(); }
+    return wtClient;
   }
-  setTimeout(initTorrent, 1000);
 
-  /* ── Panel toggle & Tabs ────────────────────────────────── */
+  /* ── UI Toggles ─────────────────────────────────────────── */
   function togglePanel() { panel.classList.toggle('hidden'); }
   mpToggleBtn.addEventListener('click', togglePanel);
   mpOpenFull .addEventListener('click', togglePanel);
@@ -86,7 +88,7 @@
     });
   });
 
-  /* ── YouTube API Setup (Remote Control) ─────────────────── */
+  /* ── YouTube API Setup ──────────────────────────────────── */
   const tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
   document.head.appendChild(tag);
@@ -100,121 +102,73 @@
     });
   };
 
+  // TRUE TWO-WAY SYNC FOR YOUTUBE
   function onPlayerStateChange(event) {
-    if (!synced || ignoreNextSync) {
+    if (!synced || isRemoteAction) {
       if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); }
-      else if (event.data === YT.PlayerState.PAUSED) { isPlaying = false; updatePlayBtn(); }
+      if (event.data === YT.PlayerState.PAUSED)  { isPlaying = false; updatePlayBtn(); }
       return;
     }
-    const currentTime = ytPlayer.getCurrentTime();
+    
+    const time = ytPlayer.getCurrentTime();
     if (event.data === YT.PlayerState.PLAYING) {
-      isPlaying = true; updatePlayBtn(); broadcastSync({ action: 'play', time: currentTime });
+      isPlaying = true; updatePlayBtn(); broadcastSync({ action: 'play', time });
     } else if (event.data === YT.PlayerState.PAUSED) {
-      isPlaying = false; updatePlayBtn(); broadcastSync({ action: 'pause', time: currentTime });
-    } else if (event.data === YT.PlayerState.ENDED) { playNext(); }
+      isPlaying = false; updatePlayBtn(); broadcastSync({ action: 'pause', time });
+    } else if (event.data === YT.PlayerState.ENDED) {
+      playNext();
+    }
   }
 
-  /* ── 🔥 P2P FILE UPLOAD LOGIC (SENDER) 🔥 ───────────────── */
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0]; if (!file) return;
-    initTorrent();
-    
-    // Agar "Sync" ON hai toh P2P Network create karo!
-    if (synced && wtClient) {
-      showToast('🌐 Creating P2P Network (Do not close tab!)');
-      
-      wtClient.seed(file, (torrent) => {
-        const magnet = torrent.magnetURI;
-        showToast('✅ Stream Live! Connected to partner.');
-        
-        // Broadcast the P2P Magnet Link to partner
-        broadcastSync({ action: 'load_torrent', magnet: magnet, title: file.name });
-        
-        // Apna local media chalao
-        const url = URL.createObjectURL(file);
-        playAudio(url, file.name);
-      });
-    } else {
-      // Normal Solo Play
-      const url = URL.createObjectURL(file);
-      addToQueue({ type: 'audio', title: file.name, url: url });
-      playAudio(url, file.name);
-    }
-  });
-
-  /* ── Load Functions (URLs, YT, Spotify) ─────────────────── */
+  /* ── Inputs & Files ─────────────────────────────────────── */
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
-    if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; return; }
-    if (isSpotifyUrl(val)) { loadSpotify(val); urlInput.value = ''; return; }
+    if (isYouTubeUrl(val)) { addToQueue({ type: 'youtube', title: 'YouTube Audio', url: val }); urlInput.value = ''; return; }
+    if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); urlInput.value = ''; return; }
     addToQueue({ type: 'audio', title: val.split('/').pop() || 'Audio', url: val }); urlInput.value = '';
   });
 
-  ytAddBtn.addEventListener('click', () => { const val = ytInput.value.trim(); if (!val) return; loadYouTube(val); ytInput.value = ''; });
+  ytAddBtn.addEventListener('click', () => {
+    const val = ytInput.value.trim(); if (!val) return;
+    addToQueue({ type: 'youtube', title: 'YouTube Audio', url: val }); ytInput.value = '';
+  });
+
+  spAddBtn.addEventListener('click', () => {
+    const val = spInput.value.trim(); if (!val) return;
+    addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = '';
+  });
+
+  /* 🔥 P2P FILE UPLOAD LOGIC 🔥 */
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0]; if (!file) return;
+    
+    if (synced) {
+      const wt = getWT();
+      if (!wt) return showToast("⚠️ WebTorrent is loading, try again in 2 seconds!");
+      
+      showToast("🌐 Creating P2P Network (Do not close tab!)");
+      wt.seed(file, (torrent) => {
+        showToast("✅ File ready for partner! Playing now...");
+        addToQueue({ type: 'torrent', title: file.name, magnet: torrent.magnetURI });
+      });
+    } else {
+      const url = URL.createObjectURL(file);
+      addToQueue({ type: 'audio', title: file.name, url: url });
+    }
+  });
 
   function isYouTubeUrl(url) { return /you/.test(url) && /tube|tu\.be/.test(url); }
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
-
-  function loadYouTube(url) {
-    const id = extractYouTubeId(url);
-    if (!id) return alert('Invalid YT link');
-    if (!isYtReady) return setTimeout(() => loadYouTube(url), 500);
-
-    currentTrackUrl = 'https://www.youtube.com/watch?v=' + id;
-    ytFrameWrap.style.display = 'block'; spFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
-    activeType = 'youtube';
-    ytPlayer.loadVideoById(id);
-    setTrackInfo('YouTube', 'Live Sync');
-    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url: currentTrackUrl });
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'load_youtube', url: currentTrackUrl });
-    ignoreNextSync = false;
-  }
-
-  spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; loadSpotify(val); spInput.value = ''; });
   function isSpotifyUrl(url) { return /spo/.test(url) && /tify/.test(url); }
 
-  function loadSpotify(url) {
-    currentTrackUrl = url;
-    const embedUrl = url.includes('/embed/') ? url : url.replace('open.spotify.com', 'open.spotify.com/embed');
-    spFrame.src = embedUrl;
-    spFrameWrap.style.display = 'block'; ytFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
-    activeType = 'spotify';
-    setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
-    addToQueue({ type: 'spotify', title: 'Spotify · Track', url });
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'load_spotify', url: currentTrackUrl });
-    ignoreNextSync = false;
+  /* ── Queue Management & Rendering ───────────────────────── */
+  function addToQueue(item) {
+    if(queue.length > 0 && queue[queue.length-1].url === item.url && queue[queue.length-1].title === item.title) return;
+    queue.push(item); saveQueue(); renderQueue();
+    // Auto play if it's the first item added
+    if (queue.length === 1 || activeType === 'none') playQueueItem(queue.length - 1);
   }
-
-  function playAudio(url, title) {
-    currentTrackUrl = url;
-    nativeAudio.src = url;
-    nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-    nativeAudio.play().catch(() => {});
-    activeType = 'audio';
-    setTrackInfo(title, 'Direct Media');
-    isPlaying = true; updatePlayBtn();
-    
-    // Normal URL sync (Non-P2P)
-    if (synced && !ignoreNextSync && !url.startsWith('blob:')) broadcastSync({ action: 'load_audio', url: currentTrackUrl, title });
-    ignoreNextSync = false;
-  }
-
-  /* ── Native Media Sync Events ───────────────────────────── */
-  nativeAudio.addEventListener('play',  () => { 
-    isPlaying = true; updatePlayBtn(); 
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-  });
-  nativeAudio.addEventListener('pause', () => { 
-    isPlaying = false; updatePlayBtn(); 
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
-  });
-  nativeAudio.addEventListener('seeked', () => {
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
-  });
-  nativeAudio.addEventListener('ended', playNext);
-
-  /* ── Queue Management ───────────────────────────────────── */
-  function addToQueue(item) { if(queue.length > 0 && queue[queue.length-1].url === item.url) return; queue.push(item); saveQueue(); renderQueue(); }
+  
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
 
   function renderQueue() {
@@ -223,18 +177,25 @@
     queue.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      el.innerHTML = `<span class="qi-type">${item.type === 'youtube' ? '▶ YT' : item.type === 'spotify' ? '♫ SP' : '🎵'}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
+      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP'; if (item.type === 'torrent') icon = '🌐 P2P';
+      el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
     });
   }
 
+  // CORE PLAY FUNCTION (Triggers Sync)
   function playQueueItem(i) {
-    if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); const item = queue[i];
-    if (item.type === 'audio') playAudio(item.url, item.title);
-    if (item.type === 'youtube') loadYouTube(item.url);
-    if (item.type === 'spotify') loadSpotify(item.url);
-    renderQueue();
+    if (i < 0 || i >= queue.length) return; 
+    currentIdx = i; saveQueue(); renderQueue();
+    const item = queue[i];
+
+    // Tell partner to change song to THIS EXACT ITEM
+    if (synced && !isRemoteAction) {
+      broadcastSync({ action: 'change_song', item: item });
+    }
+
+    renderMedia(item);
   }
 
   function playNext() { playQueueItem(currentIdx + 1); }
@@ -242,9 +203,70 @@
   mpNext.addEventListener('click', () => { if(queue.length > 0) playNext(); });
   mpPrev.addEventListener('click', () => { if(queue.length > 0) playPrev(); });
 
+  // Renders the media locally without sending broadcast
+  function renderMedia(item) {
+    nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
+    nativeAudio.pause(); if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
+    
+    if (item.type === 'youtube') {
+      const id = extractYouTubeId(item.url); if (!id) return;
+      activeType = 'youtube'; ytFrameWrap.style.display = 'block';
+      if (isYtReady) ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
+      setTrackInfo('YouTube', 'Deep Sync Active');
+    } 
+    else if (item.type === 'spotify') {
+      activeType = 'spotify'; spFrameWrap.style.display = 'block';
+      const embedUrl = item.url.includes('/embed/') ? item.url : item.url.replace('open.spotify.com', 'open.spotify.com/embed');
+      spFrame.src = embedUrl;
+      setTrackInfo('Spotify', item.title);
+    } 
+    else if (item.type === 'audio') {
+      activeType = 'audio'; nativeAudio.style.display = 'block';
+      nativeAudio.src = item.url; nativeAudio.play().catch(()=>{});
+      setTrackInfo(item.title, 'Direct Media');
+      isPlaying = true; updatePlayBtn();
+    }
+    else if (item.type === 'torrent') {
+      activeType = 'torrent'; nativeAudio.style.display = 'block';
+      setTrackInfo(item.title, '📡 Connecting to P2P...');
+      const wt = getWT();
+      if (wt) {
+        // Find existing or add new
+        const existing = wt.get(item.magnet);
+        if (existing) {
+          playTorrentMedia(existing);
+        } else {
+          wt.add(item.magnet, (torrent) => { playTorrentMedia(torrent); });
+        }
+      }
+    }
+  }
+
+  function playTorrentMedia(torrent) {
+    const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mp3') || f.name.endsWith('.webm') || f.name.endsWith('.mkv')) || torrent.files[0];
+    file.renderTo(nativeAudio);
+    setTrackInfo(torrent.name, '▶ P2P Stream Active');
+    nativeAudio.play().catch(()=>{});
+    isPlaying = true; updatePlayBtn();
+  }
+
+  /* ── TRUE TWO-WAY SYNC FOR NATIVE MEDIA (Audio & Torrent) ── */
+  nativeAudio.addEventListener('play',  () => { 
+    isPlaying = true; updatePlayBtn(); 
+    if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
+  });
+  nativeAudio.addEventListener('pause', () => { 
+    isPlaying = false; updatePlayBtn(); 
+    if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
+  });
+  nativeAudio.addEventListener('seeked', () => {
+    if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
+  });
+  nativeAudio.addEventListener('ended', playNext);
+
   /* ── UNIVERSAL CONTROLLER (Play/Pause) ──────────────────── */
   mpPlay.addEventListener('click', () => {
-    if (activeType === 'audio') {
+    if (activeType === 'audio' || activeType === 'torrent') {
       if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{});
     } else if (activeType === 'youtube' && ytPlayer) {
       if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
@@ -256,21 +278,14 @@
   function updatePlayBtn() { mpPlay.textContent = isPlaying ? '⏸' : '▶'; }
   function setTrackInfo(title, sub) { mpTitle.textContent = title; mpSub.textContent = sub; }
 
-  /* ── 📡 DEEP SYNC LOGIC ─────────────────────────────────── */
+  /* ── 📡 DEEP SYNC NETWORK ───────────────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Listening together';
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
-    
-    if (currentTrackUrl && !currentTrackUrl.startsWith('blob:')) {
-      showToast('🔗 Sync activated!');
-      if (activeType === 'youtube') broadcastSync({ action: 'load_youtube', url: currentTrackUrl });
-      if (activeType === 'spotify') broadcastSync({ action: 'load_spotify', url: currentTrackUrl });
-      if (activeType === 'audio')   broadcastSync({ action: 'load_audio', url: currentTrackUrl, title: mpTitle.textContent });
-    } else {
-      broadcastSync({ action: 'request_sync' });
-    }
+    showToast('🔗 Sync activated!');
+    broadcastSync({ action: 'request_sync' });
   });
 
   mpUnsyncBtn.addEventListener('click', () => {
@@ -280,58 +295,52 @@
 
   function broadcastSync(data) { if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); }
 
+  // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
+    // 1. Partner asked for our state
     if (data.action === 'request_sync') {
-      if (synced && currentTrackUrl && !currentTrackUrl.startsWith('blob:')) {
-        if (activeType === 'youtube') broadcastSync({ action: 'load_youtube', url: currentTrackUrl });
-        if (activeType === 'spotify') broadcastSync({ action: 'load_spotify', url: currentTrackUrl });
-        if (activeType === 'audio')   broadcastSync({ action: 'load_audio', url: currentTrackUrl, title: mpTitle.textContent, time: nativeAudio.currentTime });
+      if (synced && queue.length > 0) {
+        broadcastSync({ action: 'change_song', item: queue[currentIdx] });
       }
       return;
     }
 
     if (!synced) return; 
 
-    ignoreNextSync = true; 
+    // Lock local broadcasts to prevent loop
+    setRemoteAction();
 
-    /* 🔥 P2P LEECHER LOGIC (RECEIVER) 🔥 */
-    if (data.action === 'load_torrent') {
-      showToast('📡 Connecting to partner\'s P2P stream...');
-      initTorrent();
+    // 2. Partner changed the song
+    if (data.action === 'change_song') {
+      showToast('🎵 Partner changed the track');
       
-      activeType = 'audio';
-      setTrackInfo(data.title, 'P2P Stream Connected');
-      nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
+      // Check if we already have it in queue
+      let idx = queue.findIndex(q => (q.url && q.url === data.item.url) || (q.magnet && q.magnet === data.item.magnet));
       
-      wtClient.add(data.magnet, (torrent) => {
-        // Find MP4 or MP3 file inside the torrent
-        const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mp3') || f.name.endsWith('.webm')) || torrent.files[0];
-        
-        // DIRECT STREAM TO VIDEO TAG!
-        file.renderTo(nativeAudio);
-        showToast('▶ Streaming Started!');
-        
-        // Universal controller works automatically on this tag!
-        nativeAudio.play().catch(()=>{});
-        isPlaying = true; updatePlayBtn();
-      });
+      // If not, add it
+      if (idx === -1) {
+        queue.push(data.item);
+        idx = queue.length - 1;
+      }
+      
+      // Update local state and play it
+      currentIdx = idx;
+      saveQueue();
+      renderQueue();
+      renderMedia(data.item);
+      return;
     }
-    else if (data.action === 'load_youtube') { loadYouTube(data.url); }
-    else if (data.action === 'load_spotify') { loadSpotify(data.url); }
-    else if (data.action === 'load_audio') { playAudio(data.url, data.title || 'Synced media'); }
 
-    // Universal Sync Receiver
-    if (activeType === 'youtube' && ytPlayer) {
+    // 3. Play, Pause, Seek commands
+    if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
       if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
-    } else if (activeType === 'audio') {
+    } else if (activeType === 'audio' || activeType === 'torrent') {
       if (data.action === 'play') { nativeAudio.currentTime = data.time; nativeAudio.play().catch(()=>{}); }
       if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
       if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
     }
-
-    setTimeout(() => { ignoreNextSync = false; }, 800); 
   };
 
   renderQueue();
