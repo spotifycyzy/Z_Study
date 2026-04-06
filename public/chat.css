@@ -358,14 +358,12 @@
   background:var(--c-myBubble,linear-gradient(135deg,#E8436A,#C2005F));
   color:#fff;
   border-radius:18px 18px 4px 18px;
-  animation:bubbleGlowMine 2.5s ease-in-out infinite;
 }
 .msg-row.theirs .msg-bubble {
   background:var(--c-herBubble,#2A0018);
   color:var(--c-text,#FFE8EF);
   border:1px solid var(--c-border,rgba(232,67,106,0.22));
   border-radius:18px 18px 18px 4px;
-  animation:neonPulseBlush 3s ease-in-out infinite;
 }
 .msg-time {
   font-size:10px; color:var(--c-textMuted,rgba(255,232,239,0.32));
@@ -680,15 +678,3 @@
   box-shadow:0 0 18px rgba(232,67,106,0.4);transform:translateY(-1px);
 }
 .set-default-bg-btn:active { transform:scale(0.97); }
-
-[class*="blossom"] {
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-}
-
-/* Also optimize the sparkles while we are at it */
-.chat-sparkle {
-    will-change: transform;
-    transform: translateZ(0);
-}
