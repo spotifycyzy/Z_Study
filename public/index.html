@@ -10,6 +10,20 @@
   <link rel="stylesheet" href="study.css"/>
   <link rel="stylesheet" href="chat.css"/>
   <link rel="stylesheet" href="player.css"/>
+  <style>
+    /* Styling for the new search results list */
+    .yt-search-results {
+      max-height: 200px; overflow-y: auto; background: var(--c-surfaceHigh, #2A0018); 
+      border: 1px solid var(--c-border, rgba(232,67,106,0.3)); border-radius: 12px; margin-top: 12px; display: none;
+    }
+    .yt-search-results.active { display: block; }
+    .yt-result-item {
+      padding: 10px 12px; border-bottom: 1px solid rgba(232,67,106,0.15); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.2s;
+    }
+    .yt-result-item:hover { background: rgba(232,67,106,0.1); }
+    .yt-result-title { font-size: 13px; font-weight: 600; color: #FFE8EF; line-height: 1.3; }
+    .yt-result-author { font-size: 11px; color: rgba(255,181,200,0.6); }
+  </style>
 </head>
 <body>
 <div id="blossomContainer"></div>
@@ -58,15 +72,16 @@
         <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
         <span>📁 Choose local file</span>
       </label>
-      <audio id="nativeAudio" controls style="width:100%;margin-top:12px;display:none;filter:hue-rotate(300deg)"></audio>
+      <audio id="nativeAudio" controls playsinline style="width:100%;margin-top:12px;display:none;filter:hue-rotate(300deg)"></audio>
     </div>
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube URL…"/>
+        <input id="ytInput" class="mp-input" type="text" placeholder="Paste link or Search song name..."/>
         <button class="mp-add-btn" id="ytAddBtn">Load</button>
       </div>
-      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none">
-        <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>
+      <div id="ytSearchResults" class="yt-search-results"></div>
+      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none; margin-top: 12px;">
+        <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen playsinline></iframe>
       </div>
     </div>
     <div class="mp-tab-content" id="tab-spotify">
@@ -74,8 +89,8 @@
         <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
         <button class="mp-add-btn" id="spAddBtn">Load</button>
       </div>
-      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none">
-        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>
+      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none; margin-top: 12px;">
+        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
       </div>
     </div>
     <div class="mp-tab-content" id="tab-queue">
