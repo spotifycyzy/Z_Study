@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   Restored: Original Iframe + Background Play Lock-Screen Fix
+   Supports: direct URL, local file, YouTube embed, Spotify embed
+   Listen-together sync via WebSocket broadcast
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -27,7 +28,7 @@
   const fileInput   = document.getElementById('fileInput');
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
-  const ytFrame     = document.getElementById('ytFrame'); // Restored your original iframe
+  const ytFrame     = document.getElementById('ytFrame');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spInput     = document.getElementById('spInput');
   const spAddBtn    = document.getElementById('spAddBtn');
@@ -58,29 +59,11 @@
     });
   });
 
-  /* ── Background Play Lock-Screen (MediaSession) ─────────── */
-  function updateMediaSession(title, artist) {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: title || 'StudyVault Player',
-        artist: artist || 'Playing',
-        artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png', sizes: '512x512', type: 'image/png' }]
-      });
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (activeType === 'audio') nativeAudio.play();
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        if (activeType === 'audio') nativeAudio.pause();
-      });
-      navigator.mediaSession.setActionHandler('previoustrack', playPrev);
-      navigator.mediaSession.setActionHandler('nexttrack', playNext);
-    }
-  }
-
   /* ── URL / local add ────────────────────────────────────── */
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim();
     if (!val) return;
+    // Detect if it's YouTube or Spotify and route accordingly
     if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; return; }
     if (isSpotifyUrl(val))  { loadSpotify(val);  urlInput.value = ''; return; }
     addToQueue({ type: 'audio', title: val.split('/').pop() || 'Audio', url: val });
@@ -111,23 +94,18 @@
   function loadYouTube(url) {
     const id = extractYouTubeId(url);
     if (!id) return alert('Could not extract YouTube ID');
-    
-    // ADDED playsinline=1 to keep it alive in the background
-    const embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0`;
+    const embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
     ytFrame.src = embedUrl;
-    
     ytFrameWrap.style.display = 'block';
     spFrameWrap.style.display = 'none';
     nativeAudio.style.display = 'none';
     activeType = 'youtube';
     setTrackInfo('YouTube', url);
-    updateMediaSession('YouTube Video', 'Background Play');
-    
+    // Switch to YouTube tab
     document.querySelector('[data-tab="youtube"]').click();
     addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url, id });
     if (synced) broadcastSync({ action: 'youtube', url });
   }
-  
   function extractYouTubeId(url) {
     const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
@@ -144,14 +122,14 @@
 
   function isSpotifyUrl(url) { return /spotify\.com/.test(url); }
   function loadSpotify(url) {
-    const embedUrl = url.replace('https://open.spotify.com/', 'https://open.spotify.com/embed/');
+    // Convert open.spotify.com URL to embed URL
+    const embedUrl = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
     spFrame.src = embedUrl;
     spFrameWrap.style.display = 'block';
     ytFrameWrap.style.display = 'none';
     nativeAudio.style.display = 'none';
     activeType = 'spotify';
     setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
-    updateMediaSession('Spotify Audio', 'StudyVault');
     document.querySelector('[data-tab="spotify"]').click();
     addToQueue({ type: 'spotify', title: 'Spotify · ' + url.split('/').pop(), url });
     if (synced) broadcastSync({ action: 'spotify', url });
@@ -166,7 +144,6 @@
     nativeAudio.play().catch(() => {});
     activeType = 'audio';
     setTrackInfo(title, 'Direct audio');
-    updateMediaSession(title, 'StudyVault Local');
     isPlaying = true;
     updatePlayBtn();
     if (synced) broadcastSync({ action: 'audio', url, title });
@@ -253,7 +230,6 @@
     mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex';
     mpSyncBtn.style.display  = 'none';
-    
     // Broadcast current state
     if (activeType === 'youtube') broadcastSync({ action: 'youtube', url: ytInput.value });
     if (activeType === 'spotify') broadcastSync({ action: 'spotify', url: spInput.value });
@@ -276,15 +252,15 @@
 
   // Called from chat.js when a musicSync message arrives from the other user
   window._zxReceiveSync = function (data) {
+    // Auto-apply sync — receiver doesn't need to click Sync button
     if (data.action === 'youtube') { loadYouTube(data.url); }
     if (data.action === 'spotify') { loadSpotify(data.url); }
     if (data.action === 'audio')   { playAudio(data.url, data.title || 'Synced audio'); }
-    
+    // Mark as synced visually
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex';
-    mpSyncBtn.style.display  = 'none';
   };
 
   // Init queue render
