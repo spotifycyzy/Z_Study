@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   Supports: Background Audio, YouTube Search, Sync Play
+   Supports: Background Audio, Multi-Server YT Search, Deep Sync
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -112,9 +112,9 @@
     playAudio(url, file.name);
   });
 
-  /* ── YouTube Integration (Standard API + Search) ──────────── */
+  /* ── YouTube Integration (Multi-Server Search + Normal Player) ──────────── */
   const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api"; // The official, stable YouTube API
+  tag.src = "https://www.youtube.com/iframe_api";
   const firstScriptTag = document.getElementsByTagName('script')[0];
   firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
@@ -123,7 +123,7 @@
     
     ytPlayer = new YT.Player('ytPlayerDiv', {
       height: '200', width: '100%',
-      // We brought back normal controls (controls: 1). Mobile users can interact normally.
+      // controls: 1 keeps normal UI. playsinline: 1 supports mobile background
       playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
       events: {
         'onReady': () => { isYtReady = true; },
@@ -146,15 +146,45 @@
 
   ytAddBtn.addEventListener('click', () => {
     const val = ytInput.value.trim(); if (!val) return;
-    ytInput.value = 'Searching...';
     loadYouTube(val); 
   });
   ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytAddBtn.click(); });
 
   function isYouTubeUrl(url) { return /youtube\.com|youtu\.be/.test(url); }
+  
   function extractYouTubeId(url) {
     const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
+  }
+
+  // Multi-Server Fallback API for Searching
+  async function searchYouTubeApi(query) {
+    const endpoints = [
+      `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`,
+      `https://invidious.jing.rocks/api/v1/search?q=${encodeURIComponent(query)}`,
+      `https://invidious.nerdvpn.de/api/v1/search?q=${encodeURIComponent(query)}`
+    ];
+
+    for (const api of endpoints) {
+      try {
+        const res = await fetch(api);
+        if (!res.ok) continue;
+        const data = await res.json();
+        
+        // Handle Piped API format
+        if (data.items && data.items.length > 0) {
+          const vid = data.items.find(i => i.type === 'stream' || (i.url && i.url.includes('watch?v=')));
+          if (vid) return { id: vid.url.split('v=')[1].split('&')[0], title: vid.title };
+        }
+        // Handle Invidious API format
+        if (Array.isArray(data) && data.length > 0) {
+          return { id: data[0].videoId, title: data[0].title };
+        }
+      } catch (e) {
+        console.warn("Search server busy, trying backup...", api);
+      }
+    }
+    return null; // All servers failed
   }
 
   function loadYouTube(queryOrUrl) {
@@ -167,33 +197,25 @@
     const id = extractYouTubeId(queryOrUrl);
     
     if (id) {
-      // It's a standard link
+      // It's a standard link, play immediately
       executeYtPlay(id, 'YouTube Link', queryOrUrl);
       ytInput.value = '';
     } else {
-      // It's a search term! We bypass YouTube's internal block by using a free API to get the ID
-      fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(queryOrUrl)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            const vidId = data[0].videoId;
-            const title = data[0].title;
-            executeYtPlay(vidId, title, queryOrUrl);
-            ytInput.value = '';
-          } else {
-            alert('No results found!');
-            ytInput.value = '';
-          }
-        })
-        .catch(err => {
-          alert('Search failed. Try pasting a link instead.');
+      // It's a search term! Use the backup servers
+      ytInput.value = 'Searching...';
+      searchYouTubeApi(queryOrUrl).then(result => {
+        if (result) {
+          executeYtPlay(result.id, result.title, queryOrUrl);
           ytInput.value = '';
-        });
+        } else {
+          alert('Search servers are currently busy. Please paste a direct YouTube link for now.');
+          ytInput.value = '';
+        }
+      });
     }
   }
 
   function executeYtPlay(vidId, title, originalQuery) {
-    // Mobile browsers might still require the user to tap "Play" on the video once
     ytPlayer.loadVideoById(vidId);
     setTrackInfo(title, 'YouTube');
     addToQueue({ type: 'youtube', title: title, url: originalQuery });
@@ -211,7 +233,6 @@
 
   function isSpotifyUrl(url) { return /spotify\.com/.test(url); }
   function loadSpotify(url) {
-    // Restored to your original googleusercontent replacement just in case it was a proxy you needed
     const embedUrl = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
     spFrame.src = embedUrl;
     spFrameWrap.style.display = 'block';
