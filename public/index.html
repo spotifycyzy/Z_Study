@@ -72,7 +72,7 @@
         <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
         <span>📁 Choose local file</span>
       </label>
-      <audio id="nativeAudio" controls playsinline style="width:100%;margin-top:12px;display:none;filter:hue-rotate(300deg)"></audio>
+      <video id="nativeAudio" controls playsinline style="width:100%; max-height:250px; margin-top:12px; display:none; border-radius:12px; background:#000; filter:hue-rotate(300deg)"></video>
     </div>
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
@@ -265,6 +265,8 @@
     <button class="call-btn end" id="callEnd">📵</button>
   </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 
 <script src="config.js"></script>
 <script src="gesture.js"></script>
