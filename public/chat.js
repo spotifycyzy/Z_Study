@@ -1,9 +1,10 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX CHAT — chat.js  (fixed: sync, reply, reactions, UI)
+   ZEROX CHAT — chat.js  (Render WebSockets + Firebase Ready)
 ═══════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
+// Your Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAWUD0ab5sCYhlGyWGED7csANweTxUTAJg",
   authDomain: "zstudy-86f23.firebaseapp.com",
@@ -13,7 +14,7 @@ const firebaseConfig = {
   appId: "1:82037165092:web:7ce9bc701309ed7fbd5cb1"
 };
 
-// Initialize Firebase Database
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -226,23 +227,35 @@ function spawnChatBlossoms() {
 }
 
 /* ════════════════════════════════════════════════════════
-   WEBSOCKET
+   WEBSOCKET (Connected exactly to Render)
 ════════════════════════════════════════════════════════ */
 function connectWS() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
+  // Pointing straight to your Render backend
+  ws = new WebSocket('wss://z-study.onrender.com');
+  
   ws.addEventListener('open', () => {
     connected = true;
+    console.log("✅ Connected to Render WebSocket");
     ws.send(JSON.stringify({ type:'join', room:ZEROX_CONFIG.roomId, name:myName }));
     // Wire music sync now that WS is open
     window._zxSendSync = data => sendRaw(data);
   });
+  
   ws.addEventListener('message', e => {
     let msg; try { msg=JSON.parse(e.data); } catch { return; }
     handleIncoming(msg);
   });
-  ws.addEventListener('close', () => { connected=false; setTimeout(connectWS,3000); });
-  ws.addEventListener('error', () => ws.close());
+  
+  ws.addEventListener('close', () => { 
+    connected=false; 
+    console.log("Disconnected. Retrying...");
+    setTimeout(connectWS,3000); 
+  });
+  
+  ws.addEventListener('error', (err) => {
+    console.error("WebSocket Error:", err);
+    ws.close();
+  });
 }
 
 function sendRaw(obj) {
@@ -461,7 +474,6 @@ function showCtxMenu(x, y, msg, mine) {
     s.className = 'react-emoji';
     s.textContent = em;
     s.addEventListener('click', () => {
-      /* FIX: include userId so server knows who reacted */
       send({ type:'reaction', msgId:msg.id, emoji:em, userId:myId, name:myName });
       closeMenus();
     });
@@ -509,17 +521,14 @@ function startReply(msg) {
 replyBarCancel.addEventListener('click', () => { replyTo=null; replyBar.classList.remove('active'); });
 
 /* ════════════════════════════════════════════════════════
-   REACTIONS  (FIX: update DOM in-place correctly)
+   REACTIONS 
 ════════════════════════════════════════════════════════ */
 function handleReaction(msg) {
-  /* Update in-memory store */
   const stored = allMessages[msg.msgId];
   if (!stored) return;
   if (!stored.reactions) stored.reactions = {};
-  /* Each userId can have one reaction — overwrites old one */
   stored.reactions[msg.userId] = msg.emoji;
 
-  /* Update DOM reaction row */
   const row = messagesInner.querySelector(`[data-id="${msg.msgId}"]`);
   if (!row) return;
   let wrap = row.querySelector('.msg-reactions-wrap');
@@ -740,22 +749,14 @@ customBgInput.addEventListener('change', () => {
 openSidebar.addEventListener('click',  () => chatSidebar.classList.add('open'));
 closeSidebar.addEventListener('click', () => chatSidebar.classList.remove('open'));
 
-/* ── "Set as default background for everyone" button ────────
-   Injects a button below the wallpaper grid in the sidebar.
-   When clicked, broadcasts the current wallpaper URL to all
-   connected clients AND stores it on the server so new joiners
-   also receive it.
-──────────────────────────────────────────────────────────── */
 (function() {
-  const wpSection = wallpaperGrid.parentElement; // sidebar-section
+  const wpSection = wallpaperGrid.parentElement; 
   const setDefaultBtn = document.createElement('button');
   setDefaultBtn.className = 'set-default-bg-btn';
   setDefaultBtn.innerHTML = '🌐 Set background for everyone';
   setDefaultBtn.title = 'Broadcasts your current wallpaper to all users. New visitors will also see it.';
   setDefaultBtn.addEventListener('click', () => {
-    /* Read current wallpaper from CSS variable */
     const raw = chatWindow.style.getPropertyValue('--wallpaper-url') || '';
-    /* Extract URL from  url('...') */
     const match = raw.match(/url\(['"]?(.*?)['"]?\)/);
     const url = match ? match[1] : '';
     if (!url) { alert('No wallpaper selected. Choose one first.'); return; }
@@ -773,7 +774,7 @@ hideChatBtn.addEventListener('click', () => {
 clearHistoryBtn.addEventListener('click', () => { if (confirm('Clear all messages?')) send({type:'clear'}); });
 
 /* ════════════════════════════════════════════════════════
-   VOICE CALL  (WebSocket signaling, basic)
+   VOICE CALL 
 ════════════════════════════════════════════════════════ */
 callBtn.addEventListener('click', () => {
   if (callActive) return;
@@ -810,10 +811,9 @@ callMute.addEventListener('click', () => {
 });
 
 /* ════════════════════════════════════════════════════════
-   MUSIC SYNC — expose send after WS connects
-   _zxReceiveSync auto-applies (no need for receiver to click Sync)
+   MUSIC SYNC
 ════════════════════════════════════════════════════════ */
-window._zxSendSync = data => send(data);  // pre-wire; overwrites on open too
+window._zxSendSync = data => send(data);  
 
 /* ════════════════════════════════════════════════════════
    UTILS
