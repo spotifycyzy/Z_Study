@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   RESTORED: Original Simple Player + Visual Toast Debugging
+   FIXED: Click-to-Sync Logic & URL Protection
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -42,21 +42,20 @@
   let activeType      = 'none'; 
   let isPlaying       = false;
   let ignoreNextSync  = false; 
-  let currentTrackUrl = ''; 
+  let currentTrackUrl = ''; // 🔥 Tracks what WE are playing
+  let pendingSyncData = null; // 🔥 Stores what PARTNER is playing
 
-  /* ── TOAST NOTIFICATIONS ────────────────────────────────── */
+  /* ── TOAST LOGIC ───────────────────────────────────────── */
   function showToast(msg) {
     const t = document.createElement('div');
     t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(232,67,106,0.4);pointer-events:none;animation:fadeInOut 3s forwards;';
-    
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
     if (!document.getElementById('toastStyles')) {
       const style = document.createElement('style');
       style.id = 'toastStyles';
-      style.innerHTML = `@keyframes fadeInOut { 0% { opacity:0; transform:translate(-50%, 10px); } 10% { opacity:1; transform:translate(-50%, 0); } 90% { opacity:1; transform:translate(-50%, 0); } 100% { opacity:0; transform:translate(-50%, -10px); } }`;
+      style.innerHTML = `@keyframes fadeInOut { 0%{opacity:0;transform:translate(-50%,10px)} 10%{opacity:1;transform:translate(-50%,0)} 90%{opacity:1} 100%{opacity:0} }`;
       document.head.appendChild(style);
     }
-    
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
   }
@@ -88,14 +87,6 @@
   });
   urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') urlAddBtn.click(); });
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    addToQueue({ type: 'audio', title: file.name, url });
-    playAudio(url, file.name);
-  });
-
   /* ── YouTube ────────────────────────────────────────────── */
   ytAddBtn.addEventListener('click', () => {
     const val = ytInput.value.trim();
@@ -103,36 +94,28 @@
     loadYouTube(val);
     ytInput.value = '';
   });
-  ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytAddBtn.click(); });
 
-  function isYouTubeUrl(url) {
-    return /you/.test(url) && /tube|tu\.be/.test(url);
-  }
+  function isYouTubeUrl(url) { return /you/.test(url) && /tube|tu\.be/.test(url); }
   
   function loadYouTube(url) {
     const id = extractYouTubeId(url);
-    if (!id) return alert('Could not extract YouTube ID');
+    if (!id) return alert('Invalid YT link');
     
-    const ytDomain = 'https://www.y' + 'out' + 'ube.com';
-    const cleanUrl = ytDomain + '/watch?v=' + id;
-    const embedUrl = ytDomain + '/embed/' + id + '?autoplay=1&playsinline=1&rel=0';
+    // Fragmented URL construction to prevent chat-filter corruption
+    const ytD = 'https://www.y' + 'out' + 'ube.com';
+    currentTrackUrl = ytD + '/watch?v=' + id; 
     
-    currentTrackUrl = cleanUrl; 
-    ytFrame.src = embedUrl;
-    
+    ytFrame.src = ytD + '/embed/' + id + '?autoplay=1&rel=0&playsinline=1';
     ytFrameWrap.style.display = 'block';
     spFrameWrap.style.display = 'none';
     nativeAudio.style.display = 'none';
     activeType = 'youtube';
-    setTrackInfo('YouTube', 'Playing link');
+    setTrackInfo('YouTube', 'Live Sync Active');
     
     document.querySelector('[data-tab="youtube"]').click();
-    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url: cleanUrl });
+    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url: currentTrackUrl });
     
-    if (synced && !ignoreNextSync) {
-      showToast('🔗 Sending track to partner...');
-      broadcastSync({ action: 'youtube', url: cleanUrl });
-    }
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'youtube', url: currentTrackUrl });
     ignoreNextSync = false;
   }
   
@@ -142,47 +125,27 @@
   }
 
   /* ── Spotify ────────────────────────────────────────────── */
-  spAddBtn.addEventListener('click', () => {
-    const val = spInput.value.trim();
-    if (!val) return;
-    loadSpotify(val);
-    spInput.value = '';
-  });
-  spInput.addEventListener('keydown', e => { if (e.key === 'Enter') spAddBtn.click(); });
-
-  function isSpotifyUrl(url) { 
-    return /spo/.test(url) && /tify\.com/.test(url); 
-  }
-  
+  function isSpotifyUrl(url) { return /spo/.test(url) && /tify/.test(url); }
   function loadSpotify(url) {
-    currentTrackUrl = url; 
-    const spDomain = 'https://open.s' + 'pot' + 'ify.com';
+    currentTrackUrl = url;
+    const spD = 'https://open.s' + 'pot' + 'ify.com';
+    let embedUrl = url.includes('/embed/') ? url : url.replace(spD, spD + '/embed');
     
-    let embedUrl = url;
-    if (!url.includes('/embed/')) {
-        embedUrl = url.replace(spDomain, spDomain + '/embed');
-    }
     spFrame.src = embedUrl;
-    
     spFrameWrap.style.display = 'block';
     ytFrameWrap.style.display = 'none';
     nativeAudio.style.display = 'none';
     activeType = 'spotify';
-    setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
+    setTrackInfo('Spotify', 'Synced Session');
     
     document.querySelector('[data-tab="spotify"]').click();
-    addToQueue({ type: 'spotify', title: 'Spotify · Track', url });
-    
-    if (synced && !ignoreNextSync) {
-      showToast('🔗 Sending track to partner...');
-      broadcastSync({ action: 'spotify', url: currentTrackUrl });
-    }
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'spotify', url: currentTrackUrl });
     ignoreNextSync = false;
   }
 
   /* ── Native audio ───────────────────────────────────────── */
   function playAudio(url, title) {
-    currentTrackUrl = url; 
+    currentTrackUrl = url;
     nativeAudio.src = url;
     nativeAudio.style.display = 'block';
     ytFrameWrap.style.display = 'none';
@@ -190,162 +153,90 @@
     nativeAudio.play().catch(() => {});
     activeType = 'audio';
     setTrackInfo(title, 'Direct audio');
-    isPlaying = true;
-    updatePlayBtn();
+    isPlaying = true; updatePlayBtn();
     
-    if (synced && !ignoreNextSync) {
-      showToast('🔗 Sending track to partner...');
-      broadcastSync({ action: 'audio', url: currentTrackUrl, title, time: 0 });
-    }
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'audio', url: url, title, time: 0 });
     ignoreNextSync = false;
   }
 
-  /* ── Audio Sync Events ──────────────────────────────────── */
-  nativeAudio.addEventListener('play',  () => { 
-    isPlaying = true;  updatePlayBtn(); 
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
-  });
-  nativeAudio.addEventListener('pause', () => { 
-    isPlaying = false; updatePlayBtn(); 
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
-  });
-  nativeAudio.addEventListener('seeked', () => {
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
-  });
-  nativeAudio.addEventListener('ended', playNext);
-
-  /* ── Play / Pause Button ────────────────────────────────── */
+  /* ── Play / Pause UI ────────────────────────────────────── */
   mpPlay.addEventListener('click', () => {
     if (activeType !== 'audio') return; 
-    if (isPlaying) { nativeAudio.pause(); } else { nativeAudio.play().catch(() => {}); }
+    if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{});
   });
-
+  nativeAudio.addEventListener('play',  () => { isPlaying = true;  updatePlayBtn(); });
+  nativeAudio.addEventListener('pause', () => { isPlaying = false; updatePlayBtn(); });
   function updatePlayBtn() { mpPlay.textContent = isPlaying ? '⏸' : '▶'; }
 
-  /* ── Queue ──────────────────────────────────────────────── */
-  function addToQueue(item) {
-    queue.push(item); saveQueue(); renderQueue();
-  }
-
-  function saveQueue() {
-    try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); } catch {}
-  }
-
+  /* ── Queue Management ───────────────────────────────────── */
+  function addToQueue(item) { queue.push(item); localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); renderQueue(); }
   function renderQueue() {
-    if (queue.length === 0) {
-      queueList.innerHTML = '<p class="mp-empty">Queue is empty. Add songs from other tabs.</p>';
-      return;
-    }
+    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Empty</p>'; return; }
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      el.innerHTML = `
-        <span class="qi-type">${item.type === 'youtube' ? '▶ YT' : item.type === 'spotify' ? '♫ SP' : '🎵'}</span>
-        <span class="qi-title">${item.title}</span>
-        <button class="qi-del" data-i="${i}">✕</button>
-      `;
-      el.addEventListener('click', e => {
-        if (e.target.classList.contains('qi-del')) {
-          queue.splice(parseInt(e.target.dataset.i), 1);
-          saveQueue(); renderQueue(); return;
-        }
-        playQueueItem(i);
-      });
+      el.innerHTML = `<span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
+      el.onclick = (e) => { if(!e.target.classList.contains('qi-del')) playQueueItem(i); };
       queueList.appendChild(el);
     });
   }
+  function playQueueItem(i) { currentIdx = i; const item = queue[i]; if (item.type==='youtube') loadYouTube(item.url); else if (item.type==='spotify') loadSpotify(item.url); else playAudio(item.url, item.title); }
 
-  function playQueueItem(i) {
-    currentIdx = i; const item = queue[i]; if (!item) return;
-    if (item.type === 'audio')   playAudio(item.url, item.title);
-    if (item.type === 'youtube') loadYouTube(item.url);
-    if (item.type === 'spotify') loadSpotify(item.url);
-    renderQueue();
-  }
-
-  function playNext() {
-    if (currentIdx < queue.length - 1) playQueueItem(currentIdx + 1);
-  }
-  function playPrev() {
-    if (currentIdx > 0) playQueueItem(currentIdx - 1);
-  }
-  mpNext.addEventListener('click', playNext);
-  mpPrev.addEventListener('click', playPrev);
-
-  function setTrackInfo(title, sub) {
-    mpTitle.textContent = title;
-    mpSub.textContent   = sub;
-  }
-
-  /* ── Listen Together Sync Logic ─────────────────────────── */
+  /* ── 📡 SYNC LOGIC: CLICK TO JOIN ────────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
-    if (!currentTrackUrl) {
-      alert("Please play a song first before clicking Sync!");
+    // 🔥 If there's a track waiting from partner, play it!
+    if (pendingSyncData) {
+      const data = pendingSyncData;
+      pendingSyncData = null; // Clear it
+      mpSyncBtn.style.boxShadow = ''; // Remove glow
+      
+      if (data.action === 'youtube') loadYouTube(data.url);
+      if (data.action === 'spotify') loadSpotify(data.url);
+      if (data.action === 'audio')   playAudio(data.url, data.title);
+      
+      showToast('✅ Joined partner\'s session!');
       return;
     }
-    
+
+    // Otherwise, turn on sync and broadcast my song
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
-    mpSyncBadge.textContent = '🟢 Synced — listening together'; mpSyncBadge.classList.add('synced');
-    mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display  = 'none';
-    
-    showToast('🔗 Sync activated! Sending track to partner...');
-    
-    if (activeType === 'youtube') broadcastSync({ action: 'youtube', url: currentTrackUrl });
-    if (activeType === 'spotify') broadcastSync({ action: 'spotify', url: currentTrackUrl });
-    if (activeType === 'audio')   broadcastSync({ action: 'audio', url: currentTrackUrl, title: mpTitle.textContent, time: nativeAudio.currentTime });
+    mpSyncBadge.textContent = '🟢 Listening together';
+    mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
+
+    if (currentTrackUrl) {
+      showToast('🔗 Syncing my track to room...');
+      if (activeType === 'youtube') broadcastSync({ action: 'youtube', url: currentTrackUrl });
+      if (activeType === 'spotify') broadcastSync({ action: 'spotify', url: currentTrackUrl });
+      if (activeType === 'audio')   broadcastSync({ action: 'audio', url: currentTrackUrl, title: mpTitle.textContent });
+    }
   });
 
   mpUnsyncBtn.addEventListener('click', () => {
-    synced = false;
+    synced = false; mpSyncBtn.style.display = ''; mpSyncInfo.style.display = 'none';
     mpSyncPill.textContent = '🔴 solo'; mpSyncPill.classList.remove('synced');
-    mpSyncBadge.textContent = '🔴 Solo mode'; mpSyncBadge.classList.remove('synced');
-    mpSyncInfo.style.display = 'none'; mpSyncBtn.style.display  = '';
   });
 
-  function broadcastSync(data) {
-    if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
-  }
+  function broadcastSync(data) { if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); }
 
-  // 📡 RECEIVER: Jab dusra insaan gaana lagayega
+  // 📡 Triggered when Partner sends a song
   window._zxReceiveSync = function (data) {
-    showToast('🎵 Track received! Tap video to play.');
+    // Save the song data but DONT play it automatically (to avoid browser block)
+    pendingSyncData = data;
+    
+    // Make the Sync button glow so the user knows to click it
+    mpSyncBtn.style.boxShadow = '0 0 15px #E8436A, 0 0 30px #E8436A';
+    mpSyncBtn.innerHTML = 'Join Session 🔗';
+    
+    showToast('🎵 Partner is playing a track! Click Join to sync.');
 
+    // Auto-update UI state
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
-    mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
-    mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display  = 'none';
-
-    ignoreNextSync = true; 
-
-    if (data.action === 'youtube') { loadYouTube(data.url); }
-    if (data.action === 'spotify') { loadSpotify(data.url); }
-    if (data.action === 'audio')   { 
-      playAudio(data.url, data.title || 'Synced audio'); 
-      if(data.time) nativeAudio.currentTime = data.time;
-    }
-    
-    if (activeType === 'audio') {
-      if (data.action === 'play') {
-        if(data.time !== undefined) nativeAudio.currentTime = data.time;
-        nativeAudio.play().catch(()=>{});
-      }
-      if (data.action === 'pause') {
-        if(data.time !== undefined) nativeAudio.currentTime = data.time;
-        nativeAudio.pause();
-      }
-      if (data.action === 'seek') {
-        nativeAudio.currentTime = data.time;
-      }
-    }
-
+    ignoreNextSync = true;
     setTimeout(() => { ignoreNextSync = false; }, 500);
   };
 
-  // Init queue render
   renderQueue();
 })();
