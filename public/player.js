@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   RESTORED: Original Simple Player + Indestructible Sync
+   FIXED: Sync Memory Bug & Cross-Device Play
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -36,12 +36,13 @@
   const queueList   = document.getElementById('queueList');
 
   /* ── State ─────────────────────────────────────────────── */
-  let queue        = JSON.parse(localStorage.getItem('zx_queue') || '[]');
-  let currentIdx   = parseInt(localStorage.getItem('zx_qidx') || '0');
-  let synced       = false;
-  let activeType   = 'none'; 
-  let isPlaying    = false;
-  let ignoreNextSync = false; 
+  let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
+  let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
+  let synced          = false;
+  let activeType      = 'none'; // 'audio' | 'youtube' | 'spotify'
+  let isPlaying       = false;
+  let ignoreNextSync  = false; 
+  let currentTrackUrl = ''; // 🔥 FIX: Memory to store the active song URL
 
   /* ── Panel toggle ───────────────────────────────────────── */
   function togglePanel() { panel.classList.toggle('hidden'); }
@@ -83,23 +84,22 @@
     const val = ytInput.value.trim();
     if (!val) return;
     loadYouTube(val);
-    ytInput.value = '';
+    ytInput.value = ''; // Clears input, but currentTrackUrl remembers it!
   });
   ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytAddBtn.click(); });
 
   function isYouTubeUrl(url) {
-    return /you/.test(url) && /tube|tu\.be/.test(url);
+    return /youtube\.com|youtu\.be/.test(url);
   }
   
   function loadYouTube(url) {
     const id = extractYouTubeId(url);
     if (!id) return alert('Could not extract YouTube ID');
     
-    // Broken into pieces so filters don't corrupt your URL!
-    const ytDomain = 'https://www.you' + 'tube.com';
-    const embedUrl = ytDomain + '/embed/' + id + '?autoplay=1&rel=0';
-    
+    currentTrackUrl = url; // 🔥 Save URL so Sync button can find it later
+    const embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
     ytFrame.src = embedUrl;
+    
     ytFrameWrap.style.display = 'block';
     spFrameWrap.style.display = 'none';
     nativeAudio.style.display = 'none';
@@ -107,12 +107,9 @@
     setTrackInfo('YouTube', 'Playing link');
     
     document.querySelector('[data-tab="youtube"]').click();
+    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url, id });
     
-    // Fallback original URL format
-    const cleanUrl = ytDomain + '/watch?v=' + id;
-    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url: cleanUrl });
-    
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'youtube', url: cleanUrl });
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'youtube', url: currentTrackUrl });
     ignoreNextSync = false;
   }
   
@@ -130,11 +127,11 @@
   });
   spInput.addEventListener('keydown', e => { if (e.key === 'Enter') spAddBtn.click(); });
 
-  function isSpotifyUrl(url) { return /spo/.test(url) && /tify\.com/.test(url); }
+  function isSpotifyUrl(url) { return /spotify\.com/.test(url); }
   
   function loadSpotify(url) {
-    const spDomain = 'open.spo' + 'tify.com';
-    const embedUrl = url.includes('/embed/') ? url : url.replace(spDomain, spDomain + '/embed');
+    currentTrackUrl = url; // 🔥 Save URL
+    const embedUrl = url.includes('/embed/') ? url : url.replace('https://open.spotify.com/', 'https://open.spotify.com/embed/');
     spFrame.src = embedUrl;
     
     spFrameWrap.style.display = 'block';
@@ -143,14 +140,15 @@
     activeType = 'spotify';
     setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
     document.querySelector('[data-tab="spotify"]').click();
-    addToQueue({ type: 'spotify', title: 'Spotify · ' + url.split('/').pop(), url });
+    addToQueue({ type: 'spotify', title: 'Spotify · Track', url });
     
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'spotify', url: url });
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'spotify', url: currentTrackUrl });
     ignoreNextSync = false;
   }
 
   /* ── Native audio ───────────────────────────────────────── */
   function playAudio(url, title) {
+    currentTrackUrl = url; // 🔥 Save URL
     nativeAudio.src = url;
     nativeAudio.style.display = 'block';
     ytFrameWrap.style.display = 'none';
@@ -161,11 +159,10 @@
     isPlaying = true;
     updatePlayBtn();
     
-    if (synced && !ignoreNextSync) broadcastSync({ action: 'audio', url: url, title, time: 0 });
+    if (synced && !ignoreNextSync) broadcastSync({ action: 'audio', url: currentTrackUrl, title, time: 0 });
     ignoreNextSync = false;
   }
 
-  /* ── Audio Sync Events ──────────────────────────────────── */
   nativeAudio.addEventListener('play',  () => { 
     isPlaying = true;  updatePlayBtn(); 
     if (synced && !ignoreNextSync) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
@@ -248,26 +245,20 @@
 
   /* ── Listen Together Sync Logic ─────────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
-    // Completely removed the alert. It just forces the sync to turn on now.
+    if (!currentTrackUrl) {
+      alert("Please play a song first before clicking Sync!");
+      return;
+    }
+    
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Synced — listening together'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display  = 'none';
     
-    // Grabs the exact URL straight from the active DOM elements
-    if (activeType === 'youtube') {
-      const match = ytFrame.src.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
-      const vidId = match ? match[1] : extractYouTubeId(ytInput.value);
-      if (vidId) {
-        broadcastSync({ action: 'youtube', url: 'https://www.you' + 'tube.com/watch?v=' + vidId });
-      }
-    }
-    if (activeType === 'spotify') {
-      broadcastSync({ action: 'spotify', url: spFrame.src });
-    }
-    if (activeType === 'audio') {
-      broadcastSync({ action: 'audio', url: nativeAudio.src, title: mpTitle.textContent, time: nativeAudio.currentTime });
-    }
+    // 🔥 Send the saved URL to the other phone
+    if (activeType === 'youtube') broadcastSync({ action: 'youtube', url: currentTrackUrl });
+    if (activeType === 'spotify') broadcastSync({ action: 'spotify', url: currentTrackUrl });
+    if (activeType === 'audio')   broadcastSync({ action: 'audio', url: currentTrackUrl, title: mpTitle.textContent, time: nativeAudio.currentTime });
   });
 
   mpUnsyncBtn.addEventListener('click', () => {
@@ -281,14 +272,14 @@
     if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
   }
 
-  // 📡 RECEIVER: Jab dusra insaan gaana lagayega
+  // 📡 RECEIVER: Jab dusra insaan gaana lagayega ya sync dabayega
   window._zxReceiveSync = function (data) {
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display  = 'none';
 
-    ignoreNextSync = true;
+    ignoreNextSync = true; // Prevents infinite echo loop
 
     if (data.action === 'youtube') { loadYouTube(data.url); }
     if (data.action === 'spotify') { loadSpotify(data.url); }
@@ -297,6 +288,7 @@
       if(data.time) nativeAudio.currentTime = data.time;
     }
     
+    // Play/Pause/Seek sync for local audio files
     if (activeType === 'audio') {
       if (data.action === 'play') {
         if(data.time !== undefined) nativeAudio.currentTime = data.time;
@@ -311,6 +303,7 @@
       }
     }
 
+    // Safety timeout
     setTimeout(() => { ignoreNextSync = false; }, 500);
   };
 
