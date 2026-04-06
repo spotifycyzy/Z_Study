@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX CHAT — chat.js  (Render WebSockets + Firebase Ready)
+   ZEROX CHAT — chat.js  (Render WebSockets + Firebase Engine)
 ═══════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 // Your Firebase Configuration
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 'use strict';
 
@@ -153,8 +155,8 @@ let myId        = 'u_' + Math.random().toString(36).slice(2);
 let connected   = false;
 let typingTimer = null;
 let isTyping    = false;
-let replyTo     = null;       // { id, name, text }
-let allMessages = {};         // msgId → full message object
+let replyTo     = null;       
+let allMessages = {};         
 let mediaRecorder = null;
 let audioChunks   = [];
 let isRecording   = false;
@@ -174,13 +176,10 @@ window._chatUnlock = function() {
 ════════════════════════════════════════════════════════ */
 nameInput.value = localStorage.getItem('zerox_name') || '';
 
-/* Restore custom background from localStorage on load */
 (function() {
   const custom = localStorage.getItem('zerox_custom_bg');
   const idx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
-  if (custom && idx === -1) {
-    /* Will be applied once chatWindow exists — deferred to enterChat */
-  }
+  if (custom && idx === -1) { /* Deferred */ }
 })();
 
 enterChatBtn.addEventListener('click', enterChat);
@@ -196,7 +195,8 @@ function enterChat() {
   chatMain.classList.remove('hidden');
   spawnChatBlossoms();
   connectWS();
-  /* Restore custom bg after chatWindow is visible */
+  listenToFirebase(); // 🔥 FIREBASE HISTORY ENGINE START
+  
   const _customBg = localStorage.getItem('zerox_custom_bg');
   const _wpIdx    = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
   if (_customBg && _wpIdx === -1) applyWallpaperDirect(_customBg);
@@ -213,7 +213,6 @@ function spawnChatBlossoms() {
     p.style.cssText=`left:${Math.random()*110-5}%;width:${w}px;height:${w*(1.3+Math.random()*0.6)}px;background:${COLS[i%COLS.length]};--bx:${bx}px;animation-duration:${7+Math.random()*11}s;animation-delay:${Math.random()*-20}s;filter:blur(${0.15+Math.random()*0.5}px);border-radius:${rx1}% ${rx2}% ${rx1}% ${rx2}% / 50% 20% 50% 20%;position:absolute;opacity:0;animation-name:blossomFall;animation-timing-function:linear;animation-iteration-count:infinite`;
     c.appendChild(p);
   }
-  /* Sparkles */
   let sp = document.getElementById('chatSparkles');
   if (!sp) { sp=document.createElement('div'); sp.id='chatSparkles'; document.getElementById('chatApp').appendChild(sp); }
   sp.innerHTML='';
@@ -227,113 +226,67 @@ function spawnChatBlossoms() {
 }
 
 /* ════════════════════════════════════════════════════════
-   WEBSOCKET (Connected exactly to Render)
+   🔥 FIREBASE DATABASE LISTENER (Replaces WS History)
+════════════════════════════════════════════════════════ */
+function listenToFirebase() {
+  const q = query(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), orderBy("timestamp", "asc"));
+  onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      const data = change.doc.data();
+      data.id = change.doc.id; // Assign Firebase ID
+      if (!data.ts) data.ts = Date.now(); 
+
+      if (change.type === "added") {
+        allMessages[data.id] = data;
+        renderMessage(data);
+        scrollBottom();
+      }
+      if (change.type === "modified") {
+        allMessages[data.id] = data;
+        if (data.deleted) handleDeleteMsgUI(data.id);
+        if (data.reactions) handleReactionUI(data.id, data.reactions);
+      }
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════
+   WEBSOCKET (Live Signals Only)
 ════════════════════════════════════════════════════════ */
 function connectWS() {
-  // Pointing straight to your Render backend
   ws = new WebSocket('wss://z-study.onrender.com');
-  
   ws.addEventListener('open', () => {
     connected = true;
-    console.log("✅ Connected to Render WebSocket");
     ws.send(JSON.stringify({ type:'join', room:ZEROX_CONFIG.roomId, name:myName }));
-    // Wire music sync now that WS is open
     window._zxSendSync = data => sendRaw(data);
   });
-  
   ws.addEventListener('message', e => {
     let msg; try { msg=JSON.parse(e.data); } catch { return; }
     handleIncoming(msg);
   });
-  
   ws.addEventListener('close', () => { 
-    connected=false; 
-    console.log("Disconnected. Retrying...");
-    setTimeout(connectWS,3000); 
-  });
-  
-  ws.addEventListener('error', (err) => {
-    console.error("WebSocket Error:", err);
-    ws.close();
+    connected=false; setTimeout(connectWS,3000); 
   });
 }
 
-function sendRaw(obj) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
-}
-function send(obj) {
-  if (connected) sendRaw(obj);
-}
+function sendRaw(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function send(obj) { if (connected) sendRaw(obj); }
 
 /* ════════════════════════════════════════════════════════
-   INCOMING MESSAGES
+   INCOMING WS MESSAGES (Skipping chat messages to avoid duplicates)
 ════════════════════════════════════════════════════════ */
 function handleIncoming(msg) {
   switch (msg.type) {
-    case 'history':
-      messagesInner.innerHTML = '';
-      allMessages = {};
-      msg.messages.forEach(m => { allMessages[m.id] = m; renderMessage(m); });
-      scrollBottom();
-      /* Apply server-stored default background if set */
-      if (msg.defaultBg) applyDefaultBg(msg.defaultBg);
-      break;
-
-    case 'message':
-    case 'sticker':
-    case 'media':
-    case 'voice':
-      allMessages[msg.id] = msg;
-      renderMessage(msg);
-      scrollBottom();
-      break;
-
-    case 'system':
-      renderSystem(msg.text);
-      scrollBottom();
-      break;
-
-    case 'typing':
-      if (msg.name !== myName) typingBar.textContent = msg.active ? `${msg.name} is typing…` : '';
-      break;
-
-    case 'online':
-      chatOnline.textContent  = `● ${msg.count} online`;
-      sidebarOnline.textContent = `● ${msg.count} online`;
-      break;
-
-    case 'cleared':
-      messagesInner.innerHTML = '';
-      allMessages = {};
-      renderSystem('History cleared');
-      break;
-
-    /* Server-side default background set by admin */
-    case 'defaultBg':
-      applyDefaultBg(msg.url || '');
-      break;
-
-    /* Personal wallpaper synced from other client */
-    case 'wallpaperSync':
-      applyWallpaperDirect(msg.data?.url || '');
-      break;
-
-    case 'reaction':
-      handleReaction(msg);
-      break;
-
-    case 'deleteMsg':
-      handleDeleteMsg(msg.msgId);
-      break;
-
-    case 'musicSync':
-      // Auto-apply sync — receiver doesn't need to click Sync button
-      if (window._zxReceiveSync) window._zxReceiveSync(msg);
-      break;
-
+    case 'system': renderSystem(msg.text); scrollBottom(); break;
+    case 'typing': if (msg.name !== myName) typingBar.textContent = msg.active ? `${msg.name} is typing…` : ''; break;
+    case 'online': chatOnline.textContent  = `● ${msg.count} online`; sidebarOnline.textContent = `● ${msg.count} online`; break;
+    case 'cleared': messagesInner.innerHTML = ''; allMessages = {}; renderSystem('History cleared'); break;
+    case 'defaultBg': applyDefaultBg(msg.url || ''); break;
+    case 'wallpaperSync': applyWallpaperDirect(msg.data?.url || ''); break;
+    case 'musicSync': if (window._zxReceiveSync) window._zxReceiveSync(msg); break;
     case 'callRequest': handleIncomingCall(msg); break;
-    case 'callAccept':  startCallAudio();         break;
-    case 'callEnd':     endCall(false);           break;
+    case 'callAccept':  startCallAudio(); break;
+    case 'callEnd':     endCall(false); break;
   }
 }
 
@@ -343,6 +296,8 @@ function handleIncoming(msg) {
 const REACT_EMOJIS = ['❤️','😂','😮','😢','👍','🔥','💗','✨','😍','🥺','😭','🤣'];
 
 function renderMessage(msg) {
+  if (document.querySelector(`[data-id="${msg.id}"]`)) return; // Prevent duplicates
+
   const mine    = msg.name === myName;
   const row     = document.createElement('div');
   row.className = `msg-row ${mine ? 'mine' : 'theirs'}`;
@@ -362,7 +317,9 @@ function renderMessage(msg) {
 
   /* Bubble content */
   let bubble = '';
-  if (msg.type === 'sticker') {
+  if (msg.deleted) {
+    bubble = `<div class="msg-bubble"><em style="opacity:0.35;font-size:12px">Message deleted</em></div>`;
+  } else if (msg.type === 'sticker') {
     bubble = `<div class="msg-bubble msg-sticker">${msg.emoji || ''}</div>`;
   } else if (msg.type === 'media') {
     bubble = buildMediaBubble(msg, replyHtml);
@@ -372,7 +329,6 @@ function renderMessage(msg) {
     bubble = `<div class="msg-bubble">${replyHtml}${linkify(escapeHtml(msg.text || ''))}</div>`;
   }
 
-  /* Reactions */
   const reactHtml = buildReactionsHtml(msg.reactions || {});
 
   row.innerHTML = `
@@ -384,9 +340,8 @@ function renderMessage(msg) {
       <div class="msg-time">${timeStr}</div>
     </div>`;
 
-  /* Attach context menu */
   const bEl = row.querySelector('.msg-bubble, .msg-sticker, .msg-media, .msg-file, .msg-voice');
-  if (bEl) attachCtxMenu(bEl, msg, mine);
+  if (bEl && !msg.deleted) attachCtxMenu(bEl, msg, mine);
 
   messagesInner.appendChild(row);
 }
@@ -395,9 +350,7 @@ function buildReactionsHtml(reactions) {
   const counts = {};
   Object.values(reactions).forEach(e => { counts[e] = (counts[e]||0)+1; });
   if (!Object.keys(counts).length) return '';
-  return Object.entries(counts)
-    .map(([e,n]) => `<span class="reaction-pill">${e}<span class="r-count">${n}</span></span>`)
-    .join('');
+  return Object.entries(counts).map(([e,n]) => `<span class="reaction-pill">${e}<span class="r-count">${n}</span></span>`).join('');
 }
 
 function buildMediaBubble(msg, replyHtml='') {
@@ -436,23 +389,18 @@ window.toggleVoice = function(vid, url) {
       if (dur) dur.textContent = fmtDur(audio.currentTime);
       if (audio.ended) { clearInterval(iv); if (btn) btn.textContent='▶'; }
     }, 200);
-  } else {
-    audio.pause();
-    if (btn) btn.textContent = '▶';
-  }
+  } else { audio.pause(); if (btn) btn.textContent = '▶'; }
 };
 function fmtDur(s) { const m=Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
 
 function renderSystem(text) {
-  const el = document.createElement('div');
-  el.className = 'msg-system';
-  el.textContent = text;
+  const el = document.createElement('div'); el.className = 'msg-system'; el.textContent = text;
   messagesInner.appendChild(el);
 }
 function scrollBottom() { requestAnimationFrame(() => { messagesArea.scrollTop = messagesArea.scrollHeight; }); }
 
 /* ════════════════════════════════════════════════════════
-   CONTEXT MENU  (right-click or long-press)
+   CONTEXT MENU & FIREBASE UPDATES
 ════════════════════════════════════════════════════════ */
 function attachCtxMenu(el, msg, mine) {
   let pressTimer;
@@ -466,144 +414,129 @@ function attachCtxMenu(el, msg, mine) {
 function showCtxMenu(x, y, msg, mine) {
   document.querySelectorAll('.ctx-menu, .reaction-picker').forEach(el => el.remove());
 
-  /* ── Reaction picker ── */
-  const rp = document.createElement('div');
-  rp.className = 'reaction-picker';
+  const rp = document.createElement('div'); rp.className = 'reaction-picker';
   REACT_EMOJIS.forEach(em => {
-    const s = document.createElement('span');
-    s.className = 'react-emoji';
-    s.textContent = em;
-    s.addEventListener('click', () => {
-      send({ type:'reaction', msgId:msg.id, emoji:em, userId:myId, name:myName });
+    const s = document.createElement('span'); s.className = 'react-emoji'; s.textContent = em;
+    s.addEventListener('click', async () => {
       closeMenus();
+      try {
+        const docRef = doc(db, "rooms", ZEROX_CONFIG.roomId, "messages", msg.id);
+        const newReactions = { ...(msg.reactions || {}) }; newReactions[myId] = em;
+        await updateDoc(docRef, { reactions: newReactions });
+      } catch(e){}
     });
     rp.appendChild(s);
   });
-  /* position reaction picker above the tap point */
-  const rpX = Math.min(x, window.innerWidth - 240);
-  const rpY = Math.max(y - 90, 60);
-  rp.style.cssText = `left:${rpX}px;top:${rpY}px`;
+  rp.style.cssText = `left:${Math.min(x, window.innerWidth-240)}px;top:${Math.max(y-90, 60)}px`;
   document.body.appendChild(rp);
 
-  /* ── Context menu ── */
-  const ctx = document.createElement('div');
-  ctx.className = 'ctx-menu';
+  const ctx = document.createElement('div'); ctx.className = 'ctx-menu';
   const items = [
     { icon:'↩', label:'Reply',  action: () => startReply(msg) },
     { icon:'📋', label:'Copy',  action: () => navigator.clipboard?.writeText(msg.text||'') },
-    ...(mine ? [{ icon:'🗑', label:'Delete', danger:true, action: () => send({type:'deleteMsg',msgId:msg.id}) }] : []),
+    ...(mine ? [{ icon:'🗑', label:'Delete', danger:true, action: async () => {
+      try {
+        const docRef = doc(db, "rooms", ZEROX_CONFIG.roomId, "messages", msg.id);
+        await updateDoc(docRef, { deleted: true });
+      } catch(e){}
+    } }] : []),
   ];
   items.forEach(item => {
-    const d = document.createElement('div');
-    d.className = 'ctx-item' + (item.danger ? ' danger' : '');
+    const d = document.createElement('div'); d.className = 'ctx-item' + (item.danger ? ' danger' : '');
     d.innerHTML = `<span>${item.icon}</span> ${item.label}`;
     d.addEventListener('click', () => { item.action(); closeMenus(); });
     ctx.appendChild(d);
   });
-  const ctxX = Math.min(x, window.innerWidth - 180);
-  const ctxY = Math.min(y + 4, window.innerHeight - 160);
-  ctx.style.cssText = `left:${ctxX}px;top:${ctxY}px`;
+  ctx.style.cssText = `left:${Math.min(x, window.innerWidth-180)}px;top:${Math.min(y+4, window.innerHeight-160)}px`;
   document.body.appendChild(ctx);
 
   function closeMenus() { rp.remove(); ctx.remove(); }
   setTimeout(() => document.addEventListener('pointerdown', closeMenus, { once:true }), 80);
 }
 
-/* ════════════════════════════════════════════════════════
-   REPLY
-════════════════════════════════════════════════════════ */
-function startReply(msg) {
-  replyTo = msg;
-  replyBar.classList.add('active');
-  replyBarText.textContent = `${msg.name}: ${(msg.text||'[media]').slice(0,80)}`;
-  msgInput.focus();
-}
-replyBarCancel.addEventListener('click', () => { replyTo=null; replyBar.classList.remove('active'); });
-
-/* ════════════════════════════════════════════════════════
-   REACTIONS 
-════════════════════════════════════════════════════════ */
-function handleReaction(msg) {
-  const stored = allMessages[msg.msgId];
-  if (!stored) return;
-  if (!stored.reactions) stored.reactions = {};
-  stored.reactions[msg.userId] = msg.emoji;
-
-  const row = messagesInner.querySelector(`[data-id="${msg.msgId}"]`);
-  if (!row) return;
+function handleReactionUI(msgId, reactions) {
+  const row = messagesInner.querySelector(`[data-id="${msgId}"]`); if (!row) return;
   let wrap = row.querySelector('.msg-reactions-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'msg-reactions-wrap';
-    row.querySelector('.msg-bubble-wrap').insertBefore(wrap, row.querySelector('.msg-time'));
-  }
-  wrap.innerHTML = buildReactionsHtml(stored.reactions);
+  if (!wrap) { wrap = document.createElement('div'); wrap.className = 'msg-reactions-wrap'; row.querySelector('.msg-bubble-wrap').insertBefore(wrap, row.querySelector('.msg-time')); }
+  wrap.innerHTML = buildReactionsHtml(reactions);
 }
 
-/* ════════════════════════════════════════════════════════
-   DELETE
-════════════════════════════════════════════════════════ */
-function handleDeleteMsg(msgId) {
+function handleDeleteMsgUI(msgId) {
   const row = messagesInner.querySelector(`[data-id="${msgId}"]`);
   if (row) {
     const b = row.querySelector('.msg-bubble');
     if (b) b.innerHTML = '<em style="opacity:0.35;font-size:12px">Message deleted</em>';
+    const bEl = row.querySelector('.msg-bubble'); // Remove listeners
+    if (bEl) { const clone = bEl.cloneNode(true); bEl.parentNode.replaceChild(clone, bEl); }
   }
-  if (allMessages[msgId]) allMessages[msgId].deleted = true;
 }
 
 /* ════════════════════════════════════════════════════════
-   SEND MESSAGE
+   REPLY
+════════════════════════════════════════════════════════ */
+function startReply(msg) {
+  replyTo = msg; replyBar.classList.add('active');
+  replyBarText.textContent = `${msg.name}: ${(msg.text||'[media]').slice(0,80)}`; msgInput.focus();
+}
+replyBarCancel.addEventListener('click', () => { replyTo=null; replyBar.classList.remove('active'); });
+
+/* ════════════════════════════════════════════════════════
+   SEND MESSAGE (Firebase Engine)
 ════════════════════════════════════════════════════════ */
 sendBtn.addEventListener('click', sendMsg);
 msgInput.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
 msgInput.addEventListener('input', () => {
-  msgInput.style.height = 'auto';
-  msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+  msgInput.style.height = 'auto'; msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
   handleTyping();
 });
 
-function sendMsg() {
+async function sendMsg() {
   const text = msgInput.value.trim();
-  if (!text || !connected) return;
-  const payload = { type:'message', text };
+  if (!text) return;
+  
+  const payload = { type:'message', text, name: myName, ts: Date.now(), timestamp: serverTimestamp() };
   if (replyTo) payload.replyTo = replyTo.id;
-  send(payload);
+
   msgInput.value = ''; msgInput.style.height = 'auto';
   replyTo = null; replyBar.classList.remove('active');
   stopTyping();
+
+  try { await addDoc(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), payload); } catch(e) { console.error(e); }
 }
 
 function handleTyping() {
   if (!isTyping) { isTyping=true; send({type:'typing',active:true}); }
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(stopTyping, 1800);
+  clearTimeout(typingTimer); typingTimer = setTimeout(stopTyping, 1800);
 }
-function stopTyping() {
-  if (!isTyping) return; isTyping=false; send({type:'typing',active:false});
-}
+function stopTyping() { if (!isTyping) return; isTyping=false; send({type:'typing',active:false}); }
 
 /* ════════════════════════════════════════════════════════
-   MEDIA / FILE
+   MEDIA / FILE (Firebase Storage)
 ════════════════════════════════════════════════════════ */
 attachBtn.addEventListener('click', () => mediaInput.click());
-mediaInput.addEventListener('change', () => {
+mediaInput.addEventListener('change', async () => {
   const file = mediaInput.files[0]; if (!file) return;
   if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    send({ type:'media', mediaUrl:e.target.result, mediaType:file.type,
-           fileName:file.name, fileSize:fmtSize(file.size),
-           replyTo: replyTo?.id || null });
-    replyTo = null; replyBar.classList.remove('active');
-  };
-  reader.readAsDataURL(file);
-  mediaInput.value = '';
+
+  const toast = document.createElement('div'); toast.className = 'msg-system'; toast.textContent = `Uploading ${file.name}...`;
+  messagesInner.appendChild(toast); scrollBottom();
+
+  const fileRef = ref(storage, `chat_media/${Date.now()}_${file.name}`);
+  const uploadTask = uploadBytesResumable(fileRef, file);
+
+  uploadTask.on('state_changed', null, (err) => console.error(err), async () => {
+    const url = await getDownloadURL(uploadTask.snapshot.ref);
+    await addDoc(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), {
+      type:'media', mediaUrl:url, mediaType:file.type, fileName:file.name, fileSize:fmtSize(file.size), name:myName, ts:Date.now(), timestamp:serverTimestamp(), replyTo:replyTo?.id||null
+    });
+    toast.remove();
+  });
+  mediaInput.value = ''; replyTo = null; replyBar.classList.remove('active');
 });
 function fmtSize(b) { if (b<1024) return b+'B'; if (b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 
 /* ════════════════════════════════════════════════════════
-   VOICE NOTES
+   VOICE NOTES (Firebase Storage)
 ════════════════════════════════════════════════════════ */
 voiceBtn.addEventListener('pointerdown', e => { e.preventDefault(); startRec(); });
 voiceBtn.addEventListener('pointerup',     stopRec);
@@ -611,8 +544,7 @@ voiceBtn.addEventListener('pointercancel', stopRec);
 
 function startRec() {
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
-    audioChunks = []; isRecording = true;
-    voiceBtn.classList.add('recording');
+    audioChunks = []; isRecording = true; voiceBtn.classList.add('recording');
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
     mediaRecorder.start();
@@ -622,12 +554,24 @@ function stopRec() {
   if (!isRecording || !mediaRecorder) return;
   isRecording = false; voiceBtn.classList.remove('recording');
   const startTs = Date.now();
-  mediaRecorder.onstop = () => {
+  mediaRecorder.onstop = async () => {
     const dur = fmtDur((Date.now()-startTs)/1000);
     const blob = new Blob(audioChunks, {type:'audio/webm'});
-    const reader = new FileReader();
-    reader.onload = e => send({ type:'voice', audioUrl:e.target.result, duration:dur, replyTo:replyTo?.id||null });
-    reader.readAsDataURL(blob);
+    
+    const toast = document.createElement('div'); toast.className = 'msg-system'; toast.textContent = `Uploading voice note...`;
+    messagesInner.appendChild(toast); scrollBottom();
+
+    const fileRef = ref(storage, `chat_voice/${Date.now()}.webm`);
+    const uploadTask = uploadBytesResumable(fileRef, blob);
+
+    uploadTask.on('state_changed', null, (err) => console.error(err), async () => {
+      const url = await getDownloadURL(uploadTask.snapshot.ref);
+      await addDoc(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), {
+        type:'voice', audioUrl:url, duration:dur, name:myName, ts:Date.now(), timestamp:serverTimestamp(), replyTo:replyTo?.id||null
+      });
+      toast.remove();
+    });
+
     mediaRecorder.stream.getTracks().forEach(t=>t.stop());
     replyTo=null; replyBar.classList.remove('active');
   };
@@ -642,22 +586,19 @@ const allPacks  = [...ZEROX_CONFIG.stickerPacks, extraPack];
 
 stickerTabs.innerHTML = '';
 allPacks.forEach((pack, i) => {
-  const tab = document.createElement('div');
-  tab.className = `sticker-tab${i===0?' active':''}`;
-  tab.textContent = pack.name;
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.sticker-tab').forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    renderStickers(i);
-  });
+  const tab = document.createElement('div'); tab.className = `sticker-tab${i===0?' active':''}`; tab.textContent = pack.name;
+  tab.addEventListener('click', () => { document.querySelectorAll('.sticker-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); renderStickers(i); });
   stickerTabs.appendChild(tab);
 });
 function renderStickers(idx) {
   stickerGrid.innerHTML = '';
   allPacks[idx].stickers.forEach(s => {
-    const el = document.createElement('div');
-    el.className = 'sticker-item'; el.textContent = s;
-    el.addEventListener('click', () => { send({type:'sticker',emoji:s}); stickerPicker.classList.add('hidden'); });
+    const el = document.createElement('div'); el.className = 'sticker-item'; el.textContent = s;
+    el.addEventListener('click', async () => { 
+      stickerPicker.classList.add('hidden'); 
+      try { await addDoc(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), { type:'sticker', emoji:s, name:myName, ts:Date.now(), timestamp:serverTimestamp(), replyTo:replyTo?.id||null }); } catch(e){}
+      replyTo=null; replyBar.classList.remove('active');
+    });
     stickerGrid.appendChild(el);
   });
 }
@@ -683,8 +624,7 @@ function applyTheme(t) {
   localStorage.setItem('zerox_theme', t.name);
 }
 THEMES.forEach((t,i) => {
-  const sw = document.createElement('div');
-  sw.className = 'theme-swatch'; sw.style.background = t.swatch; sw.title = t.name;
+  const sw = document.createElement('div'); sw.className = 'theme-swatch'; sw.style.background = t.swatch; sw.title = t.name;
   sw.addEventListener('click', () => { document.querySelectorAll('.theme-swatch').forEach(s=>s.classList.remove('active')); sw.classList.add('active'); applyTheme(t); });
   themeSwatches.appendChild(sw);
   const saved = localStorage.getItem('zerox_theme');
@@ -703,43 +643,24 @@ function setWallpaper(url, idx) {
 }
 ZEROX_CONFIG.wallpapers.forEach((url, i) => {
   const thumb = document.createElement('div'); thumb.className='wallpaper-thumb';
-  if (!url) { thumb.classList.add('wp-none'); thumb.textContent='🚫'; }
-  else thumb.style.backgroundImage = `url('${url}')`;
-  thumb.addEventListener('click', () => setWallpaper(url, i));
-  wallpaperGrid.appendChild(thumb);
+  if (!url) { thumb.classList.add('wp-none'); thumb.textContent='🚫'; } else thumb.style.backgroundImage = `url('${url}')`;
+  thumb.addEventListener('click', () => setWallpaper(url, i)); wallpaperGrid.appendChild(thumb);
 });
-/* Restore saved personal wallpaper */
 const _savedWpIdx = parseInt(localStorage.getItem('zerox_wallpaper') || '0');
 setWallpaper(ZEROX_CONFIG.wallpapers[_savedWpIdx] || '', _savedWpIdx);
 
-/* Apply a wallpaper URL directly (used by defaultBg and wallpaperSync) */
 function applyWallpaperDirect(url) {
   chatWindow.style.setProperty('--wallpaper-url', url ? `url('${url}')` : 'none');
-  /* Persist locally */
-  if (url) {
-    localStorage.setItem('zerox_custom_bg', url);
-    localStorage.setItem('zerox_wallpaper', '-1');
-  }
+  if (url) { localStorage.setItem('zerox_custom_bg', url); localStorage.setItem('zerox_wallpaper', '-1'); }
 }
-
-/* Apply default background set by admin — overrides personal choice */
 function applyDefaultBg(url) {
-  applyWallpaperDirect(url);
-  /* Update UI: deselect all preset thumbs since a custom one is active */
-  document.querySelectorAll('.wallpaper-thumb').forEach(t => t.classList.remove('active'));
+  applyWallpaperDirect(url); document.querySelectorAll('.wallpaper-thumb').forEach(t => t.classList.remove('active'));
 }
 
-/* Custom background upload */
 customBgInput.addEventListener('change', () => {
   const file = customBgInput.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
-    /* Apply locally */
-    applyWallpaperDirect(dataUrl);
-    /* Sync to other client immediately */
-    send({ type: 'wallpaperSync', data: { url: dataUrl } });
-  };
+  reader.onload = e => { const dataUrl = e.target.result; applyWallpaperDirect(dataUrl); send({ type: 'wallpaperSync', data: { url: dataUrl } }); };
   reader.readAsDataURL(file);
 });
 
@@ -751,24 +672,18 @@ closeSidebar.addEventListener('click', () => chatSidebar.classList.remove('open'
 
 (function() {
   const wpSection = wallpaperGrid.parentElement; 
-  const setDefaultBtn = document.createElement('button');
-  setDefaultBtn.className = 'set-default-bg-btn';
-  setDefaultBtn.innerHTML = '🌐 Set background for everyone';
-  setDefaultBtn.title = 'Broadcasts your current wallpaper to all users. New visitors will also see it.';
+  const setDefaultBtn = document.createElement('button'); setDefaultBtn.className = 'set-default-bg-btn'; setDefaultBtn.innerHTML = '🌐 Set background for everyone'; setDefaultBtn.title = 'Broadcasts your current wallpaper to all users.';
   setDefaultBtn.addEventListener('click', () => {
     const raw = chatWindow.style.getPropertyValue('--wallpaper-url') || '';
-    const match = raw.match(/url\(['"]?(.*?)['"]?\)/);
-    const url = match ? match[1] : '';
-    if (!url) { alert('No wallpaper selected. Choose one first.'); return; }
+    const match = raw.match(/url\(['"]?(.*?)['"]?\)/); const url = match ? match[1] : '';
+    if (!url) return alert('No wallpaper selected.');
     send({ type: 'setBg', url });
-    setDefaultBtn.textContent = '✓ Set for everyone!';
-    setTimeout(() => { setDefaultBtn.innerHTML = '🌐 Set background for everyone'; }, 2500);
+    setDefaultBtn.textContent = '✓ Set for everyone!'; setTimeout(() => { setDefaultBtn.innerHTML = '🌐 Set background for everyone'; }, 2500);
   });
   wpSection.appendChild(setDefaultBtn);
 })();
 hideChatBtn.addEventListener('click', () => {
-  chatApp.classList.remove('visible');
-  setTimeout(() => chatApp.classList.add('hidden'), 400);
+  chatApp.classList.remove('visible'); setTimeout(() => chatApp.classList.add('hidden'), 400);
   if (ws) { ws.close(); connected=false; ws=null; }
 });
 clearHistoryBtn.addEventListener('click', () => { if (confirm('Clear all messages?')) send({type:'clear'}); });
@@ -779,19 +694,13 @@ clearHistoryBtn.addEventListener('click', () => { if (confirm('Clear all message
 callBtn.addEventListener('click', () => {
   if (callActive) return;
   send({ type:'callRequest', name:myName });
-  callName.textContent = 'Calling…';
-  callStatus.textContent = 'ringing…';
-  callAvatar.textContent = myName[0]?.toUpperCase() || '?';
-  callOverlay.classList.remove('hidden');
-  callActive = true;
+  callName.textContent = 'Calling…'; callStatus.textContent = 'ringing…'; callAvatar.textContent = myName[0]?.toUpperCase() || '?';
+  callOverlay.classList.remove('hidden'); callActive = true;
 });
 function handleIncomingCall(msg) {
   if (callActive) return;
-  callName.textContent   = msg.name;
-  callStatus.textContent = '📞 Incoming — connecting…';
-  callAvatar.textContent = (msg.name||'?')[0].toUpperCase();
-  callOverlay.classList.remove('hidden');
-  callActive = true;
+  callName.textContent   = msg.name; callStatus.textContent = '📞 Incoming — connecting…'; callAvatar.textContent = (msg.name||'?')[0].toUpperCase();
+  callOverlay.classList.remove('hidden'); callActive = true;
   setTimeout(() => { send({type:'callAccept'}); startCallAudio(); }, 400);
 }
 function startCallAudio() {
@@ -811,16 +720,7 @@ callMute.addEventListener('click', () => {
 });
 
 /* ════════════════════════════════════════════════════════
-   MUSIC SYNC
-════════════════════════════════════════════════════════ */
-window._zxSendSync = data => send(data);  
-
-/* ════════════════════════════════════════════════════════
    UTILS
 ════════════════════════════════════════════════════════ */
-function escapeHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function linkify(s) {
-  return s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--c-blush)">$1</a>');
-}
+function escapeHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function linkify(s) { return s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--c-blush)">$1</a>'); }
