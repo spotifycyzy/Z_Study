@@ -1,12 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   Upgraded: Background Play, YT Search/Shield, Deep Sync
+   Fixes: Ghost Search API, Android Lock-Screen Background Play
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
   /* ── DOM ───────────────────────────────────────────────── */
-  const bar         = document.getElementById('musicBar');
   const panel       = document.getElementById('musicPanel');
   const mpTitle     = document.getElementById('mpTitle');
   const mpSub       = document.getElementById('mpSub');
@@ -42,7 +41,7 @@
   let isPlaying    = false;
   let ytPlayer     = null;
   let isYtReady    = false;
-  let ignoreNextSync = false; // Prevents infinite sync loops
+  let ignoreNextSync = false;
 
   /* ── Panel toggle ───────────────────────────────────────── */
   function togglePanel() { panel.classList.toggle('hidden'); }
@@ -60,7 +59,7 @@
     });
   });
 
-  /* ── Background Play (MediaSession API) ─────────────────── */
+  /* ── Android/iOS Background Lock-Screen Audio ───────────── */
   function updateMediaSession(title, artist) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -68,8 +67,8 @@
         artist: artist || 'Private Session',
         artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png', sizes: '512x512', type: 'image/png' }]
       });
-      navigator.mediaSession.setActionHandler('play', playCurrent);
-      navigator.mediaSession.setActionHandler('pause', pauseCurrent);
+      navigator.mediaSession.setActionHandler('play', () => playCurrent(false));
+      navigator.mediaSession.setActionHandler('pause', () => pauseCurrent(false));
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
@@ -98,8 +97,7 @@
 
   /* ── URL / local add ────────────────────────────────────── */
   urlAddBtn.addEventListener('click', () => {
-    const val = urlInput.value.trim();
-    if (!val) return;
+    const val = urlInput.value.trim(); if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; return; }
     if (isSpotifyUrl(val)) { loadSpotify(val); urlInput.value = ''; return; }
     addToQueue({ type: 'audio', title: val.split('/').pop() || 'Audio', url: val });
@@ -114,21 +112,19 @@
     playAudio(url, file.name);
   });
 
-  /* ── YouTube Integration (IFrame API + Search) ──────────── */
-  // Load YT API automatically
+  /* ── YouTube Integration (Bypass Search Block) ──────────── */
   const tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
   const firstScriptTag = document.getElementsByTagName('script')[0];
   firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
   window.onYouTubeIframeAPIReady = function() {
-    // The "Glass Shield" to prevent clicking the video and redirecting
-    ytFrameWrap.style.pointerEvents = 'none'; 
     ytFrameWrap.innerHTML = '<div id="ytPlayerDiv"></div>';
     
     ytPlayer = new YT.Player('ytPlayerDiv', {
       height: '200', width: '100%',
-      playerVars: { 'autoplay': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0 },
+      // playsinline=1 forces iOS/Android to allow background play. controls=0 stops redirects.
+      playerVars: { 'autoplay': 1, 'controls': 0, 'playsinline': 1, 'disablekb': 1, 'fs': 0, 'rel': 0, 'modestbranding': 1 },
       events: {
         'onReady': () => { isYtReady = true; },
         'onStateChange': (e) => {
@@ -150,7 +146,8 @@
 
   ytAddBtn.addEventListener('click', () => {
     const val = ytInput.value.trim(); if (!val) return;
-    loadYouTube(val); ytInput.value = '';
+    ytInput.value = 'Searching...';
+    loadYouTube(val); 
   });
   ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytAddBtn.click(); });
 
@@ -166,22 +163,42 @@
     activeType = 'youtube';
     spFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
     ytFrameWrap.style.display = 'block';
-    
+
     const id = extractYouTubeId(queryOrUrl);
-    if (id) {
-      ytPlayer.loadVideoById(id);
-      setTrackInfo('YouTube Audio', 'Playing link');
-      addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url: queryOrUrl });
-    } else {
-      // It's a search term! Uses native YouTube playlist search
-      ytPlayer.loadPlaylist({ list: queryOrUrl, listType: "search" });
-      setTrackInfo(queryOrUrl, 'YouTube Search');
-      addToQueue({ type: 'youtube', title: 'Search: ' + queryOrUrl, url: queryOrUrl });
-    }
     
-    updateMediaSession(queryOrUrl, 'YouTube');
+    if (id) {
+      // It's a standard link
+      executeYtPlay(id, 'YouTube Link', queryOrUrl);
+      ytInput.value = '';
+    } else {
+      // It's a search term! We bypass YouTube's block by using a free API
+      fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(queryOrUrl)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const vidId = data[0].videoId;
+            const title = data[0].title;
+            executeYtPlay(vidId, title, queryOrUrl);
+            ytInput.value = '';
+          } else {
+            alert('No results found!');
+            ytInput.value = '';
+          }
+        })
+        .catch(err => {
+          alert('Search failed. Try pasting a link instead.');
+          ytInput.value = '';
+        });
+    }
+  }
+
+  function executeYtPlay(vidId, title, originalQuery) {
+    ytPlayer.loadVideoById(vidId);
+    setTrackInfo(title, 'YouTube');
+    addToQueue({ type: 'youtube', title: title, url: originalQuery });
+    updateMediaSession(title, 'StudyVault YouTube');
     document.querySelector('[data-tab="youtube"]').click();
-    if (synced) broadcastSync({ action: 'load_youtube', url: queryOrUrl });
+    if (synced) broadcastSync({ action: 'load_youtube', url: originalQuery });
   }
 
   /* ── Spotify ────────────────────────────────────────────── */
@@ -193,7 +210,7 @@
 
   function isSpotifyUrl(url) { return /spotify\.com/.test(url); }
   function loadSpotify(url) {
-    const embedUrl = url.replace('open.spotify.com', 'open.spotify.com/embed');
+    const embedUrl = url.replace('https://open.spotify.com/', 'https://open.spotify.com/embed/');
     spFrame.src = embedUrl;
     spFrameWrap.style.display = 'block';
     ytFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
@@ -276,7 +293,6 @@
     mpSyncBadge.textContent = '🟢 Synced — listening together'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
     
-    // Broadcast initial state
     if (activeType === 'youtube') broadcastSync({ action: 'load_youtube', url: ytInput.value });
     if (activeType === 'spotify') broadcastSync({ action: 'load_spotify', url: spInput.value });
     if (activeType === 'audio')   broadcastSync({ action: 'load_audio', url: nativeAudio.src, title: mpTitle.textContent });
@@ -293,14 +309,13 @@
     if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
   }
 
-  // Receiver Logic (Triggered from chat.js)
   window._zxReceiveSync = function (data) {
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
 
-    ignoreNextSync = true; // Prevent echo loops
+    ignoreNextSync = true; 
 
     switch (data.action) {
       case 'load_youtube': loadYouTube(data.url); break;
@@ -320,7 +335,6 @@
         break;
     }
     
-    // Safety timeout to re-enable sync triggers
     setTimeout(() => { ignoreNextSync = false; }, 500);
   };
 
