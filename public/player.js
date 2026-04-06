@@ -1,11 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
    MUSIC PLAYER — player.js
-   Supports: Background Audio, Search Results List, Deep Sync
+   Restored: Original Iframe + Background Play Lock-Screen Fix
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
   /* ── DOM ───────────────────────────────────────────────── */
+  const bar         = document.getElementById('musicBar');
   const panel       = document.getElementById('musicPanel');
   const mpTitle     = document.getElementById('mpTitle');
   const mpSub       = document.getElementById('mpSub');
@@ -26,6 +27,7 @@
   const fileInput   = document.getElementById('fileInput');
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
+  const ytFrame     = document.getElementById('ytFrame'); // Restored your original iframe
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spInput     = document.getElementById('spInput');
   const spAddBtn    = document.getElementById('spAddBtn');
@@ -39,9 +41,6 @@
   let synced       = false;
   let activeType   = 'none'; // 'audio' | 'youtube' | 'spotify'
   let isPlaying    = false;
-  let ytPlayer     = null;
-  let isYtReady    = false;
-  let ignoreNextSync = false;
 
   /* ── Panel toggle ───────────────────────────────────────── */
   function togglePanel() { panel.classList.toggle('hidden'); }
@@ -59,287 +58,148 @@
     });
   });
 
-  /* ── Android/iOS Background Lock-Screen Audio ───────────── */
+  /* ── Background Play Lock-Screen (MediaSession) ─────────── */
   function updateMediaSession(title, artist) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title || 'StudyVault Player',
-        artist: artist || 'Private Session',
+        artist: artist || 'Playing',
         artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png', sizes: '512x512', type: 'image/png' }]
       });
-      navigator.mediaSession.setActionHandler('play', () => playCurrent(false));
-      navigator.mediaSession.setActionHandler('pause', () => pauseCurrent(false));
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (activeType === 'audio') nativeAudio.play();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (activeType === 'audio') nativeAudio.pause();
+      });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
   }
 
-  /* ── Play / Pause Routing ───────────────────────────────── */
-  mpPlay.addEventListener('click', () => {
-    if (isPlaying) pauseCurrent(); else playCurrent();
-  });
-
-  function playCurrent(fromSync = false) {
-    if (activeType === 'audio') nativeAudio.play().catch(()=>{});
-    if (activeType === 'youtube' && ytPlayer && typeof ytPlayer.playVideo === 'function') ytPlayer.playVideo();
-    isPlaying = true; updatePlayBtn();
-    if (synced && !fromSync) broadcastSync({ action: 'play' });
-  }
-
-  function pauseCurrent(fromSync = false) {
-    if (activeType === 'audio') nativeAudio.pause();
-    if (activeType === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
-    isPlaying = false; updatePlayBtn();
-    if (synced && !fromSync) broadcastSync({ action: 'pause' });
-  }
-
-  function updatePlayBtn() { mpPlay.textContent = isPlaying ? '⏸' : '▶'; }
-
   /* ── URL / local add ────────────────────────────────────── */
   urlAddBtn.addEventListener('click', () => {
-    const val = urlInput.value.trim(); if (!val) return;
+    const val = urlInput.value.trim();
+    if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; return; }
-    if (isSpotifyUrl(val)) { loadSpotify(val); urlInput.value = ''; return; }
+    if (isSpotifyUrl(val))  { loadSpotify(val);  urlInput.value = ''; return; }
     addToQueue({ type: 'audio', title: val.split('/').pop() || 'Audio', url: val });
     urlInput.value = '';
   });
   urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') urlAddBtn.click(); });
 
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0]; if (!file) return;
+    const file = fileInput.files[0];
+    if (!file) return;
     const url = URL.createObjectURL(file);
     addToQueue({ type: 'audio', title: file.name, url });
     playAudio(url, file.name);
   });
 
-  /* ── YouTube Integration ────────────────────────────────── */
-  const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  const firstScriptTag = document.getElementsByTagName('script')[0];
-  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-  window.onYouTubeIframeAPIReady = function() {
-    ytFrameWrap.innerHTML = '<div id="ytPlayerDiv"></div>';
-    
-    ytPlayer = new YT.Player('ytPlayerDiv', {
-      height: '200', width: '100%',
-      playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
-      events: {
-        'onReady': () => { isYtReady = true; },
-        'onStateChange': (e) => {
-          if (e.data === YT.PlayerState.PLAYING) {
-            isPlaying = true; updatePlayBtn();
-            if (synced && !ignoreNextSync) broadcastSync({ action: 'play', time: ytPlayer.getCurrentTime() });
-            ignoreNextSync = false;
-          }
-          if (e.data === YT.PlayerState.PAUSED) {
-            isPlaying = false; updatePlayBtn();
-            if (synced && !ignoreNextSync) broadcastSync({ action: 'pause', time: ytPlayer.getCurrentTime() });
-            ignoreNextSync = false;
-          }
-          if (e.data === YT.PlayerState.ENDED) playNext();
-        }
-      }
-    });
-  };
-
+  /* ── YouTube ────────────────────────────────────────────── */
   ytAddBtn.addEventListener('click', () => {
-    const val = ytInput.value.trim(); if (!val) return;
-    loadYouTube(val); 
+    const val = ytInput.value.trim();
+    if (!val) return;
+    loadYouTube(val);
+    ytInput.value = '';
   });
   ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytAddBtn.click(); });
 
-  function isYouTubeUrl(url) { return /youtube\.com|youtu\.be/.test(url); }
+  function isYouTubeUrl(url) {
+    return /youtube\.com|youtu\.be/.test(url);
+  }
+  function loadYouTube(url) {
+    const id = extractYouTubeId(url);
+    if (!id) return alert('Could not extract YouTube ID');
+    
+    // ADDED playsinline=1 to keep it alive in the background
+    const embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0`;
+    ytFrame.src = embedUrl;
+    
+    ytFrameWrap.style.display = 'block';
+    spFrameWrap.style.display = 'none';
+    nativeAudio.style.display = 'none';
+    activeType = 'youtube';
+    setTrackInfo('YouTube', url);
+    updateMediaSession('YouTube Video', 'Background Play');
+    
+    document.querySelector('[data-tab="youtube"]').click();
+    addToQueue({ type: 'youtube', title: 'YouTube · ' + id, url, id });
+    if (synced) broadcastSync({ action: 'youtube', url });
+  }
   
   function extractYouTubeId(url) {
     const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
   }
 
-  // Fetch search results and return an Array of videos
-  async function searchYouTubeApi(query) {
-    const instances = [
-      'vid.puffyan.us',
-      'inv.tux.pizza',
-      'invidious.fdn.fr',
-      'pipedapi.kavin.rocks'
-    ];
-
-    for (const instance of instances) {
-      try {
-        const isPiped = instance.includes('piped');
-        const path = isPiped ? `/search?q=${encodeURIComponent(query)}&filter=videos` : `/api/v1/search?q=${encodeURIComponent(query)}`;
-        const targetUrl = `https://${instance}${path}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        
-        const res = await fetch(proxyUrl);
-        if (!res.ok) continue;
-        const data = await res.json();
-        
-        if (isPiped && data.items && data.items.length > 0) {
-          return data.items
-            .filter(i => i.url && i.url.includes('watch?v='))
-            .map(i => ({ id: i.url.split('v=')[1].split('&')[0], title: i.title, channel: i.uploaderName }));
-        } else if (!isPiped && Array.isArray(data) && data.length > 0) {
-          return data
-            .filter(i => i.videoId)
-            .map(i => ({ id: i.videoId, title: i.title, channel: i.author }));
-        }
-      } catch (e) {
-        console.warn(`Search failed on ${instance}, moving to backup...`);
-      }
-    }
-    return null; 
-  }
-
-  // Renders the list of results right inside the panel
-  function displaySearchResults(results) {
-    let listWrap = document.getElementById('ytSearchResults');
-    if (!listWrap) {
-      listWrap = document.createElement('div');
-      listWrap.id = 'ytSearchResults';
-      listWrap.style.cssText = 'max-height: 200px; overflow-y: auto; background: var(--c-surfaceHigh, #2A0018); border: 1px solid var(--c-border, rgba(232,67,106,0.3)); border-radius: 12px; margin-top: 12px;';
-      ytFrameWrap.parentNode.insertBefore(listWrap, ytFrameWrap);
-    }
-    
-    listWrap.innerHTML = ''; // Clear old results
-    listWrap.style.display = 'block';
-    ytFrameWrap.style.display = 'none'; // Hide player while selecting
-    
-    results.slice(0, 10).forEach(res => {
-      const item = document.createElement('div');
-      item.style.cssText = 'padding: 10px 12px; border-bottom: 1px solid rgba(232,67,106,0.15); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.2s;';
-      
-      item.innerHTML = `
-        <span style="font-size: 13px; font-weight: 600; color: #FFE8EF; line-height: 1.3;">${res.title}</span>
-        <span style="font-size: 11px; color: rgba(255,181,200,0.6);">▶ ${res.channel}</span>
-      `;
-      
-      item.onmouseover = () => item.style.background = 'rgba(232,67,106,0.1)';
-      item.onmouseout  = () => item.style.background = 'transparent';
-      
-      item.onclick = () => {
-        listWrap.style.display = 'none'; // Hide results
-        ytFrameWrap.style.display = 'block'; // Show player
-        ytInput.value = ''; // Clear search bar
-        executeYtPlay(res.id, res.title);
-      };
-      
-      listWrap.appendChild(item);
-    });
-  }
-
-  function loadYouTube(queryOrUrl) {
-    if (!isYtReady) return setTimeout(() => loadYouTube(queryOrUrl), 500);
-    
-    activeType = 'youtube';
-    spFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
-
-    const id = extractYouTubeId(queryOrUrl);
-    
-    if (id) {
-      // Direct Link provided: Play immediately
-      ytFrameWrap.style.display = 'block';
-      let listWrap = document.getElementById('ytSearchResults');
-      if (listWrap) listWrap.style.display = 'none';
-      
-      executeYtPlay(id, 'YouTube Link');
-      ytInput.value = '';
-    } else {
-      // Search term provided: Fetch and show list
-      ytInput.value = 'Searching...';
-      searchYouTubeApi(queryOrUrl).then(results => {
-        if (results && results.length > 0) {
-          ytInput.value = queryOrUrl; // Restore the text so user knows what they searched
-          displaySearchResults(results);
-        } else {
-          alert('Search networks are overloaded. Please paste a direct YouTube link.');
-          ytInput.value = '';
-        }
-      });
-    }
-  }
-
-  function executeYtPlay(vidId, title) {
-    if(ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
-        ytPlayer.loadVideoById(vidId);
-    }
-    setTrackInfo(title, 'YouTube');
-    
-    const directLink = `https://youtube.com/watch?v=${vidId}`;
-    
-    addToQueue({ type: 'youtube', title: title, url: directLink });
-    updateMediaSession(title, 'StudyVault YouTube');
-    document.querySelector('[data-tab="youtube"]').click();
-    
-    if (synced) broadcastSync({ action: 'load_youtube', url: directLink });
-  }
-
   /* ── Spotify ────────────────────────────────────────────── */
   spAddBtn.addEventListener('click', () => {
-    const val = spInput.value.trim(); if (!val) return;
-    loadSpotify(val); spInput.value = '';
+    const val = spInput.value.trim();
+    if (!val) return;
+    loadSpotify(val);
+    spInput.value = '';
   });
   spInput.addEventListener('keydown', e => { if (e.key === 'Enter') spAddBtn.click(); });
 
   function isSpotifyUrl(url) { return /spotify\.com/.test(url); }
   function loadSpotify(url) {
-    const embedUrl = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
+    const embedUrl = url.replace('https://open.spotify.com/', 'https://open.spotify.com/embed/');
     spFrame.src = embedUrl;
     spFrameWrap.style.display = 'block';
-    ytFrameWrap.style.display = 'none'; nativeAudio.style.display = 'none';
-    
-    // Hide YT results if they were open
-    let listWrap = document.getElementById('ytSearchResults');
-    if (listWrap) listWrap.style.display = 'none';
-
+    ytFrameWrap.style.display = 'none';
+    nativeAudio.style.display = 'none';
     activeType = 'spotify';
     setTrackInfo('Spotify', url.split('/').slice(-2).join(' · '));
-    updateMediaSession('Spotify Session', 'StudyVault');
+    updateMediaSession('Spotify Audio', 'StudyVault');
     document.querySelector('[data-tab="spotify"]').click();
     addToQueue({ type: 'spotify', title: 'Spotify · ' + url.split('/').pop(), url });
-    if (synced) broadcastSync({ action: 'load_spotify', url });
+    if (synced) broadcastSync({ action: 'spotify', url });
   }
 
   /* ── Native audio ───────────────────────────────────────── */
   function playAudio(url, title) {
     nativeAudio.src = url;
     nativeAudio.style.display = 'block';
-    ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-    
-    // Hide YT results if they were open
-    let listWrap = document.getElementById('ytSearchResults');
-    if (listWrap) listWrap.style.display = 'none';
-
+    ytFrameWrap.style.display = 'none';
+    spFrameWrap.style.display = 'none';
     nativeAudio.play().catch(() => {});
     activeType = 'audio';
     setTrackInfo(title, 'Direct audio');
-    updateMediaSession(title, 'Local Audio');
-    if (synced) broadcastSync({ action: 'load_audio', url, title });
+    updateMediaSession(title, 'StudyVault Local');
+    isPlaying = true;
+    updatePlayBtn();
+    if (synced) broadcastSync({ action: 'audio', url, title });
   }
 
-  nativeAudio.addEventListener('play',  () => { 
-    isPlaying = true; updatePlayBtn(); 
-    if(synced && !ignoreNextSync) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
+  nativeAudio.addEventListener('play',  () => { isPlaying = true;  updatePlayBtn(); });
+  nativeAudio.addEventListener('pause', () => { isPlaying = false; updatePlayBtn(); });
+  nativeAudio.addEventListener('ended', () => { playNext(); });
+
+  /* ── Play / Pause (native audio only) ─────────────────── */
+  mpPlay.addEventListener('click', () => {
+    if (activeType !== 'audio') return;
+    if (isPlaying) { nativeAudio.pause(); } else { nativeAudio.play().catch(() => {}); }
   });
-  nativeAudio.addEventListener('pause', () => { 
-    isPlaying = false; updatePlayBtn(); 
-    if(synced && !ignoreNextSync) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
-  });
-  nativeAudio.addEventListener('seeked', () => {
-    if(synced && !ignoreNextSync) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
-    ignoreNextSync = false;
-  });
-  nativeAudio.addEventListener('ended', playNext);
+
+  function updatePlayBtn() { mpPlay.textContent = isPlaying ? '⏸' : '▶'; }
 
   /* ── Queue ──────────────────────────────────────────────── */
-  function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); }
-  function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); } catch {} }
+  function addToQueue(item) {
+    queue.push(item);
+    saveQueue();
+    renderQueue();
+  }
+
+  function saveQueue() {
+    try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); } catch {}
+  }
 
   function renderQueue() {
-    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue is empty.</p>'; return; }
+    if (queue.length === 0) {
+      queueList.innerHTML = '<p class="mp-empty">Queue is empty. Add songs from other tabs.</p>';
+      return;
+    }
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div');
@@ -350,7 +210,10 @@
         <button class="qi-del" data-i="${i}">✕</button>
       `;
       el.addEventListener('click', e => {
-        if (e.target.classList.contains('qi-del')) { queue.splice(parseInt(e.target.dataset.i), 1); saveQueue(); renderQueue(); return; }
+        if (e.target.classList.contains('qi-del')) {
+          queue.splice(parseInt(e.target.dataset.i), 1);
+          saveQueue(); renderQueue(); return;
+        }
         playQueueItem(i);
       });
       queueList.appendChild(el);
@@ -358,73 +221,72 @@
   }
 
   function playQueueItem(i) {
-    currentIdx = i; const item = queue[i]; if (!item) return;
+    currentIdx = i;
+    const item = queue[i];
+    if (!item) return;
     if (item.type === 'audio')   playAudio(item.url, item.title);
     if (item.type === 'youtube') loadYouTube(item.url);
     if (item.type === 'spotify') loadSpotify(item.url);
     renderQueue();
   }
 
-  function playNext() { if (currentIdx < queue.length - 1) playQueueItem(currentIdx + 1); }
-  function playPrev() { if (currentIdx > 0) playQueueItem(currentIdx - 1); }
+  function playNext() {
+    if (currentIdx < queue.length - 1) playQueueItem(currentIdx + 1);
+  }
+  function playPrev() {
+    if (currentIdx > 0) playQueueItem(currentIdx - 1);
+  }
+  mpNext.addEventListener('click', playNext);
+  mpPrev.addEventListener('click', playPrev);
 
-  function setTrackInfo(title, sub) { mpTitle.textContent = title; mpSub.textContent = sub; }
+  function setTrackInfo(title, sub) {
+    mpTitle.textContent = title;
+    mpSub.textContent   = sub;
+  }
 
-  /* ── Listen Together Deep Sync ──────────────────────────── */
+  /* ── Listen Together Sync ───────────────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
     synced = true;
-    mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
-    mpSyncBadge.textContent = '🟢 Synced — listening together'; mpSyncBadge.classList.add('synced');
-    mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
+    mpSyncPill.textContent = '🟢 synced';
+    mpSyncPill.classList.add('synced');
+    mpSyncBadge.textContent = '🟢 Synced — listening together';
+    mpSyncBadge.classList.add('synced');
+    mpSyncInfo.style.display = 'flex';
+    mpSyncBtn.style.display  = 'none';
     
-    if (activeType === 'youtube' && ytPlayer) {
-        // Need to grab the actual video ID being played right now
-        const vidUrl = ytPlayer.getVideoUrl ? ytPlayer.getVideoUrl() : ytInput.value;
-        broadcastSync({ action: 'load_youtube', url: vidUrl });
-    }
-    if (activeType === 'spotify') broadcastSync({ action: 'load_spotify', url: spInput.value });
-    if (activeType === 'audio')   broadcastSync({ action: 'load_audio', url: nativeAudio.src, title: mpTitle.textContent });
+    // Broadcast current state
+    if (activeType === 'youtube') broadcastSync({ action: 'youtube', url: ytInput.value });
+    if (activeType === 'spotify') broadcastSync({ action: 'spotify', url: spInput.value });
+    if (activeType === 'audio')   broadcastSync({ action: 'audio', url: nativeAudio.src, title: mpTitle.textContent });
   });
 
   mpUnsyncBtn.addEventListener('click', () => {
     synced = false;
-    mpSyncPill.textContent = '🔴 solo'; mpSyncPill.classList.remove('synced');
-    mpSyncBadge.textContent = '🔴 Solo mode'; mpSyncBadge.classList.remove('synced');
-    mpSyncInfo.style.display = 'none'; mpSyncBtn.style.display = '';
+    mpSyncPill.textContent = '🔴 solo';
+    mpSyncPill.classList.remove('synced');
+    mpSyncBadge.textContent = '🔴 Solo mode';
+    mpSyncBadge.classList.remove('synced');
+    mpSyncInfo.style.display = 'none';
+    mpSyncBtn.style.display  = '';
   });
 
   function broadcastSync(data) {
     if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
   }
 
+  // Called from chat.js when a musicSync message arrives from the other user
   window._zxReceiveSync = function (data) {
+    if (data.action === 'youtube') { loadYouTube(data.url); }
+    if (data.action === 'spotify') { loadSpotify(data.url); }
+    if (data.action === 'audio')   { playAudio(data.url, data.title || 'Synced audio'); }
+    
     synced = true;
     mpSyncPill.textContent = '🟢 synced'; mpSyncPill.classList.add('synced');
     mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
-    mpSyncInfo.style.display = 'flex'; mpSyncBtn.style.display = 'none';
-
-    ignoreNextSync = true; 
-
-    switch (data.action) {
-      case 'load_youtube': loadYouTube(data.url); break;
-      case 'load_spotify': loadSpotify(data.url); break;
-      case 'load_audio':   playAudio(data.url, data.title || 'Synced audio'); break;
-      case 'play':
-        if (activeType === 'audio') { nativeAudio.currentTime = data.time || nativeAudio.currentTime; playCurrent(true); }
-        if (activeType === 'youtube' && ytPlayer) { ytPlayer.seekTo(data.time, true); playCurrent(true); }
-        break;
-      case 'pause':
-        if (activeType === 'audio') { nativeAudio.currentTime = data.time || nativeAudio.currentTime; pauseCurrent(true); }
-        if (activeType === 'youtube' && ytPlayer) { ytPlayer.seekTo(data.time, true); pauseCurrent(true); }
-        break;
-      case 'seek':
-        if (activeType === 'audio') nativeAudio.currentTime = data.time;
-        if (activeType === 'youtube' && ytPlayer) ytPlayer.seekTo(data.time, true);
-        break;
-    }
-    
-    setTimeout(() => { ignoreNextSync = false; }, 500);
+    mpSyncInfo.style.display = 'flex';
+    mpSyncBtn.style.display  = 'none';
   };
 
+  // Init queue render
   renderQueue();
 })();
