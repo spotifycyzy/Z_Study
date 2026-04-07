@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   THE KOSMI ENGINE v2.0: Packet Queuing + Late Joiner Sync Fix
+   THE KOSMI ENGINE v3.0: Frame-Lock Fix (Video/Audio Capture)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -33,12 +33,12 @@
   const spFrameWrap = document.getElementById('spFrameWrap');
   const queueList   = document.getElementById('queueList');
 
-  // CRITICAL: Mobile autoplay fixes
+  // CRITICAL: Mobile HTML5 Video Policies
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
-  nativeAudio.autoplay = true;
+  nativeAudio.setAttribute('crossorigin', 'anonymous');
 
-  /* 🔥 DYNAMIC TIMELINE SLIDER INJECTION 🔥 */
+  /* 🔥 DYNAMIC TIMELINE SLIDER (For Remote Seek) 🔥 */
   const sliderWrap = document.createElement('div');
   sliderWrap.style.cssText = 'width:100%; padding: 0 15px; margin-top: 15px; display:none; align-items:center; gap:10px;';
   
@@ -68,6 +68,7 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
+  let streamStarted   = false; // Fixes Empty Capture Bug
   
   // Anti-Loop Logic
   let isRemoteAction  = false;
@@ -77,7 +78,7 @@
     remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
   }
 
-  /* 🔥 TURN SERVERS & WEBRTC QUEUE 🔥 */
+  /* 🔥 METERED TURN SERVERS 🔥 */
   const ICE_SERVERS = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -88,7 +89,7 @@
     ]
   };
   let rtcPeer = null;
-  let iceQueue = []; // FIX 1: Prevents Mobile Black Screen Bug
+  let iceQueue = []; 
 
   /* ── TOAST LOGIC ───────────────────────────────────────── */
   function showToast(msg) {
@@ -114,15 +115,6 @@
   mpToggleBtn.addEventListener('click', togglePanel);
   mpOpenFull .addEventListener('click', togglePanel);
   mpClosePanel.addEventListener('click', () => panel.classList.add('hidden'));
-
-  document.querySelectorAll('.mp-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    });
-  });
 
   /* ── YouTube API Setup ──────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
@@ -173,22 +165,34 @@
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     const url = URL.createObjectURL(file);
+    streamStarted = false; // Reset for new file
     
     if (synced) {
-      showToast("🚀 Kosmi-Mode: Starting Instant Stream...");
+      showToast("🚀 Setting up Kosmi Stream...");
       nativeAudio.srcObject = null;
       nativeAudio.src = url;
       nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
       sliderWrap.style.display = 'flex'; 
       
       activeType = 'p2p_sender';
-      setTrackInfo(file.name, '📡 Broadcasting...');
+      setTrackInfo(file.name, '📡 Preparing Video & Audio...');
       
-      nativeAudio.onloadeddata = () => {
-        nativeAudio.play().catch(()=>{});
-        isPlaying = true; updatePlayBtn();
-        startKosmiStream(file.name);
+      // Auto-play to trigger frames
+      nativeAudio.play().then(() => {
+          isPlaying = true; updatePlayBtn();
+      }).catch(e => {
+          showToast("⚠️ Tap play to allow video processing!");
+      });
+
+      // FIX 1: Only capture stream AFTER video is actually rendering!
+      nativeAudio.onplaying = () => {
+         if(!streamStarted && activeType === 'p2p_sender') {
+            streamStarted = true;
+            setTrackInfo(file.name, '📡 Broadcasting (Live)...');
+            startKosmiStream(file.name);
+         }
       };
+
     } else {
       addToQueue({ type: 'audio', title: file.name, url: url });
     }
@@ -202,19 +206,30 @@
     let stream;
     if (nativeAudio.captureStream) stream = nativeAudio.captureStream();
     else if (nativeAudio.mozCaptureStream) stream = nativeAudio.mozCaptureStream();
-    else return showToast("❌ Browser doesn't support live capture.");
+    
+    if(!stream || stream.getTracks().length === 0) {
+        return showToast("❌ Browser blocked video capture. Please refresh.");
+    }
 
+    // Ensure we are catching both Video and Audio tracks
     stream.getTracks().forEach(track => {
       const sender = rtcPeer.addTrack(track, stream);
       if (track.kind === 'video') {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 10000000; // Force HD Stream
+          params.encodings[0].maxBitrate = 10000000; // HD Force
           sender.setParameters(params).catch(()=>{});
       }
     });
 
     rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
+    
+    // Live Network State Checker
+    rtcPeer.oniceconnectionstatechange = () => {
+        if(rtcPeer.iceConnectionState === 'failed') showToast('❌ P2P Network Blocked by ISP!');
+        if(rtcPeer.iceConnectionState === 'connected') showToast('✅ Relay Connected to Partner!');
+    };
+
     rtcPeer.createOffer()
       .then(offer => rtcPeer.setLocalDescription(offer))
       .then(() => { broadcastSync({ action: 'webrtc_offer', offer: rtcPeer.localDescription, title: title }); });
@@ -244,7 +259,6 @@
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
     
-    // FIX 3: Do NOT broadcast blob URLs to partner!
     if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
       broadcastSync({ action: 'change_song', item: item });
     }
@@ -253,8 +267,6 @@
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  mpNext.addEventListener('click', () => { if (queue.length > 0) playNext(); });
-  mpPrev.addEventListener('click', () => { if (queue.length > 0) playPrev(); });
 
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
@@ -281,7 +293,7 @@
     }
   }
 
-  /* 🔥 THE TIMESTAMP SYNC HACK (Custom Seek Bar Logic) 🔥 */
+  /* 🔥 CUSTOM SEEK BAR & TIMESTAMP SYNC 🔥 */
   nativeAudio.addEventListener('timeupdate', () => {
       if (activeType === 'audio' || activeType === 'p2p_sender') {
           const cur = nativeAudio.currentTime;
@@ -365,17 +377,11 @@
 
   // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
-    
-    // 🔥 FIX 2: LATE JOINER AUTO-SYNC 🔥
     if (data.action === 'request_sync') {
       if (synced) {
-        if (activeType === 'p2p_sender') {
-           // Agar host P2P chala raha tha, toh late joiner ko fresh stream offer bhejo
-           showToast("📡 Partner joined, reconnecting stream...");
-           startKosmiStream(mpTitle.textContent);
-        } else if (queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
+        if (activeType === 'p2p_sender') startKosmiStream(mpTitle.textContent);
+        else if (queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
            broadcastSync({ action: 'change_song', item: queue[currentIdx] });
-           // Current timestamp bhi bhejo late joiner ko
            setTimeout(() => {
               let curTime = 0;
               if (activeType === 'youtube' && ytPlayer) curTime = ytPlayer.getCurrentTime();
@@ -390,26 +396,38 @@
     if (!synced) return; 
     setRemoteAction();
 
-    /* 🔥 THE BUG-FREE WEBRTC PIPELINE 🔥 */
+    /* 🔥 BUG-FREE WEBRTC PIPELINE 🔥 */
     if (data.action === 'webrtc_offer') {
-      showToast("📡 Partner Stream Found. Connecting...");
+      showToast("📡 Host Stream Incoming...");
       activeType = 'p2p_receiver';
       if(rtcPeer) rtcPeer.close();
       
-      iceQueue = []; // Queue Reset for Mobile Fix
+      iceQueue = []; 
       rtcPeer = new RTCPeerConnection(ICE_SERVERS);
       
       nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
       sliderWrap.style.display = 'flex'; 
       
       nativeAudio.src = ""; nativeAudio.srcObject = null;
-      setTrackInfo(data.title || "Live Stream", "Syncing Video...");
+      setTrackInfo(data.title || "Live Stream", "Fetching Frames...");
 
+      // FIX 2: Autoplay Bypass for Receivers
       rtcPeer.ontrack = e => {
         nativeAudio.srcObject = e.streams[0];
-        nativeAudio.play().catch(()=>{ showToast("▶ Tap Play to start partner's stream"); });
-        isPlaying = true; updatePlayBtn();
-        setTrackInfo(data.title || "Live Stream", "▶ Stream Synced!");
+        nativeAudio.onloadedmetadata = () => {
+            nativeAudio.play().then(() => {
+                isPlaying = true; updatePlayBtn();
+                setTrackInfo(data.title || "Live Stream", "▶ HD Stream Active");
+            }).catch(()=>{
+                // Browser blocked audio autoplay! Mute it to force play, ask user to unmute.
+                nativeAudio.muted = true;
+                nativeAudio.play();
+                showToast("⚠️ Browser Blocked Audio: Tap video to unmute!");
+                nativeAudio.onclick = () => { nativeAudio.muted = false; showToast("🔊 Audio Unmuted"); };
+                isPlaying = true; updatePlayBtn();
+                setTrackInfo(data.title || "Live Stream", "▶ Stream (Muted)");
+            });
+        };
       };
 
       rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
@@ -419,7 +437,6 @@
         .then(answer => { return rtcPeer.setLocalDescription(answer).then(() => answer); })
         .then(answer => {
           broadcastSync({ action: 'webrtc_answer', answer: answer });
-          // Process network packets ONLY after description is set
           iceQueue.forEach(c => rtcPeer.addIceCandidate(c).catch(e => console.error(e)));
           iceQueue = [];
         });
@@ -431,7 +448,6 @@
         return; 
     }
     
-    // Packet Queuing System (Mobile Fix)
     if (data.action === 'webrtc_ice') { 
         if (rtcPeer) {
             const candidate = new RTCIceCandidate(data.candidate);
@@ -472,7 +488,6 @@
       return;
     }
 
-    // Standard Sync
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
