@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
    CLOUD SYNC ENGINE (For Telegram/Drive Direct Links & YT)
-   100% HD Quality | Zero Buffering | Perfect Two-Way Seek
+   FIXED: Auto-Play New Links & CORS Bypass
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -34,9 +34,10 @@
   const spFrameWrap = document.getElementById('spFrameWrap');
   const queueList   = document.getElementById('queueList');
 
-  // Mobile Video Fixes
+  // Mobile Video Fixes + CORS Bypass
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
+  nativeAudio.removeAttribute('crossorigin'); // CORS fix for Telegram Links
 
   /* ── State ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
@@ -82,6 +83,14 @@
     });
   });
 
+  /* ── ERROR HANDLER FOR DEAD LINKS ───────────────────────── */
+  nativeAudio.addEventListener('error', () => {
+    if (activeType === 'stream' || activeType === 'audio') {
+        showToast("❌ Link expired ya unsupported format hai!");
+        setTrackInfo("Error", "Broken Link");
+    }
+  });
+
   /* ── YouTube API Setup ──────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
@@ -110,8 +119,8 @@
     if (isYouTubeUrl(val)) { loadYouTube(val); }
     else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); }
     else { 
-      // Treat as Direct Telegram/Cloud Link
-      addToQueue({ type: 'stream', title: 'Cloud Media Link', url: val }); 
+      // Direct Telegram/Cloud Link
+      addToQueue({ type: 'stream', title: 'Cloud Media Stream', url: val }); 
     }
     urlInput.value = '';
   });
@@ -130,26 +139,32 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', url: fakeUrl, ytId: id });
   }
 
-  /* 🔥 LOCAL FILE HANDLER (Guidance for Cloud Sync) 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
-    
     if (synced) {
-        // Stop users from trying to sync local files directly
-        showToast("💡 Pro Tip: Upload this file to Telegram, copy the Direct Link, and paste it in the URL box for HD Sync!");
+        showToast("💡 Pro Tip: Is file ko Telegram pe bhej kar uska direct link URL box me daalo (HD Sync ke liye)!");
     } else {
-        // Solo local play
         const url = URL.createObjectURL(file);
         addToQueue({ type: 'stream', title: file.name, url: url });
     }
   });
 
-  /* ── Queue Management & Rendering ───────────────────────── */
+  /* ── Queue Management (FIXED AUTO-PLAY) ─────────────────── */
   function addToQueue(item) {
-    if(queue.length > 0 && queue[queue.length-1].url === item.url && queue[queue.length-1].title === item.title) return;
-    queue.push(item); saveQueue(); renderQueue();
-    if (queue.length === 1 || activeType === 'none') playQueueItem(queue.length - 1);
+    // Agar same URL dubara add kar rahe ho, toh usko list me dobara na dal ke play kar do
+    if(queue.length > 0 && queue[queue.length-1].url === item.url) {
+        playQueueItem(queue.length - 1);
+        return;
+    }
+    
+    queue.push(item); 
+    saveQueue(); 
+    renderQueue();
+    
+    // FIX: Hamesha naya link aane par usko automatically play kar do!
+    playQueueItem(queue.length - 1);
   }
+  
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
 
   function renderQueue() {
@@ -168,7 +183,6 @@
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
     
-    // Broadcast track change
     if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
       broadcastSync({ action: 'change_song', item: item });
     }
@@ -178,7 +192,7 @@
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
 
-  /* 🔥 MEDIA RENDERER (Fastest Player) 🔥 */
+  /* 🔥 MEDIA RENDERER 🔥 */
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
@@ -198,13 +212,17 @@
     else if (item.type === 'stream') {
       activeType = 'stream'; nativeAudio.style.display = 'block';
       nativeAudio.src = item.url; 
+      
       nativeAudio.play().then(() => {
-          showToast("▶ Cloud Stream Connected!");
-      }).catch(()=>{
-          showToast("⚠️ Tap Play to start HD Stream");
+          showToast("▶ Media Playing!");
+          isPlaying = true; updatePlayBtn();
+      }).catch((err)=>{
+          console.warn("Autoplay blocked:", err);
+          showToast("⚠️ Tap Play button to start");
+          isPlaying = false; updatePlayBtn();
       });
-      setTrackInfo(item.title, '☁️ Ultra-Fast Cloud Sync');
-      isPlaying = true; updatePlayBtn();
+      
+      setTrackInfo(item.title, '☁️ Streaming (Direct)');
     }
   }
 
@@ -284,7 +302,6 @@
       if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
     } else if (activeType === 'stream') {
       if (data.action === 'play') { 
-          // If seeking occurred while paused
           if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time;
           nativeAudio.play().catch(()=>{}); 
       }
