@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   THE KOSMI ENGINE: Instant MediaStream + Custom Two-Way Seekbar
+   THE KOSMI ENGINE v2.0: Packet Queuing + Late Joiner Sync Fix
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -33,7 +33,12 @@
   const spFrameWrap = document.getElementById('spFrameWrap');
   const queueList   = document.getElementById('queueList');
 
-  /* 🔥 DYNAMIC TIMELINE SLIDER INJECTION (KOSMI STYLE) 🔥 */
+  // CRITICAL: Mobile autoplay fixes
+  nativeAudio.setAttribute('playsinline', '');
+  nativeAudio.setAttribute('webkit-playsinline', '');
+  nativeAudio.autoplay = true;
+
+  /* 🔥 DYNAMIC TIMELINE SLIDER INJECTION 🔥 */
   const sliderWrap = document.createElement('div');
   sliderWrap.style.cssText = 'width:100%; padding: 0 15px; margin-top: 15px; display:none; align-items:center; gap:10px;';
   
@@ -64,7 +69,7 @@
   let ytPlayer        = null; 
   let isYtReady       = false;
   
-  // Anti-Loop Logic (True Sync)
+  // Anti-Loop Logic
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
@@ -72,7 +77,7 @@
     remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
   }
 
-  /* 🔥 METERED TURN SERVERS FOR INSTANT P2P 🔥 */
+  /* 🔥 TURN SERVERS & WEBRTC QUEUE 🔥 */
   const ICE_SERVERS = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -83,8 +88,9 @@
     ]
   };
   let rtcPeer = null;
+  let iceQueue = []; // FIX 1: Prevents Mobile Black Screen Bug
 
-  /* ── TOAST & UTILS ─────────────────────────────────────── */
+  /* ── TOAST LOGIC ───────────────────────────────────────── */
   function showToast(msg) {
     const t = document.createElement('div'); t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
@@ -173,10 +179,10 @@
       nativeAudio.srcObject = null;
       nativeAudio.src = url;
       nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-      sliderWrap.style.display = 'flex'; // Show our custom seek bar
+      sliderWrap.style.display = 'flex'; 
       
       activeType = 'p2p_sender';
-      setTrackInfo(file.name, '📡 Broadcasting (100% Sync)...');
+      setTrackInfo(file.name, '📡 Broadcasting...');
       
       nativeAudio.onloadeddata = () => {
         nativeAudio.play().catch(()=>{});
@@ -191,19 +197,19 @@
   function startKosmiStream(title) {
     if(rtcPeer) { rtcPeer.close(); rtcPeer = null; }
     rtcPeer = new RTCPeerConnection(ICE_SERVERS);
+    iceQueue = []; 
     
     let stream;
     if (nativeAudio.captureStream) stream = nativeAudio.captureStream();
     else if (nativeAudio.mozCaptureStream) stream = nativeAudio.mozCaptureStream();
-    else return showToast("❌ Browser doesn't support capture.");
+    else return showToast("❌ Browser doesn't support live capture.");
 
     stream.getTracks().forEach(track => {
       const sender = rtcPeer.addTrack(track, stream);
-      // 🔥 HD QUALITY HACK 🔥
       if (track.kind === 'video') {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 10000000; // 10 Mbps lock
+          params.encodings[0].maxBitrate = 10000000; // Force HD Stream
           sender.setParameters(params).catch(()=>{});
       }
     });
@@ -237,7 +243,11 @@
 
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
-    if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item: item });
+    
+    // FIX 3: Do NOT broadcast blob URLs to partner!
+    if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
+      broadcastSync({ action: 'change_song', item: item });
+    }
     renderMedia(item);
   }
 
@@ -248,7 +258,7 @@
 
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-    sliderWrap.style.display = 'none'; // Hide custom slider for YT/Spotify
+    sliderWrap.style.display = 'none'; 
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
     
@@ -272,7 +282,6 @@
   }
 
   /* 🔥 THE TIMESTAMP SYNC HACK (Custom Seek Bar Logic) 🔥 */
-  // Update slider locally for Sender/Solo player
   nativeAudio.addEventListener('timeupdate', () => {
       if (activeType === 'audio' || activeType === 'p2p_sender') {
           const cur = nativeAudio.currentTime;
@@ -285,23 +294,17 @@
       }
   });
 
-  // Sender broadcasts time constantly so Receiver's timeline stays updated
   setInterval(() => {
       if (synced && activeType === 'p2p_sender' && !nativeAudio.paused) {
           broadcastSync({ action: 'sync_timeline', cur: nativeAudio.currentTime, dur: nativeAudio.duration });
       }
   }, 1000);
 
-  // When ANYONE drags the new Custom Seekbar!
   seekSlider.addEventListener('input', (e) => {
       const percent = e.target.value;
       if (activeType === 'audio' || activeType === 'p2p_sender') {
-          // Sender seeks their own video
-          if(nativeAudio.duration) {
-              nativeAudio.currentTime = (percent / 100) * nativeAudio.duration;
-          }
+          if(nativeAudio.duration) nativeAudio.currentTime = (percent / 100) * nativeAudio.duration;
       } else if (activeType === 'p2p_receiver') {
-          // Receiver sends "Specific Timestamp Shift" to Sender!
           broadcastSync({ action: 'remote_seek_percent', percent: percent });
       }
   });
@@ -328,7 +331,7 @@
   });
   nativeAudio.addEventListener('ended', playNext);
 
-  /* ── UNIVERSAL CONTROLLER (Play/Pause) ──────────────────── */
+  /* ── UNIVERSAL CONTROLLER ──────────────────── */
   mpPlay.addEventListener('click', () => {
     if (activeType === 'p2p_receiver') {
        broadcastSync({ action: 'remote_cmd', cmd: isPlaying ? 'pause' : 'play' });
@@ -362,48 +365,85 @@
 
   // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
+    
+    // 🔥 FIX 2: LATE JOINER AUTO-SYNC 🔥
     if (data.action === 'request_sync') {
-      if (synced && queue.length > 0) { broadcastSync({ action: 'change_song', item: queue[currentIdx] }); }
+      if (synced) {
+        if (activeType === 'p2p_sender') {
+           // Agar host P2P chala raha tha, toh late joiner ko fresh stream offer bhejo
+           showToast("📡 Partner joined, reconnecting stream...");
+           startKosmiStream(mpTitle.textContent);
+        } else if (queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
+           broadcastSync({ action: 'change_song', item: queue[currentIdx] });
+           // Current timestamp bhi bhejo late joiner ko
+           setTimeout(() => {
+              let curTime = 0;
+              if (activeType === 'youtube' && ytPlayer) curTime = ytPlayer.getCurrentTime();
+              else if (activeType === 'audio') curTime = nativeAudio.currentTime;
+              broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
+           }, 1000);
+        }
+      }
       return;
     }
 
     if (!synced) return; 
     setRemoteAction();
 
-    /* 🔥 THE INSTANT RECEIVER PIPELINE 🔥 */
+    /* 🔥 THE BUG-FREE WEBRTC PIPELINE 🔥 */
     if (data.action === 'webrtc_offer') {
-      showToast("📡 Connecting to Stream...");
+      showToast("📡 Partner Stream Found. Connecting...");
       activeType = 'p2p_receiver';
       if(rtcPeer) rtcPeer.close();
+      
+      iceQueue = []; // Queue Reset for Mobile Fix
       rtcPeer = new RTCPeerConnection(ICE_SERVERS);
       
       nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-      sliderWrap.style.display = 'flex'; // Show custom timeline for receiver too!
+      sliderWrap.style.display = 'flex'; 
       
       nativeAudio.src = ""; nativeAudio.srcObject = null;
-      setTrackInfo(data.title || "Live Stream", "Connecting to Host...");
+      setTrackInfo(data.title || "Live Stream", "Syncing Video...");
 
       rtcPeer.ontrack = e => {
         nativeAudio.srcObject = e.streams[0];
-        nativeAudio.play().catch(()=>{});
+        nativeAudio.play().catch(()=>{ showToast("▶ Tap Play to start partner's stream"); });
         isPlaying = true; updatePlayBtn();
-        setTrackInfo(data.title || "Live Stream", "▶ Stream Active (Sync 100%)");
+        setTrackInfo(data.title || "Live Stream", "▶ Stream Synced!");
       };
 
       rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
+      
       rtcPeer.setRemoteDescription(new RTCSessionDescription(data.offer))
         .then(() => rtcPeer.createAnswer())
+        .then(answer => { return rtcPeer.setLocalDescription(answer).then(() => answer); })
         .then(answer => {
-          rtcPeer.setLocalDescription(answer);
           broadcastSync({ action: 'webrtc_answer', answer: answer });
+          // Process network packets ONLY after description is set
+          iceQueue.forEach(c => rtcPeer.addIceCandidate(c).catch(e => console.error(e)));
+          iceQueue = [];
         });
       return;
     }
     
-    if (data.action === 'webrtc_answer') { if (rtcPeer) rtcPeer.setRemoteDescription(new RTCSessionDescription(data.answer)); return; }
-    if (data.action === 'webrtc_ice') { if (rtcPeer) rtcPeer.addIceCandidate(new RTCIceCandidate(data.candidate)); return; }
+    if (data.action === 'webrtc_answer') { 
+        if (rtcPeer) rtcPeer.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(e => console.error(e)); 
+        return; 
+    }
+    
+    // Packet Queuing System (Mobile Fix)
+    if (data.action === 'webrtc_ice') { 
+        if (rtcPeer) {
+            const candidate = new RTCIceCandidate(data.candidate);
+            if (rtcPeer.remoteDescription && rtcPeer.remoteDescription.type) {
+                rtcPeer.addIceCandidate(candidate).catch(e => console.error(e));
+            } else {
+                iceQueue.push(candidate);
+            }
+        }
+        return; 
+    }
 
-    /* 🔥 RECEIVER GETS TIMELINE UPDATE FROM SENDER 🔥 */
     if (data.action === 'sync_timeline' && activeType === 'p2p_receiver') {
         seekSlider.value = (data.cur / data.dur) * 100;
         timeDisplay.textContent = formatTime(data.cur);
@@ -411,23 +451,20 @@
         return;
     }
 
-    /* 🔥 SENDER RECEIVES SPECIFIC TIMESTAMPT SHIFT FROM RECEIVER 🔥 */
     if (data.action === 'remote_seek_percent' && activeType === 'p2p_sender') {
         if(nativeAudio.duration) {
             nativeAudio.currentTime = (data.percent / 100) * nativeAudio.duration;
-            showToast("⏳ Partner shifted the timeline!");
+            showToast("⏳ Partner seeked video!");
         }
         return;
     }
 
-    /* 🔥 REMOTE COMMANDS 🔥 */
     if (data.action === 'remote_cmd' && activeType === 'p2p_sender') {
         if (data.cmd === 'play') { nativeAudio.play().catch(()=>{}); isPlaying = true; updatePlayBtn(); }
         if (data.cmd === 'pause') { nativeAudio.pause(); isPlaying = false; updatePlayBtn(); }
         return;
     }
 
-    // Standard Track Changes
     if (data.action === 'change_song') {
       let idx = queue.findIndex(q => q.url && q.url === data.item.url);
       if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
