@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   THE KOSMI ENGINE v3.0: Frame-Lock Fix (Video/Audio Capture)
+   KOSMI ENGINE v4.0: FORCED HD QUALITY (No Degradation)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -68,9 +68,8 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
-  let streamStarted   = false; // Fixes Empty Capture Bug
+  let streamStarted   = false; 
   
-  // Anti-Loop Logic
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
@@ -115,6 +114,15 @@
   mpToggleBtn.addEventListener('click', togglePanel);
   mpOpenFull .addEventListener('click', togglePanel);
   mpClosePanel.addEventListener('click', () => panel.classList.add('hidden'));
+
+  document.querySelectorAll('.mp-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
 
   /* ── YouTube API Setup ──────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
@@ -161,34 +169,32 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', url: fakeUrl, ytId: id });
   }
 
-  /* 🔥 INSTANT KOSMI STREAM (SENDER) 🔥 */
+  /* 🔥 INSTANT KOSMI STREAM (FORCED HD QUALITY) 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     const url = URL.createObjectURL(file);
-    streamStarted = false; // Reset for new file
+    streamStarted = false; 
     
     if (synced) {
-      showToast("🚀 Setting up Kosmi Stream...");
+      showToast("🚀 HD Engine: Locking Quality to 100%...");
       nativeAudio.srcObject = null;
       nativeAudio.src = url;
       nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
       sliderWrap.style.display = 'flex'; 
       
       activeType = 'p2p_sender';
-      setTrackInfo(file.name, '📡 Preparing Video & Audio...');
+      setTrackInfo(file.name, '📡 Broadcasting...');
       
-      // Auto-play to trigger frames
       nativeAudio.play().then(() => {
           isPlaying = true; updatePlayBtn();
       }).catch(e => {
           showToast("⚠️ Tap play to allow video processing!");
       });
 
-      // FIX 1: Only capture stream AFTER video is actually rendering!
       nativeAudio.onplaying = () => {
          if(!streamStarted && activeType === 'p2p_sender') {
             streamStarted = true;
-            setTrackInfo(file.name, '📡 Broadcasting (Live)...');
+            setTrackInfo(file.name, '📡 HD Broadcast Active');
             startKosmiStream(file.name);
          }
       };
@@ -211,23 +217,26 @@
         return showToast("❌ Browser blocked video capture. Please refresh.");
     }
 
-    // Ensure we are catching both Video and Audio tracks
     stream.getTracks().forEach(track => {
       const sender = rtcPeer.addTrack(track, stream);
+      
+      /* 🔥 THE ULTIMATE ANTI-COMPRESSION HACK 🔥 */
       if (track.kind === 'video') {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 10000000; // HD Force
+          
+          params.encodings[0].maxBitrate = 8000000; // Force High Bitrate (8Mbps)
+          params.degradationPreference = 'maintain-resolution'; // DO NOT DROP QUALITY!
+          
           sender.setParameters(params).catch(()=>{});
       }
     });
 
     rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
     
-    // Live Network State Checker
     rtcPeer.oniceconnectionstatechange = () => {
-        if(rtcPeer.iceConnectionState === 'failed') showToast('❌ P2P Network Blocked by ISP!');
-        if(rtcPeer.iceConnectionState === 'connected') showToast('✅ Relay Connected to Partner!');
+        if(rtcPeer.iceConnectionState === 'failed') showToast('❌ HD Stream Blocked by ISP');
+        if(rtcPeer.iceConnectionState === 'connected') showToast('✅ Receiver Connected!');
     };
 
     rtcPeer.createOffer()
@@ -258,7 +267,6 @@
 
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
-    
     if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
       broadcastSync({ action: 'change_song', item: item });
     }
@@ -377,6 +385,7 @@
 
   // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
+    
     if (data.action === 'request_sync') {
       if (synced) {
         if (activeType === 'p2p_sender') startKosmiStream(mpTitle.textContent);
@@ -396,9 +405,9 @@
     if (!synced) return; 
     setRemoteAction();
 
-    /* 🔥 BUG-FREE WEBRTC PIPELINE 🔥 */
+    /* 🔥 BUG-FREE HD RECEIVER PIPELINE 🔥 */
     if (data.action === 'webrtc_offer') {
-      showToast("📡 Host Stream Incoming...");
+      showToast("📡 HD Stream Incoming...");
       activeType = 'p2p_receiver';
       if(rtcPeer) rtcPeer.close();
       
@@ -409,17 +418,15 @@
       sliderWrap.style.display = 'flex'; 
       
       nativeAudio.src = ""; nativeAudio.srcObject = null;
-      setTrackInfo(data.title || "Live Stream", "Fetching Frames...");
+      setTrackInfo(data.title || "Live Stream", "Fetching High Quality Frames...");
 
-      // FIX 2: Autoplay Bypass for Receivers
       rtcPeer.ontrack = e => {
         nativeAudio.srcObject = e.streams[0];
         nativeAudio.onloadedmetadata = () => {
             nativeAudio.play().then(() => {
                 isPlaying = true; updatePlayBtn();
-                setTrackInfo(data.title || "Live Stream", "▶ HD Stream Active");
+                setTrackInfo(data.title || "Live Stream", "▶ HD Stream Locked 🔒");
             }).catch(()=>{
-                // Browser blocked audio autoplay! Mute it to force play, ask user to unmute.
                 nativeAudio.muted = true;
                 nativeAudio.play();
                 showToast("⚠️ Browser Blocked Audio: Tap video to unmute!");
