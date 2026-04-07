@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   TRUE KOSMI ENGINE: Data Chunking (100% Quality) + TURN Bypass
+   HEAVY-DUTY P2P ENGINE (1GB+ Files, 100% Quality, Two-Way Seek)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -50,9 +50,10 @@
     remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
   }
 
-  /* 🔥 MAX-POWER WEBTORRENT + METERED TURN SERVERS 🔥 */
+  /* 🔥 HEAVY-DUTY WEBTORRENT ENGINE 🔥 */
   let wtClient = null;
 
+  // Bhai yaha apne metered.ca wale username password re-verify kar lena
   const ICE_SERVERS_CONFIG = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -68,8 +69,7 @@
     announce: [
       'wss://tracker.webtorrent.dev',
       'wss://tracker.openwebtorrent.com',
-      'wss://tracker.files.fm:7073/announce',
-      'wss://qot.zbook.lol:8443/announce'
+      'wss://tracker.files.fm:7073/announce'
     ]
   };
 
@@ -87,11 +87,8 @@
 
   function getWT() {
     if (!wtClient && window.WebTorrent) { 
-      // Injecting TURN Servers deep into WebTorrent's WebRTC engine
       wtClient = new window.WebTorrent({
-        tracker: {
-          rtcConfig: ICE_SERVERS_CONFIG
-        }
+        tracker: { rtcConfig: ICE_SERVERS_CONFIG }
       }); 
       wtClient.on('error', err => { console.error('P2P Error:', err); });
     }
@@ -168,7 +165,7 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', url: fakeUrl, ytId: id });
   }
 
-  /* 🔥 P2P SENDER LOGIC (Data Chunking) 🔥 */
+  /* 🔥 HEAVY P2P FILE SEEDING (SENDER) 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     
@@ -176,15 +173,20 @@
       const wt = getWT();
       if (!wt) return showToast("⚠️ Engine loading, try again in 2 seconds!");
       
-      showToast("🚀 Initiating Secure TURN Relay Seeding...");
-      setTrackInfo(file.name, '🌐 Injecting to Relay Network...');
+      // Heavy File Alert
+      if(file.size > 100 * 1024 * 1024) {
+          showToast("⏳ Heavy file detected! Scanning & Hashing... (Keep screen ON)");
+          setTrackInfo("Processing...", "Hashing large file...");
+      } else {
+          showToast("🚀 Initiating P2P Engine...");
+      }
       
       wt.seed(file, P2P_OPTS, (torrent) => {
-        showToast("✅ Connected! Live stream is ready for partner.");
-        setTrackInfo(file.name, '▶ Seeding 100% Quality to Partner');
+        showToast("✅ Stream Live! Partner is connecting...");
+        setTrackInfo(file.name, '▶ Seeding to Partner');
         addToQueue({ type: 'torrent', title: file.name, magnet: torrent.magnetURI });
         
-        // Also play locally for sender
+        // Sender playback
         const url = URL.createObjectURL(file);
         nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
         nativeAudio.src = url; nativeAudio.play().catch(()=>{});
@@ -233,6 +235,7 @@
   mpNext.addEventListener('click', () => { if(queue.length > 0) playNext(); });
   mpPrev.addEventListener('click', () => { if(queue.length > 0) playPrev(); });
 
+  /* 🔥 HEAVY FILE RECEIVER (MEDIA RENDERER) 🔥 */
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
@@ -259,7 +262,7 @@
     }
     else if (item.type === 'torrent') {
       activeType = 'torrent'; nativeAudio.style.display = 'block';
-      setTrackInfo(item.title, '📡 Connecting to Relay & Buffering...');
+      setTrackInfo(item.title, '📡 Connecting to Partner...');
       const wt = getWT();
       if (wt) {
         const existing = wt.get(item.magnet);
@@ -267,15 +270,17 @@
         else {
           wt.add(item.magnet, P2P_OPTS, (torrent) => { 
             playTorrentMedia(torrent); 
+            
+            // Progress Bar specifically designed for heavy files
             torrent.on('download', () => {
                if(nativeAudio.paused && !isRemoteAction) {
                    setTrackInfo(torrent.name, `⬇ Buffering: ${(torrent.progress * 100).toFixed(1)}%`);
                } else {
-                   setTrackInfo(torrent.name, '▶ 100% Quality Relay Active');
+                   setTrackInfo(torrent.name, '▶ High-Quality Stream Active');
                }
             });
             torrent.on('noPeers', (announceType) => {
-                if(announceType === 'tracker') showToast('⏳ Finding peers via Relay...');
+                if(announceType === 'tracker') showToast('⏳ Punching through firewall... (Finding Partner)');
             });
           });
         }
@@ -283,13 +288,14 @@
     }
   }
 
+  // Original File Chunk Render
   function playTorrentMedia(torrent) {
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mp3') || f.name.endsWith('.mkv') || f.name.endsWith('.webm')) || torrent.files[0];
     
-    // THIS IS THE MAGIC: Original file rendered locally via chunking!
+    // file.renderTo handles all the seeking and original quality rendering!
     file.renderTo(nativeAudio, { autoplay: true });
     
-    setTrackInfo(torrent.name, '▶ 100% Quality Relay Active');
+    setTrackInfo(torrent.name, '▶ Stream Connected!');
     isPlaying = true; updatePlayBtn();
   }
 
