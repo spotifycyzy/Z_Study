@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   KOSMI ENGINE: True P2P Chunking (100% Quality + Seek) & Fixed YT
+   KOSMI ENGINE + NAT BYPASS (Google STUN Servers Inject)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -20,7 +20,7 @@
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const nativeAudio = document.getElementById('nativeAudio'); // Video Tag
+  const nativeAudio = document.getElementById('nativeAudio'); 
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -42,7 +42,6 @@
   let ytPlayer        = null; 
   let isYtReady       = false;
   
-  // Anti-Loop (True Sync)
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
@@ -50,16 +49,16 @@
     remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
   }
 
-  // WebTorrent Engine (Kosmi Grade Chunking)
+  /* 🔥 MAX-POWER WEBTORRENT (NAT BYPASS) 🔥 */
   let wtClient = null;
 
-  /* 🔥 UNBLOCKED P2P TRACKERS 🔥 */
+  // Trackers w/ WebSockets
   const P2P_OPTS = {
     announce: [
       'wss://tracker.webtorrent.dev',
       'wss://tracker.openwebtorrent.com',
       'wss://tracker.files.fm:7073/announce',
-      'wss://tracker.btorrent.xyz'
+      'wss://qot.zbook.lol:8443/announce'
     ]
   };
 
@@ -77,8 +76,21 @@
 
   function getWT() {
     if (!wtClient && window.WebTorrent) { 
-      wtClient = new window.WebTorrent(); 
-      wtClient.on('error', err => { console.error('P2P Error:', err); showToast('⚠️ P2P Engine Error!'); });
+      // Injecting Google STUN Servers to bypass ISP Blocking
+      wtClient = new window.WebTorrent({
+        tracker: {
+          rtcConfig: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+              { urls: 'stun:stun3.l.google.com:19302' },
+              { urls: 'stun:stun4.l.google.com:19302' }
+            ]
+          }
+        }
+      }); 
+      wtClient.on('error', err => { console.error('P2P Error:', err); showToast('⚠️ Tracker Warning Ignored, Continuing...'); });
     }
     return wtClient;
   }
@@ -139,7 +151,6 @@
     addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; 
   });
 
-  // ROBUST URL EXTRACTORS
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
   function extractYouTubeId(url) { 
     const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); 
@@ -154,7 +165,7 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', url: fakeUrl, ytId: id });
   }
 
-  /* 🔥 KOSMI-GRADE P2P FILE STREAMING 🔥 */
+  /* 🔥 P2P SENDER LOGIC 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     
@@ -162,11 +173,11 @@
       const wt = getWT();
       if (!wt) return showToast("⚠️ Engine loading, try again in 2 seconds!");
       
-      showToast("🚀 Creating Kosmi P2P Network...");
+      showToast("🚀 Initiating NAT Bypass & Seeding...");
       setTrackInfo(file.name, '🌐 Injecting to Network...');
       
       wt.seed(file, P2P_OPTS, (torrent) => {
-        showToast("✅ Stream Live! Waiting for partner to connect...");
+        showToast("✅ Connected! Waiting for partner's player...");
         setTrackInfo(file.name, '▶ Seeding to Partner');
         addToQueue({ type: 'torrent', title: file.name, magnet: torrent.magnetURI });
       });
@@ -214,7 +225,6 @@
   mpPrev.addEventListener('click', () => { if(queue.length > 0) playPrev(); });
 
   function renderMedia(item) {
-    // Reset Everything
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
@@ -257,6 +267,9 @@
                    setTrackInfo(torrent.name, '▶ 100% Quality P2P Active');
                }
             });
+            torrent.on('noPeers', (announceType) => {
+                if(announceType === 'tracker') showToast('⏳ Still finding peers, please keep screen ON...');
+            });
           });
         }
       }
@@ -265,15 +278,12 @@
 
   function playTorrentMedia(torrent) {
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mp3') || f.name.endsWith('.mkv')) || torrent.files[0];
-    
-    // THIS is what gives 100% Quality and Forward/Backward capability!
     file.renderTo(nativeAudio, { autoplay: true });
-    
     setTrackInfo(torrent.name, '▶ 100% Quality P2P Active');
     isPlaying = true; updatePlayBtn();
   }
 
-  /* ── Play/Pause/Seek Events for Standard Audio/Video ── */
+  /* ── Play/Pause/Seek Events ── */
   nativeAudio.addEventListener('play',  () => { 
     isPlaying = true; updatePlayBtn(); 
     if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
@@ -329,7 +339,7 @@
 
     if (!synced) return; 
 
-    setRemoteAction(); // Prevents echo loop
+    setRemoteAction();
 
     if (data.action === 'change_song') {
       showToast('🎵 Partner changed the track');
@@ -339,7 +349,6 @@
       return;
     }
 
-    // Controls
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
