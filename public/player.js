@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   KOSMI ENGINE v4.0: FORCED HD QUALITY (No Degradation)
+   CLOUD SYNC ENGINE (For Telegram/Drive Direct Links & YT)
+   100% HD Quality | Zero Buffering | Perfect Two-Way Seek
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -33,32 +34,9 @@
   const spFrameWrap = document.getElementById('spFrameWrap');
   const queueList   = document.getElementById('queueList');
 
-  // CRITICAL: Mobile HTML5 Video Policies
+  // Mobile Video Fixes
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
-  nativeAudio.setAttribute('crossorigin', 'anonymous');
-
-  /* 🔥 DYNAMIC TIMELINE SLIDER (For Remote Seek) 🔥 */
-  const sliderWrap = document.createElement('div');
-  sliderWrap.style.cssText = 'width:100%; padding: 0 15px; margin-top: 15px; display:none; align-items:center; gap:10px;';
-  
-  const timeDisplay = document.createElement('span');
-  timeDisplay.style.cssText = 'font-size:12px; color:#fff; min-width:35px; font-weight:500;';
-  timeDisplay.textContent = '0:00';
-  
-  const seekSlider = document.createElement('input');
-  seekSlider.type = 'range';
-  seekSlider.min = 0; seekSlider.max = 100; seekSlider.value = 0;
-  seekSlider.style.cssText = 'flex:1; cursor:pointer; accent-color: #E8436A; height:4px;';
-  
-  const durDisplay = document.createElement('span');
-  durDisplay.style.cssText = 'font-size:12px; color:#fff; min-width:35px; font-weight:500; text-align:right;';
-  durDisplay.textContent = '0:00';
-
-  sliderWrap.appendChild(timeDisplay);
-  sliderWrap.appendChild(seekSlider);
-  sliderWrap.appendChild(durDisplay);
-  document.querySelector('.mp-controls').insertAdjacentElement('afterend', sliderWrap);
 
   /* ── State ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
@@ -68,27 +46,14 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
-  let streamStarted   = false; 
   
+  // Anti-Loop Logic (Prevents Echo)
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
     isRemoteAction = true; clearTimeout(remoteTimer);
-    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 1500); 
+    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); 
   }
-
-  /* 🔥 METERED TURN SERVERS 🔥 */
-  const ICE_SERVERS = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "turn:global.relay.metered.ca:80", username: "784d0b4711841be60f71d595", credential: "dCfrs0wXJdovYcyu" },
-      { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "784d0b4711841be60f71d595", credential: "dCfrs0wXJdovYcyu" },
-      { urls: "turn:global.relay.metered.ca:443", username: "784d0b4711841be60f71d595", credential: "dCfrs0wXJdovYcyu" },
-      { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "784d0b4711841be60f71d595", credential: "dCfrs0wXJdovYcyu" }
-    ]
-  };
-  let rtcPeer = null;
-  let iceQueue = []; 
 
   /* ── TOAST LOGIC ───────────────────────────────────────── */
   function showToast(msg) {
@@ -100,13 +65,6 @@
       document.head.appendChild(style);
     }
     document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
-  }
-
-  function formatTime(sec) {
-    if(isNaN(sec) || sec < 0) return "0:00";
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
   }
 
   /* ── UI Toggles ─────────────────────────────────────────── */
@@ -146,12 +104,15 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── Inputs ─────────────────────────────────────────────── */
+  /* ── Inputs & URLs ─────────────────────────────────────── */
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); }
     else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); }
-    else { addToQueue({ type: 'audio', title: val.split('/').pop() || 'Audio', url: val }); }
+    else { 
+      // Treat as Direct Telegram/Cloud Link
+      addToQueue({ type: 'stream', title: 'Cloud Media Link', url: val }); 
+    }
     urlInput.value = '';
   });
 
@@ -169,80 +130,19 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', url: fakeUrl, ytId: id });
   }
 
-  /* 🔥 INSTANT KOSMI STREAM (FORCED HD QUALITY) 🔥 */
+  /* 🔥 LOCAL FILE HANDLER (Guidance for Cloud Sync) 🔥 */
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
-    const url = URL.createObjectURL(file);
-    streamStarted = false; 
     
     if (synced) {
-      showToast("🚀 HD Engine: Locking Quality to 100%...");
-      nativeAudio.srcObject = null;
-      nativeAudio.src = url;
-      nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-      sliderWrap.style.display = 'flex'; 
-      
-      activeType = 'p2p_sender';
-      setTrackInfo(file.name, '📡 Broadcasting...');
-      
-      nativeAudio.play().then(() => {
-          isPlaying = true; updatePlayBtn();
-      }).catch(e => {
-          showToast("⚠️ Tap play to allow video processing!");
-      });
-
-      nativeAudio.onplaying = () => {
-         if(!streamStarted && activeType === 'p2p_sender') {
-            streamStarted = true;
-            setTrackInfo(file.name, '📡 HD Broadcast Active');
-            startKosmiStream(file.name);
-         }
-      };
-
+        // Stop users from trying to sync local files directly
+        showToast("💡 Pro Tip: Upload this file to Telegram, copy the Direct Link, and paste it in the URL box for HD Sync!");
     } else {
-      addToQueue({ type: 'audio', title: file.name, url: url });
+        // Solo local play
+        const url = URL.createObjectURL(file);
+        addToQueue({ type: 'stream', title: file.name, url: url });
     }
   });
-
-  function startKosmiStream(title) {
-    if(rtcPeer) { rtcPeer.close(); rtcPeer = null; }
-    rtcPeer = new RTCPeerConnection(ICE_SERVERS);
-    iceQueue = []; 
-    
-    let stream;
-    if (nativeAudio.captureStream) stream = nativeAudio.captureStream();
-    else if (nativeAudio.mozCaptureStream) stream = nativeAudio.mozCaptureStream();
-    
-    if(!stream || stream.getTracks().length === 0) {
-        return showToast("❌ Browser blocked video capture. Please refresh.");
-    }
-
-    stream.getTracks().forEach(track => {
-      const sender = rtcPeer.addTrack(track, stream);
-      
-      /* 🔥 THE ULTIMATE ANTI-COMPRESSION HACK 🔥 */
-      if (track.kind === 'video') {
-          const params = sender.getParameters();
-          if (!params.encodings) params.encodings = [{}];
-          
-          params.encodings[0].maxBitrate = 8000000; // Force High Bitrate (8Mbps)
-          params.degradationPreference = 'maintain-resolution'; // DO NOT DROP QUALITY!
-          
-          sender.setParameters(params).catch(()=>{});
-      }
-    });
-
-    rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
-    
-    rtcPeer.oniceconnectionstatechange = () => {
-        if(rtcPeer.iceConnectionState === 'failed') showToast('❌ HD Stream Blocked by ISP');
-        if(rtcPeer.iceConnectionState === 'connected') showToast('✅ Receiver Connected!');
-    };
-
-    rtcPeer.createOffer()
-      .then(offer => rtcPeer.setLocalDescription(offer))
-      .then(() => { broadcastSync({ action: 'webrtc_offer', offer: rtcPeer.localDescription, title: title }); });
-  }
 
   /* ── Queue Management & Rendering ───────────────────────── */
   function addToQueue(item) {
@@ -258,7 +158,7 @@
     queue.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP';
+      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP'; if (item.type === 'stream') icon = '☁️ CLOUD';
       el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
@@ -267,6 +167,8 @@
 
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
+    
+    // Broadcast track change
     if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
       broadcastSync({ action: 'change_song', item: item });
     }
@@ -276,9 +178,9 @@
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
 
+  /* 🔥 MEDIA RENDERER (Fastest Player) 🔥 */
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-    sliderWrap.style.display = 'none'; 
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
     
@@ -293,70 +195,36 @@
       const embedUrl = item.url.includes('/embed/') ? item.url : item.url.replace('open.spotify.com', 'open.spotify.com/embed');
       spFrame.src = embedUrl; setTrackInfo('Spotify', item.title);
     } 
-    else if (item.type === 'audio') {
-      activeType = 'audio'; nativeAudio.style.display = 'block'; sliderWrap.style.display = 'flex';
-      nativeAudio.src = item.url; nativeAudio.play().catch(()=>{});
-      setTrackInfo(item.title, 'Direct Media');
+    else if (item.type === 'stream') {
+      activeType = 'stream'; nativeAudio.style.display = 'block';
+      nativeAudio.src = item.url; 
+      nativeAudio.play().then(() => {
+          showToast("▶ Cloud Stream Connected!");
+      }).catch(()=>{
+          showToast("⚠️ Tap Play to start HD Stream");
+      });
+      setTrackInfo(item.title, '☁️ Ultra-Fast Cloud Sync');
       isPlaying = true; updatePlayBtn();
     }
   }
 
-  /* 🔥 CUSTOM SEEK BAR & TIMESTAMP SYNC 🔥 */
-  nativeAudio.addEventListener('timeupdate', () => {
-      if (activeType === 'audio' || activeType === 'p2p_sender') {
-          const cur = nativeAudio.currentTime;
-          const dur = nativeAudio.duration;
-          if (dur) {
-              seekSlider.value = (cur / dur) * 100;
-              timeDisplay.textContent = formatTime(cur);
-              durDisplay.textContent = formatTime(dur);
-          }
-      }
-  });
-
-  setInterval(() => {
-      if (synced && activeType === 'p2p_sender' && !nativeAudio.paused) {
-          broadcastSync({ action: 'sync_timeline', cur: nativeAudio.currentTime, dur: nativeAudio.duration });
-      }
-  }, 1000);
-
-  seekSlider.addEventListener('input', (e) => {
-      const percent = e.target.value;
-      if (activeType === 'audio' || activeType === 'p2p_sender') {
-          if(nativeAudio.duration) nativeAudio.currentTime = (percent / 100) * nativeAudio.duration;
-      } else if (activeType === 'p2p_receiver') {
-          broadcastSync({ action: 'remote_seek_percent', percent: percent });
-      }
-  });
-
-  /* ── PLAY/PAUSE SYNC ── */
+  /* ── PLAY/PAUSE/SEEK SYNC ── */
   nativeAudio.addEventListener('play',  () => { 
     isPlaying = true; updatePlayBtn(); 
-    if (synced && !isRemoteAction) {
-        if (activeType === 'p2p_receiver') broadcastSync({ action: 'remote_cmd', cmd: 'play' });
-        else broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-    }
+    if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
   });
   nativeAudio.addEventListener('pause', () => { 
     isPlaying = false; updatePlayBtn(); 
-    if (synced && !isRemoteAction) {
-        if (activeType === 'p2p_receiver') broadcastSync({ action: 'remote_cmd', cmd: 'pause' });
-        else broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
-    }
+    if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
   });
   nativeAudio.addEventListener('seeked', () => {
-    if (synced && !isRemoteAction && activeType !== 'p2p_receiver') {
-        broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
-    }
+    if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
   });
   nativeAudio.addEventListener('ended', playNext);
 
   /* ── UNIVERSAL CONTROLLER ──────────────────── */
   mpPlay.addEventListener('click', () => {
-    if (activeType === 'p2p_receiver') {
-       broadcastSync({ action: 'remote_cmd', cmd: isPlaying ? 'pause' : 'play' });
-       isPlaying = !isPlaying; updatePlayBtn();
-    } else if (activeType === 'audio' || activeType === 'p2p_sender') {
+    if (activeType === 'stream') {
        if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{});
     } else if (activeType === 'youtube' && ytPlayer) {
        if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
@@ -385,19 +253,15 @@
 
   // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
-    
     if (data.action === 'request_sync') {
-      if (synced) {
-        if (activeType === 'p2p_sender') startKosmiStream(mpTitle.textContent);
-        else if (queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
+      if (synced && queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
            broadcastSync({ action: 'change_song', item: queue[currentIdx] });
            setTimeout(() => {
               let curTime = 0;
               if (activeType === 'youtube' && ytPlayer) curTime = ytPlayer.getCurrentTime();
-              else if (activeType === 'audio') curTime = nativeAudio.currentTime;
+              else if (activeType === 'stream') curTime = nativeAudio.currentTime;
               broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
            }, 1000);
-        }
       }
       return;
     }
@@ -405,89 +269,7 @@
     if (!synced) return; 
     setRemoteAction();
 
-    /* 🔥 BUG-FREE HD RECEIVER PIPELINE 🔥 */
-    if (data.action === 'webrtc_offer') {
-      showToast("📡 HD Stream Incoming...");
-      activeType = 'p2p_receiver';
-      if(rtcPeer) rtcPeer.close();
-      
-      iceQueue = []; 
-      rtcPeer = new RTCPeerConnection(ICE_SERVERS);
-      
-      nativeAudio.style.display = 'block'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
-      sliderWrap.style.display = 'flex'; 
-      
-      nativeAudio.src = ""; nativeAudio.srcObject = null;
-      setTrackInfo(data.title || "Live Stream", "Fetching High Quality Frames...");
-
-      rtcPeer.ontrack = e => {
-        nativeAudio.srcObject = e.streams[0];
-        nativeAudio.onloadedmetadata = () => {
-            nativeAudio.play().then(() => {
-                isPlaying = true; updatePlayBtn();
-                setTrackInfo(data.title || "Live Stream", "▶ HD Stream Locked 🔒");
-            }).catch(()=>{
-                nativeAudio.muted = true;
-                nativeAudio.play();
-                showToast("⚠️ Browser Blocked Audio: Tap video to unmute!");
-                nativeAudio.onclick = () => { nativeAudio.muted = false; showToast("🔊 Audio Unmuted"); };
-                isPlaying = true; updatePlayBtn();
-                setTrackInfo(data.title || "Live Stream", "▶ Stream (Muted)");
-            });
-        };
-      };
-
-      rtcPeer.onicecandidate = e => { if(e.candidate) broadcastSync({ action: 'webrtc_ice', candidate: e.candidate }); };
-      
-      rtcPeer.setRemoteDescription(new RTCSessionDescription(data.offer))
-        .then(() => rtcPeer.createAnswer())
-        .then(answer => { return rtcPeer.setLocalDescription(answer).then(() => answer); })
-        .then(answer => {
-          broadcastSync({ action: 'webrtc_answer', answer: answer });
-          iceQueue.forEach(c => rtcPeer.addIceCandidate(c).catch(e => console.error(e)));
-          iceQueue = [];
-        });
-      return;
-    }
-    
-    if (data.action === 'webrtc_answer') { 
-        if (rtcPeer) rtcPeer.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(e => console.error(e)); 
-        return; 
-    }
-    
-    if (data.action === 'webrtc_ice') { 
-        if (rtcPeer) {
-            const candidate = new RTCIceCandidate(data.candidate);
-            if (rtcPeer.remoteDescription && rtcPeer.remoteDescription.type) {
-                rtcPeer.addIceCandidate(candidate).catch(e => console.error(e));
-            } else {
-                iceQueue.push(candidate);
-            }
-        }
-        return; 
-    }
-
-    if (data.action === 'sync_timeline' && activeType === 'p2p_receiver') {
-        seekSlider.value = (data.cur / data.dur) * 100;
-        timeDisplay.textContent = formatTime(data.cur);
-        durDisplay.textContent = formatTime(data.dur);
-        return;
-    }
-
-    if (data.action === 'remote_seek_percent' && activeType === 'p2p_sender') {
-        if(nativeAudio.duration) {
-            nativeAudio.currentTime = (data.percent / 100) * nativeAudio.duration;
-            showToast("⏳ Partner seeked video!");
-        }
-        return;
-    }
-
-    if (data.action === 'remote_cmd' && activeType === 'p2p_sender') {
-        if (data.cmd === 'play') { nativeAudio.play().catch(()=>{}); isPlaying = true; updatePlayBtn(); }
-        if (data.cmd === 'pause') { nativeAudio.pause(); isPlaying = false; updatePlayBtn(); }
-        return;
-    }
-
+    // Track Changes
     if (data.action === 'change_song') {
       let idx = queue.findIndex(q => q.url && q.url === data.item.url);
       if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
@@ -495,12 +277,17 @@
       return;
     }
 
+    // Playback Sync
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
       if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
-    } else if (activeType === 'audio') {
-      if (data.action === 'play') { nativeAudio.currentTime = data.time; nativeAudio.play().catch(()=>{}); }
+    } else if (activeType === 'stream') {
+      if (data.action === 'play') { 
+          // If seeking occurred while paused
+          if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time;
+          nativeAudio.play().catch(()=>{}); 
+      }
       if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
       if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
     }
