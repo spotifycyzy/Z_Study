@@ -1,17 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Chat Lag, Battery Pulse, & All Missing Styles Restored
+   FIXED: Fullscreen Video Centering & Disappearing Video Bug
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
 #zxHandle {
   position: fixed; top: 0; left: 0; width: 100%; height: 52px;
-  background: #0a050c; /* Removed blur for chat performance */
+  background: #0a050c; 
   z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   cursor: pointer; touch-action: none;
-  transform: translateZ(0); /* Hardware Acceleration */
 }
 .handle-bar-line { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 .mini-controls { display: flex; gap: 5px; align-items: center; }
@@ -55,17 +54,17 @@
 .zm-m { position: absolute; bottom: -2px; right: -10px; font-size: 12px; transform: rotate(20deg); opacity: 0.9; z-index: 3; filter: drop-shadow(0 0 4px rgba(255,181,200,0.8)); }
 
 /* ── 2. THE STEALTH PANEL ── */
+/* FIX: Removed contain and translateZ from here so fullscreen API works perfectly */
 #zxPanel {
   position: fixed; top: 52px; left: 0; width: 100%; height: auto; max-height: 75vh; 
-  background: #0d0008; /* Solid color for performance */
+  background: #0d0008; 
   z-index: 99999; color: #fff; display: flex; flex-direction: column;
-  transform: translateY(calc(-100% - 52px)) translateZ(0); 
+  transform: translateY(calc(-100% - 52px)); 
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
-  contain: content; /* Isolates video layout */
 }
-#zxPanel.zx-open { transform: translateY(0) translateZ(0); }
+#zxPanel.zx-open { transform: translateY(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
 .close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 
@@ -80,9 +79,27 @@
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-/* ── PLAYER SECTION ── */
-#zxPlayerSection { margin-bottom: 15px; transform: translateZ(0); contain: strict; }
+/* ── PLAYER SECTION (FIXED Aspect Ratio for Perfect Centering) ── */
+#zxPlayerSection { margin-bottom: 15px; width: 100%; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+
+/* 💥 FIX: Perfect 16:9 Aspect Ratio for YT Video 💥 */
+#ytFrameWrap {
+  display: none;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9; /* Modern responsive aspect ratio */
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+#ytPlayerInner {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
 
 /* 🔥 THE FEEL ANIMATION 🔥 */
 #spotifyMode { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; }
