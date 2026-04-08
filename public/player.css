@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css
-   Glassmorphism + Mobile Gesture UI + Split Screen Push
+   Pure Overlay Extension (No Split Screen / No Push Down)
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Mini Player) ── */
@@ -8,7 +8,8 @@
   position: fixed; top: 0; left: 0; width: 100%; height: 50px;
   background: rgba(10, 5, 12, 0.95);
   backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-  z-index: 1000; display: flex; align-items: center; padding: 0 15px;
+  z-index: 100000; /* 💥 Always on top of chat & study site */
+  display: flex; align-items: center; padding: 0 15px;
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   touch-action: none;
@@ -40,12 +41,13 @@
   box-shadow: 0 0 12px rgba(232,67,106,0.5); padding: 0;
 }
 
-/* ── 2. THE STEALTH PANEL (Top 50% Split Screen) ── */
+/* ── 2. THE STEALTH PANEL (Floating Extension) ── */
 #zxPanel {
-  position: fixed; top: 0; left: 0; width: 100%; height: 50vh; 
+  position: fixed; top: 0; left: 0; width: 100%; height: 60vh; /* 💥 Overlays 60% of screen */
   background: rgba(13, 0, 8, 0.96);
   backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-  z-index: 1001; color: #fff;
+  z-index: 99999; /* 💥 Sits right below the handle, above everything else */
+  color: #fff;
   display: flex; flex-direction: column;
   transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1);
   border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
@@ -111,22 +113,6 @@
 .qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
 
-/* ── 3. PUSH DOWN EFFECT (SPLIT SCREEN) ── */
-body { padding-top: 50px; }
-
-#chatApp, #notesViewer { 
-  top: 50px; 
-  transition: top 0.4s cubic-bezier(0.33, 1, 0.68, 1); 
-}
-#studySite { 
-  transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1); 
-}
-
-/* When Panel Opens, push everything smoothly down */
-body.panel-active #chatApp,
-body.panel-active #notesViewer {
-  top: 50vh !important;
-}
-body.panel-active #studySite {
-  transform: translateY(calc(50vh - 50px));
-}
+/* ── 3. STATIC LAYOUT (No screen pushing) ── */
+body { padding-top: 50px; } /* Just space for the mini-player handle */
+#chatApp, #notesViewer { top: 50px; }
