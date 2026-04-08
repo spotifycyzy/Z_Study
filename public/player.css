@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css
-   FIXED: No Overlap, Z-Button, 50vh Layout
+   FIXED: Dynamic Height, Aesthetic Merged Z-Logo
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -25,36 +25,49 @@
 .mp-btn:hover { color: #FFB5C8; background: rgba(232,67,106,0.12); }
 .mp-play { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,#E8436A,#C2005F); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(232,67,106,0.5); padding: 0; }
 
-/* 💥 NEW: ATTRACTIVE Z-BUTTON 💥 */
+/* 💥 NEW: AESTHETIC MERGED Z-BUTTON 💥 */
 .z-trigger-btn {
-  display: flex; align-items: center; gap: 3px;
-  background: linear-gradient(135deg, rgba(232,67,106,0.12), rgba(194,0,95,0.12));
+  background: linear-gradient(135deg, rgba(232,67,106,0.15), rgba(194,0,95,0.1));
   border: 1px solid rgba(232,67,106,0.4);
-  border-radius: 12px; padding: 6px 12px;
+  border-radius: 12px; padding: 4px 14px;
   cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   box-shadow: 0 0 10px rgba(232,67,106,0.15);
 }
 .z-trigger-btn:hover, .z-trigger-btn.active {
-  background: linear-gradient(135deg, rgba(232,67,106,0.3), rgba(194,0,95,0.3));
-  border-color: #E8436A;
+  background: linear-gradient(135deg, rgba(232,67,106,0.3), rgba(194,0,95,0.25));
+  border-color: #FFB5C8;
   box-shadow: 0 0 15px rgba(232,67,106,0.5);
   transform: translateY(-1px);
 }
-.z-logo-char {
-  font-family: 'Cinzel Decorative', serif; font-size: 16px; font-weight: 800;
-  color: #E8436A; text-shadow: 0 0 8px rgba(232,67,106,0.6);
+.z-merged-logo {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 26px;
 }
-.z-icons-char {
-  font-size: 13px; letter-spacing: -2px; margin-left: 2px;
-  filter: drop-shadow(0 0 4px rgba(255,181,200,0.6));
+.zm-z {
+  font-family: 'Cinzel Decorative', serif; font-size: 26px; font-weight: 900;
+  background: linear-gradient(135deg, #FFB5C8, #E8436A);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 6px rgba(232,67,106,0.6));
+  line-height: 1; z-index: 2;
+}
+.zm-h {
+  position: absolute; top: -3px; left: -10px; font-size: 12px;
+  transform: rotate(-25deg); opacity: 0.9; z-index: 1;
+  filter: drop-shadow(0 0 4px rgba(255,181,200,0.8));
+}
+.zm-m {
+  position: absolute; bottom: -2px; right: -10px; font-size: 12px;
+  transform: rotate(20deg); opacity: 0.9; z-index: 3;
+  filter: drop-shadow(0 0 4px rgba(255,181,200,0.8));
 }
 
-/* ── 2. THE STEALTH PANEL (Top 50% Overlay) ── */
+/* ── 2. THE STEALTH PANEL (Auto Height up to 75vh) ── */
 #zxPanel {
   position: fixed; 
-  top: 52px; /* 💥 FIX: Starts below the handle to fix overlap */
+  top: 52px; /* Starts exactly below handle */
   left: 0; width: 100%; 
-  height: 55vh; max-height: 600px;
+  height: auto; /* 💥 FIX: Empty space gone! Shrinks to fit content */
+  max-height: 75vh; /* Max limit so it doesn't cover full screen if list is long */
   background: rgba(13, 0, 8, 0.98);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   z-index: 99999; color: #fff;
@@ -72,18 +85,18 @@
 .close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 
 /* Panel Internal Layout */
-.zx-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+.music-panel-inner { padding: 0 16px 16px; overflow-y: auto; display: flex; flex-direction: column; }
+.music-panel-inner::-webkit-scrollbar { width: 3px; }
+.music-panel-inner::-webkit-scrollbar-thumb { background: rgba(232,67,106,0.4); border-radius: 5px; }
+
+.zx-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
 .zx-logo { font-family: 'Cinzel Decorative', serif; font-size: 20px; font-weight: 700; }
 .zx-logo span { color: #E8436A; }
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-.zx-body { overflow-y: auto; padding: 15px 20px; flex-grow: 1; }
-.zx-body::-webkit-scrollbar { width: 4px; }
-.zx-body::-webkit-scrollbar-thumb { background: rgba(232,67,106,0.3); border-radius: 4px; }
-
 /* Player Box */
-#zxPlayerSection { margin-bottom: 20px; }
+#zxPlayerSection { margin-bottom: 15px; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
 #spotifyMode { text-align: center; padding: 10px 0; }
 
