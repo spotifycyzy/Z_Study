@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Bar Toggle + Auto-Opening Smart Search Overlays
+   Top Z-Button Toggle + Auto-Opening Overlays
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -9,7 +9,7 @@
   const panel       = document.getElementById('zxPanel');
   const handle      = document.getElementById('zxHandle');
   const closeHandle = document.getElementById('closeHandle');
-  const panelToggleBtn = document.getElementById('panelToggleBtn'); // Naya button
+  const panelToggleBtn = document.getElementById('panelToggleBtn');
   
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
@@ -73,17 +73,25 @@
     if(isPanelOpen) return;
     isPanelOpen = true;
     panel.classList.add('zx-open');
-    if(panelToggleBtn) panelToggleBtn.textContent = '🔼'; // Icon change
+    document.body.style.overflow = 'hidden'; 
+    if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   
   function closePanel() {
     if(!isPanelOpen) return;
     isPanelOpen = false;
     panel.classList.remove('zx-open');
-    if(panelToggleBtn) panelToggleBtn.textContent = '🔽'; // Icon change
+    document.body.style.overflow = ''; 
+    if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
-  // Right Side Button Click
+  // Handle Swipe Down
+  handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
+  handle.addEventListener('touchmove', (e) => {
+    if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel();
+  }, {passive: true});
+
+  // Top Bar Right "Z" Button Click
   if(panelToggleBtn) {
     panelToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -91,24 +99,20 @@
     });
   }
 
-  // Swipe Down on handle
-  handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-  handle.addEventListener('touchmove', (e) => {
-    if(!isPanelOpen && (e.touches[0].clientY - startY) > 20) openPanel();
-  }, {passive: true});
-
   // Handle Click (Ignored if clicking buttons)
   handle.addEventListener('click', (e) => {
-    if(e.target.closest('.mp-btn')) return; 
+    if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; 
     if(!isPanelOpen) openPanel(); else closePanel();
   });
 
   // Swipe Up on panel
-  closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-  closeHandle.addEventListener('touchmove', (e) => {
-    if(isPanelOpen && (startY - e.touches[0].clientY) > 20) closePanel();
-  }, {passive: true});
-  closeHandle.addEventListener('click', closePanel);
+  if (closeHandle) {
+    closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
+    closeHandle.addEventListener('touchmove', (e) => {
+      if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel();
+    }, {passive: true});
+    closeHandle.addEventListener('click', closePanel);
+  }
 
   panel.addEventListener('touchmove', (e) => {
     if (isPanelOpen && !e.target.closest('.zx-body')) { e.preventDefault(); }
@@ -165,11 +169,9 @@
     else if (val.startsWith('http')) { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); urlInput.value = ''; }
     else {
         // 💥 AUTO OPEN LIBRARIAN EPISODES 💥
-        // Agar link me 'http' nahi hai, toh hum use playlist ka naam manenge.
         showToast(`🔍 Fetching episodes for: ${val}`);
         dynamicEpListUrl.innerHTML = ''; 
         
-        // Mock episodes (yahan actual API/DB aayega)
         let mockEpisodes = [
             { title: `${val} - Ep 1`, url: "mock1" },
             { title: `${val} - Ep 2`, url: "mock2" },
@@ -180,11 +182,11 @@
             const div = document.createElement('div');
             div.className = 'ep-item';
             div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
-            div.onclick = () => { showToast(`Loaded ${ep.title}`); /* addToQueue(ep.url) */ };
+            div.onclick = () => { showToast(`Loaded ${ep.title}`); };
             dynamicEpListUrl.appendChild(div);
         });
         
-        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open overlay
+        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open
         urlInput.value = '';
     }
   });
@@ -198,7 +200,6 @@
     showToast(`🔍 Searching YouTube for: ${val}`);
     ytSearchResults.innerHTML = '';
     
-    // Mock Search Results (yahan API connect hogi)
     let mockResults = [
         { title: `${val} - Official Music Video`, ch: "T-Series", url: "https://www.youtube.com/watch?v=" },
         { title: `${val} - Lofi Mix`, ch: "Lofi Girl", url: "https://www.youtube.com/watch?v=" },
@@ -212,7 +213,7 @@
         ytSearchResults.appendChild(div);
     });
 
-    episodesOverlayYt.classList.remove('hidden'); // Auto-Open overlay
+    episodesOverlayYt.classList.remove('hidden'); // Auto-Open
     ytInput.value = ''; 
   });
 
