@@ -10,107 +10,95 @@
   <link rel="stylesheet" href="study.css"/>
   <link rel="stylesheet" href="chat.css"/>
   <link rel="stylesheet" href="player.css"/>
-  <style>
-    /* Styling for the new search results list */
-    .yt-search-results {
-      max-height: 200px; overflow-y: auto; background: var(--c-surfaceHigh, #2A0018); 
-      border: 1px solid var(--c-border, rgba(232,67,106,0.3)); border-radius: 12px; margin-top: 12px; display: none;
-    }
-    .yt-search-results.active { display: block; }
-    .yt-result-item {
-      padding: 10px 12px; border-bottom: 1px solid rgba(232,67,106,0.15); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.2s;
-    }
-    .yt-result-item:hover { background: rgba(232,67,106,0.1); }
-    .yt-result-title { font-size: 13px; font-weight: 600; color: #FFE8EF; line-height: 1.3; }
-    .yt-result-author { font-size: 11px; color: rgba(255,181,200,0.6); }
-  </style>
 </head>
 <body>
 <div id="blossomContainer"></div>
 
-<div id="musicBar">
-  <div class="music-bar-inner">
-    <button class="mp-btn" id="mpToggleBtn" style="display:none;">🎵</button>
-    <div class="mp-track-info">
-      <span class="mp-title" id="mpTitle">Swipe down to open ZeroX Hub</span>
-      <span class="mp-sub" id="mpSub">Sync Network</span>
-    </div>
-    <div class="mp-controls">
-      <button class="mp-btn" id="mpPrev">⏮</button>
-      <button class="mp-btn mp-play" id="mpPlay">▶</button>
-      <button class="mp-btn" id="mpNext">⏭</button>
-    </div>
-    <div class="mp-right">
-      <span class="mp-sync-pill" id="mpSyncPill">🔴 solo</span>
+<div id="zxHandle">
+  <div class="mini-controls">
+    <button class="mp-btn" id="miniPrev">⏮</button>
+    <button class="mp-btn mp-play" id="miniPlay">▶</button>
+    <button class="mp-btn" id="miniNext">⏭</button>
+  </div>
+  <div class="mini-info">
+    <div class="mini-title-wrap">
+      <span id="miniTitle">Swipe down to open ZeroX Hub</span>
     </div>
   </div>
+  <div class="handle-bar-line"></div>
 </div>
 
-<div id="musicPanel" class="zx-closed">
-  <div id="closeHandle" style="width:100%;height:25px;display:flex;justify-content:center;align-items:center;cursor:pointer;">
-     <div style="width:40px;height:4px;background:rgba(255,255,255,0.3);border-radius:10px;"></div>
-  </div>
+<div id="zxPanel" class="zx-closed">
+  <div id="closeHandle"><div class="close-bar-line"></div></div>
 
-  <div class="music-panel-inner">
-    <div class="mp-panel-header">
-      <span class="mp-panel-title">🎵 ZeroX Hub</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
-        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
-        <button class="mp-btn" id="mpClosePanel">✕</button>
+  <div class="zx-header">
+    <span class="zx-logo">ZeroX <span>Hub</span></span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
+      <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
+      <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
+        <span style="font-size:12px;color:#7ADB8A">🔗 Synced</span>
+        <button class="mp-btn" id="mpUnsyncBtn" style="padding:4px 8px;font-size:11px">Leave</button>
       </div>
     </div>
-    
-    <div id="universalPlayerWrap" style="margin-bottom: 16px;">
-      <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; display:none; border-radius:12px; background:#000; filter:hue-rotate(300deg)"></video>
-      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none; margin-top:0;">
-        <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen playsinline></iframe>
+  </div>
+
+  <div class="zx-body">
+    <div id="zxPlayerSection" class="mode-cinema">
+      
+      <div id="cinemaMode">
+        <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
+        
+        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;"></div>
+        
+        <div id="spFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
+          <iframe id="spFrame" style="width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
+        </div>
       </div>
-      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none; margin-top:0;">
-        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
+
+      <div id="spotifyMode" class="hidden">
+        <div class="vinyl-record" id="vinylRecord"></div>
+        <div class="music-info">
+          <h2 id="musicTitle">Loading...</h2>
+          <p id="musicArtist">Cloud Audio Stream</p>
+        </div>
       </div>
     </div>
 
     <div class="mp-tabs">
-      <button class="mp-tab active" data-tab="url">URL / File</button>
+      <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
       <button class="mp-tab" data-tab="spotify">Spotify</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
-    
+
     <div class="mp-tab-content active" id="tab-url">
       <div class="mp-input-row">
-        <input id="urlInput" class="mp-input" type="text" placeholder="Paste audio/video direct URL…"/>
-        <button class="mp-add-btn" id="urlAddBtn">Add</button>
+        <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
+        <button class="mp-add-btn" id="urlAddBtn">Play</button>
       </div>
       <label class="mp-file-label">
         <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
-        <span>📁 Choose local file</span>
+        <span>📁 Play Local File</span>
       </label>
     </div>
-    
+
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Paste link or Search song name..."/>
+        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube link..."/>
         <button class="mp-add-btn" id="ytAddBtn">Load</button>
       </div>
-      <div id="ytSearchResults" class="yt-search-results"></div>
     </div>
-    
+
     <div class="mp-tab-content" id="tab-spotify">
       <div class="mp-input-row">
         <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
         <button class="mp-add-btn" id="spAddBtn">Load</button>
       </div>
     </div>
-    
+
     <div class="mp-tab-content" id="tab-queue">
       <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
-    </div>
-    
-    <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
-      <p>🔗 Listening together — synced</p>
-      <button class="mp-btn" id="mpUnsyncBtn">Leave sync</button>
     </div>
   </div>
 </div>
@@ -131,6 +119,7 @@
       <span class="search-icon">🔍</span>
     </div>
   </nav>
+  
   <section class="study-hero">
     <div class="hero-content">
       <p class="hero-eyebrow">Welcome back</p>
@@ -149,18 +138,9 @@
       </div>
     </div>
   </section>
-  <section class="study-subjects" id="subjects">
-    <h2 class="section-title">Subjects</h2>
-    <div class="subjects-grid" id="subjectsGrid"></div>
-  </section>
-  <section class="study-recent" id="recent">
-    <h2 class="section-title">Recently Viewed</h2>
-    <div class="recent-list" id="recentList"></div>
-  </section>
-  <section class="study-bookmarks" id="bookmarks">
-    <h2 class="section-title">Saved Notes</h2>
-    <div id="bookmarksList"></div>
-  </section>
+  <section class="study-subjects" id="subjects"><h2 class="section-title">Subjects</h2><div class="subjects-grid" id="subjectsGrid"></div></section>
+  <section class="study-recent" id="recent"><h2 class="section-title">Recently Viewed</h2><div class="recent-list" id="recentList"></div></section>
+  <section class="study-bookmarks" id="bookmarks"><h2 class="section-title">Saved Notes</h2><div id="bookmarksList"></div></section>
   <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
 </div>
 
@@ -183,7 +163,6 @@
 
 <div id="chatApp" class="hidden">
   <div id="chatBlossoms"></div>
-
   <div id="unlockScreen" class="unlock-screen">
     <div class="unlock-card">
       <div class="unlock-logo"><span class="unlock-z">Z</span><span class="unlock-name-brand">erox</span></div>
@@ -196,90 +175,38 @@
 
   <div id="chatMain" class="chat-main hidden">
     <aside id="chatSidebar" class="chat-sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-logo">zerox</span>
-        <button class="icon-btn" id="closeSidebar">✕</button>
-      </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Theme</p>
-        <div class="theme-swatches" id="themeSwatches"></div>
-      </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Wallpaper</p>
-        <div class="wallpaper-grid" id="wallpaperGrid"></div>
-        <label class="custom-bg-label">
-          <input type="file" id="customBgInput" accept="image/*" style="display:none"/>
-          <span>📁 Custom background</span>
-        </label>
-      </div>
-      <div class="sidebar-section">
-        <p class="sidebar-label">Room</p>
-        <div class="room-info">
-          <span id="sidebarRoom"></span>
-          <span id="sidebarOnline" class="online-pill">● 0 online</span>
-        </div>
-      </div>
-      <div class="sidebar-section">
-        <button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button>
-      </div>
+      <div class="sidebar-header"><span class="sidebar-logo">zerox</span><button class="icon-btn" id="closeSidebar">✕</button></div>
+      <div class="sidebar-section"><p class="sidebar-label">Theme</p><div class="theme-swatches" id="themeSwatches"></div></div>
+      <div class="sidebar-section"><p class="sidebar-label">Wallpaper</p><div class="wallpaper-grid" id="wallpaperGrid"></div><label class="custom-bg-label"><input type="file" id="customBgInput" accept="image/*" style="display:none"/><span>📁 Custom background</span></label></div>
+      <div class="sidebar-section"><p class="sidebar-label">Room</p><div class="room-info"><span id="sidebarRoom"></span><span id="sidebarOnline" class="online-pill">● 0 online</span></div></div>
+      <div class="sidebar-section"><button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button></div>
     </aside>
 
     <div class="chat-window" id="chatWindow">
       <header class="chat-header">
         <button class="icon-btn" id="openSidebar">☰</button>
-        <div class="chat-header-info">
-          <span class="chat-room-name" id="chatRoomName">zerox</span>
-          <span class="chat-online" id="chatOnline">● 0 online</span>
-        </div>
+        <div class="chat-header-info"><span class="chat-room-name" id="chatRoomName">zerox</span><span class="chat-online" id="chatOnline">● 0 online</span></div>
         <button class="icon-btn" id="callBtn" title="Voice call">📞</button>
         <button class="icon-btn" id="hideChatBtn" title="Back">📚</button>
       </header>
-
-      <div class="messages-area" id="messagesArea">
-        <div class="messages-inner" id="messagesInner"></div>
-      </div>
+      <div class="messages-area" id="messagesArea"><div class="messages-inner" id="messagesInner"></div></div>
       <div class="typing-bar" id="typingBar"></div>
-
-      <div class="reply-bar" id="replyBar">
-        <span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span>
-        <span class="reply-bar-text" id="replyBarText"></span>
-        <button class="reply-bar-cancel" id="replyBarCancel">✕</button>
-      </div>
-
-      <div class="sticker-picker hidden" id="stickerPicker">
-        <div class="sticker-tabs" id="stickerTabs"></div>
-        <div class="sticker-grid" id="stickerGrid"></div>
-      </div>
-
+      <div class="reply-bar" id="replyBar"><span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span><span class="reply-bar-text" id="replyBarText"></span><button class="reply-bar-cancel" id="replyBarCancel">✕</button></div>
+      <div class="sticker-picker hidden" id="stickerPicker"><div class="sticker-tabs" id="stickerTabs"></div><div class="sticker-grid" id="stickerGrid"></div></div>
       <div class="input-bar">
         <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
         <button class="attach-btn" id="attachBtn">📎</button>
         <input type="file" id="mediaInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip" style="display:none"/>
         <button class="voice-record-btn" id="voiceBtn">🎙</button>
         <textarea id="msgInput" class="msg-input" placeholder="Message…" rows="1" maxlength="2000"></textarea>
-        <button class="send-btn" id="sendBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
+        <button class="send-btn" id="sendBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
       </div>
     </div>
   </div>
 </div>
-
-<div class="call-overlay hidden" id="callOverlay">
-  <div class="call-avatar" id="callAvatar">?</div>
-  <div class="call-name" id="callName">Calling…</div>
-  <div class="call-status" id="callStatus">connecting…</div>
-  <div class="call-actions">
-    <button class="call-btn mute" id="callMute">🎤</button>
-    <button class="call-btn end" id="callEnd">📵</button>
-  </div>
-</div>
+<div class="call-overlay hidden" id="callOverlay"><div class="call-avatar" id="callAvatar">?</div><div class="call-name" id="callName">Calling…</div><div class="call-status" id="callStatus">connecting…</div><div class="call-actions"><button class="call-btn mute" id="callMute">🎤</button><button class="call-btn end" id="callEnd">📵</button></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-
 <script src="config.js"></script>
 <script src="gesture.js"></script>
 <script src="player.js"></script>
