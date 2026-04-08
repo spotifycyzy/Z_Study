@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Fullscreen Centering, Touch Lag, and Styling
+   FIXED: Perfect Fullscreen Centering & No Lag
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -63,7 +63,6 @@
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
-  /* Removed contain properties completely to fix fullscreen tap lag */
 }
 #zxPanel.zx-open { transform: translateY(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
@@ -80,31 +79,19 @@
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-/* ── PLAYER SECTION (FIXED Aspect Ratio for Perfect Centering) ── */
+/* ── PLAYER SECTION ── */
 #zxPlayerSection { margin-bottom: 15px; width: 100%; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
 
-/* 💥 FIX: Perfect 16:9 Aspect Ratio with No Empty Space 💥 */
+/* 💥 FIX: Flawless Centered YouTube Iframe 💥 */
 #ytFrameWrap {
-  display: none;
-  position: relative;
-  width: 100%;
-  padding-bottom: 56.25%; /* Industry standard for 16:9 video */
-  height: 0;
-  overflow: hidden;
-  background: #000;
-  border-radius: 12px;
-  transform: translateZ(0);
+  display: none; width: 100%; height: 220px; background: #000; border-radius: 12px; overflow: hidden; margin: 0 auto;
 }
 #ytPlayerInner {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
+  width: 100%; height: 100%; border: 0; margin: 0 auto; display: block;
 }
-/* Ensure fullscreen removes borders and rounds */
-#ytPlayerInner:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
+/* Ensure Fullscreen clears all offsets */
+iframe:-webkit-full-screen, iframe:fullscreen { width: 100vw !important; height: 100vh !important; margin: 0 !important; padding: 0 !important; }
 
 /* 🔥 THE FEEL ANIMATION 🔥 */
 #spotifyMode { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; }
