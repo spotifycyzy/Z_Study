@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Smooth 60FPS Marquee (GPU Accelerated)
+   FIXED: Battery-Friendly Pulse Animation (No Marquee Lag)
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -18,25 +18,34 @@
 .mini-info { flex: 1; overflow: hidden; margin: 0 10px; }
 .mini-right { display: flex; align-items: center; }
 
-/* 💥 FIXED 60FPS MARQUEE (GPU ACCELERATED) 💥 */
+/* 💥 BATTERY-FRIENDLY PREMIUM PULSE ANIMATION (No laggy scrolling) 💥 */
 .mini-title-wrap { 
-  font-size: 13px; font-weight: 600; color: #FFE8EF; 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+  font-size: 13px; 
+  font-weight: 600; 
+  color: #FFE8EF; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
   text-align: center; 
-  transform: translateZ(0); 
+  width: 100%;
+  padding: 0 5px;
 }
 #miniTitle { 
   display: inline-block; 
-  animation: scrollText 10s linear infinite; 
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform: translateZ(0);
-  -webkit-font-smoothing: subpixel-antialiased;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  animation: pulseGlow 3s ease-in-out infinite alternate; 
 }
-@keyframes scrollText { 
-  0% { transform: translate3d(100%, 0, 0); } 
-  100% { transform: translate3d(-100%, 0, 0); } 
+@keyframes pulseGlow { 
+  0% { 
+      opacity: 0.75; 
+      text-shadow: 0 0 0px rgba(255, 181, 200, 0); 
+  } 
+  100% { 
+      opacity: 1; 
+      text-shadow: 0 0 10px rgba(255, 181, 200, 0.7); 
+  } 
 }
 
 .mp-btn { background: none; border: none; color: rgba(255,181,200,0.8); font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: all 0.2s; font-family: 'Sora', sans-serif; font-weight: 600; }
