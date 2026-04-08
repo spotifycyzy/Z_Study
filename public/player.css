@@ -1,17 +1,15 @@
 /* ═══════════════════════════════════════════════════════════
-   STEALTH MUSIC HUB — player.css
-   Pure Overlay Extension (No Split Screen / No Push Down)
+   STEALTH MUSIC HUB — player.css (ZERO-LAG OVERLAY)
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Mini Player) ── */
 #zxHandle {
   position: fixed; top: 0; left: 0; width: 100%; height: 50px;
   background: rgba(10, 5, 12, 0.95);
-  backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-  z-index: 100000; /* 💥 Always on top of chat & study site */
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  z-index: 100000; /* Always on top */
   display: flex; align-items: center; padding: 0 15px;
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   touch-action: none;
 }
 .handle-bar-line {
@@ -31,88 +29,82 @@
 .mp-btn {
   background: none; border: none; color: rgba(255,181,200,0.8);
   font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: 8px;
-  transition: all 0.2s; font-family: 'Sora', sans-serif; font-weight: 600;
+  transition: background 0.2s; font-family: 'Sora', sans-serif; font-weight: 600;
 }
-.mp-btn:hover { color: #FFB5C8; background: rgba(232,67,106,0.12); }
+.mp-btn:hover { background: rgba(232,67,106,0.12); }
 .mp-play {
   width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg,#E8436A,#C2005F); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 12px rgba(232,67,106,0.5); padding: 0;
 }
 
-/* ── 2. THE STEALTH PANEL (Floating Extension) ── */
+/* ── 2. THE PURE OVERLAY PANEL ── */
 #zxPanel {
-  position: fixed; top: 0; left: 0; width: 100%; height: 60vh; /* 💥 Overlays 60% of screen */
-  background: rgba(13, 0, 8, 0.96);
-  backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-  z-index: 99999; /* 💥 Sits right below the handle, above everything else */
-  color: #fff;
-  display: flex; flex-direction: column;
-  transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1);
-  border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1);
-  border-bottom: 1px solid rgba(232, 67, 106, 0.3);
+  position: fixed; top: 0; left: 0; width: 100%; height: 65vh; 
+  background: rgba(13, 0, 8, 0.98); /* Solid dark with slight transparency */
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); /* Reduced for performance */
+  z-index: 99999; /* Under handle, above everything else */
+  color: #fff; display: flex; flex-direction: column;
+  transform: translateY(-100%); 
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform; /* Hardware Acceleration for zero lag */
+  border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
+  border-bottom: 1px solid rgba(232, 67, 106, 0.4);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.9);
 }
-#zxPanel.zx-closed { transform: translateY(-100%); pointer-events: none; }
-#zxPanel.zx-open   { transform: translateY(0); pointer-events: all; }
+#zxPanel.zx-open { transform: translateY(0); pointer-events: all; }
 
 #closeHandle {
-  width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none;
+  width: 100%; height: 35px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none;
 }
-.close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; }
+.close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.3); border-radius: 10px; }
 
-/* Panel Header */
-.zx-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.zx-logo { font-family: 'Cinzel Decorative', serif; font-size: 20px; font-weight: 700; }
+/* Panel Structure */
+.zx-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.zx-logo { font-family: 'Cinzel Decorative', serif; font-size: 18px; font-weight: 700; }
 .zx-logo span { color: #E8436A; }
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-/* Panel Body */
 .zx-body { flex: 1; overflow-y: auto; padding: 15px 20px; }
-.zx-body::-webkit-scrollbar { width: 4px; }
-.zx-body::-webkit-scrollbar-thumb { background: rgba(232,67,106,0.3); border-radius: 4px; }
 
-/* Player UI Switcher */
-#zxPlayerSection { margin-bottom: 20px; }
+/* Player UI */
+#zxPlayerSection { margin-bottom: 15px; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; }
 #spotifyMode { text-align: center; padding: 10px 0; }
 
 .vinyl-record {
-  width: 120px; height: 120px; margin: 0 auto 15px; border-radius: 50%;
+  width: 110px; height: 110px; margin: 0 auto 10px; border-radius: 50%;
   background: url('https://i.imgur.com/8Q5FqWj.jpeg') center/cover;
-  border: 4px solid #222; box-shadow: inset 0 0 20px #000, 0 0 30px rgba(232,67,106,0.3);
-  animation: spin 4s linear infinite paused;
+  border: 3px solid #222; box-shadow: inset 0 0 15px #000, 0 0 20px rgba(232,67,106,0.2);
+  animation: spin 5s linear infinite paused;
+  will-change: transform;
 }
 .vinyl-record.playing { animation-play-state: running; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-.music-info h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.music-info h2 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
 .hidden { display: none !important; }
 
 /* Tabs & Inputs */
-.mp-tabs { display: flex; border-bottom: 1px solid rgba(232,67,106,0.15); margin-bottom: 15px; overflow-x: auto; }
-.mp-tab { padding: 8px 12px; background: none; border: none; font-size: 13px; font-weight: 600; color: rgba(255,232,239,0.4); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+.mp-tabs { display: flex; border-bottom: 1px solid rgba(232,67,106,0.15); margin-bottom: 12px; overflow-x: auto; }
+.mp-tab { padding: 6px 12px; background: none; border: none; font-size: 13px; font-weight: 600; color: rgba(255,232,239,0.4); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .mp-tab.active { color: #FFB5C8; border-bottom-color: #E8436A; }
 .mp-tab-content { display: none; }
 .mp-tab-content.active { display: block; }
 
 .mp-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
-.mp-input { flex: 1; padding: 12px; background: rgba(42,0,24,0.6); border: 1px solid rgba(232,67,106,0.2); border-radius: 12px; color: #fff; outline: none; }
+.mp-input { flex: 1; padding: 10px; background: rgba(42,0,24,0.6); border: 1px solid rgba(232,67,106,0.2); border-radius: 10px; color: #fff; outline: none; }
 .mp-input:focus { border-color: #E8436A; }
-.mp-add-btn { padding: 0 20px; background: linear-gradient(135deg,#E8436A,#C2005F); border: none; border-radius: 12px; color: #fff; font-weight: 600; cursor: pointer; }
-
-.mp-file-label { display: inline-flex; padding: 10px 15px; border-radius: 12px; border: 1px dashed rgba(232,67,106,0.4); color: #FFB5C8; font-size: 13px; cursor: pointer; }
+.mp-add-btn { padding: 0 16px; background: linear-gradient(135deg,#E8436A,#C2005F); border: none; border-radius: 10px; color: #fff; font-weight: 600; cursor: pointer; }
 
 /* Queue */
-.mp-queue-list { display: flex; flex-direction: column; gap: 8px; }
-.mp-queue-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(42,0,24,0.5); border-radius: 12px; border: 1px solid rgba(232,67,106,0.1); cursor: pointer; }
+.mp-queue-list { display: flex; flex-direction: column; gap: 6px; }
+.mp-queue-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(42,0,24,0.5); border-radius: 10px; border: 1px solid rgba(232,67,106,0.1); cursor: pointer; }
 .mp-queue-item.playing { border-color: #E8436A; background: rgba(232,67,106,0.15); }
-.qi-title { flex: 1; font-size: 14px; color: #FFE8EF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
+.qi-title { flex: 1; font-size: 13px; color: #FFE8EF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
 
-/* ── 3. STATIC LAYOUT (No screen pushing) ── */
-body { padding-top: 50px; } /* Just space for the mini-player handle */
+/* ── 3. STATIC BASE (No pushing) ── */
+body { padding-top: 50px; } 
 #chatApp, #notesViewer { top: 50px; }
