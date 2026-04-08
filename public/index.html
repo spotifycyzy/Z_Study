@@ -10,6 +10,20 @@
   <link rel="stylesheet" href="study.css"/>
   <link rel="stylesheet" href="chat.css"/>
   <link rel="stylesheet" href="player.css"/>
+  <style>
+    /* Styling for the new search results list */
+    .yt-search-results {
+      max-height: 200px; overflow-y: auto; background: var(--c-surfaceHigh, #2A0018); 
+      border: 1px solid var(--c-border, rgba(232,67,106,0.3)); border-radius: 12px; margin-top: 12px; display: none;
+    }
+    .yt-search-results.active { display: block; }
+    .yt-result-item {
+      padding: 10px 12px; border-bottom: 1px solid rgba(232,67,106,0.15); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.2s;
+    }
+    .yt-result-item:hover { background: rgba(232,67,106,0.1); }
+    .yt-result-title { font-size: 13px; font-weight: 600; color: #FFE8EF; line-height: 1.3; }
+    .yt-result-author { font-size: 11px; color: rgba(255,181,200,0.6); }
+  </style>
 </head>
 <body>
 <div id="blossomContainer"></div>
@@ -17,12 +31,12 @@
 <div id="zxHandle">
   <div class="mini-controls">
     <button class="mp-btn" id="miniPrev">⏮</button>
-    <button class="mp-btn mp-play" id="miniPlay">▶</button>
+    <button class="mp-btn mp-play" id="mpPlay">▶</button>
     <button class="mp-btn" id="miniNext">⏭</button>
   </div>
   <div class="mini-info">
     <div class="mini-title-wrap">
-      <span id="miniTitle">Swipe down to open ZeroX Hub</span>
+      <span id="mpTitle">Swipe down to open ZeroX Hub</span>
     </div>
   </div>
   <div class="handle-bar-line"></div>
@@ -46,8 +60,10 @@
   <div class="zx-body">
     <div id="zxPlayerSection" class="mode-cinema">
       <div id="cinemaMode">
-        <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
-        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;"></div>
+        <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none; filter:hue-rotate(300deg)"></video>
+        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
+          <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen playsinline></iframe>
+        </div>
         <div id="spFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
           <iframe id="spFrame" style="width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
         </div>
@@ -56,7 +72,7 @@
         <div class="vinyl-record" id="vinylRecord"></div>
         <div class="music-info">
           <h2 id="musicTitle">Loading...</h2>
-          <p id="musicArtist">Cloud Audio Stream</p>
+          <p id="musicArtist" style="color: #aaa; font-size: 13px;">Cloud Audio Stream</p>
         </div>
       </div>
     </div>
@@ -64,6 +80,7 @@
     <div class="mp-tabs">
       <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
+      <button class="mp-tab" data-tab="spotify">Spotify</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
 
@@ -80,8 +97,16 @@
 
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube link..."/>
+        <input id="ytInput" class="mp-input" type="text" placeholder="Search song name or Paste link..."/>
         <button class="mp-add-btn" id="ytAddBtn">Load</button>
+      </div>
+      <div id="ytSearchResults" class="yt-search-results"></div>
+    </div>
+
+    <div class="mp-tab-content" id="tab-spotify">
+      <div class="mp-input-row">
+        <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
+        <button class="mp-add-btn" id="spAddBtn">Load</button>
       </div>
     </div>
 
@@ -93,30 +118,59 @@
 
 <div id="studySite">
   <nav class="study-nav">
-    <div class="nav-brand"><span class="brand-icon">📚</span><span class="brand-name" id="brandName">StudyVault</span></div>
-    <div class="nav-links"><a href="#subjects">Subjects</a><a href="#recent">Recent</a><a href="#bookmarks">Saved</a></div>
-    <div class="nav-search"><input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/><span class="search-icon">🔍</span></div>
+    <div class="nav-brand">
+      <span class="brand-icon">📚</span>
+      <span class="brand-name" id="brandName">StudyVault</span>
+    </div>
+    <div class="nav-links">
+      <a href="#subjects">Subjects</a>
+      <a href="#recent">Recent</a>
+      <a href="#bookmarks">Saved</a>
+    </div>
+    <div class="nav-search">
+      <input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/>
+      <span class="search-icon">🔍</span>
+    </div>
   </nav>
-  
   <section class="study-hero">
     <div class="hero-content">
       <p class="hero-eyebrow">Welcome back</p>
       <h1 class="hero-title" id="heroTitle">StudyVault<br/><em>knowledge library</em></h1>
       <p class="hero-sub">Click any chapter to read AI-generated notes.</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-n" id="statSubjects">5</span><span class="stat-l">Subjects</span></div>
+        <div class="stat"><span class="stat-n" id="statChapters">0</span><span class="stat-l">Chapters</span></div>
+        <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
+      </div>
     </div>
-    <div class="hero-visual" aria-hidden="true"><div class="book-stack"><div class="book b1"></div><div class="book b2"></div><div class="book b3"></div><div class="book b4"></div></div></div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="book-stack">
+        <div class="book b1"></div><div class="book b2"></div>
+        <div class="book b3"></div><div class="book b4"></div>
+      </div>
+    </div>
   </section>
-  <section class="study-subjects" id="subjects"><h2 class="section-title">Subjects</h2><div class="subjects-grid" id="subjectsGrid"></div></section>
-  <section class="study-recent" id="recent"><h2 class="section-title">Recently Viewed</h2><div class="recent-list" id="recentList"></div></section>
-  <section class="study-bookmarks" id="bookmarks"><h2 class="section-title">Saved Notes</h2><div id="bookmarksList"></div></section>
-  <footer class="study-footer">© 2025 StudyVault · All notes private & encrypted</footer>
+  <section class="study-subjects" id="subjects">
+    <h2 class="section-title">Subjects</h2>
+    <div class="subjects-grid" id="subjectsGrid"></div>
+  </section>
+  <section class="study-recent" id="recent">
+    <h2 class="section-title">Recently Viewed</h2>
+    <div class="recent-list" id="recentList"></div>
+  </section>
+  <section class="study-bookmarks" id="bookmarks">
+    <h2 class="section-title">Saved Notes</h2>
+    <div id="bookmarksList"></div>
+  </section>
+  <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
 </div>
 
 <div id="notesViewer" class="hidden">
   <div class="notes-header">
     <button class="notes-back" id="notesBack">← Back</button>
     <div class="notes-title-wrap">
-      <span class="notes-subject" id="notesSubject"></span><h2 class="notes-title" id="notesTitle"></h2>
+      <span class="notes-subject" id="notesSubject"></span>
+      <h2 class="notes-title" id="notesTitle"></h2>
     </div>
     <button class="notes-bookmark" id="notesBookmark">🔲</button>
   </div>
@@ -143,17 +197,41 @@
 
   <div id="chatMain" class="chat-main hidden">
     <aside id="chatSidebar" class="chat-sidebar">
-      <div class="sidebar-header"><span class="sidebar-logo">zerox</span><button class="icon-btn" id="closeSidebar">✕</button></div>
-      <div class="sidebar-section"><p class="sidebar-label">Theme</p><div class="theme-swatches" id="themeSwatches"></div></div>
-      <div class="sidebar-section"><p class="sidebar-label">Wallpaper</p><div class="wallpaper-grid" id="wallpaperGrid"></div><label class="custom-bg-label"><input type="file" id="customBgInput" accept="image/*" style="display:none"/><span>📁 Custom background</span></label></div>
-      <div class="sidebar-section"><p class="sidebar-label">Room</p><div class="room-info"><span id="sidebarRoom"></span><span id="sidebarOnline" class="online-pill">● 0 online</span></div></div>
-      <div class="sidebar-section"><button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button></div>
+      <div class="sidebar-header">
+        <span class="sidebar-logo">zerox</span>
+        <button class="icon-btn" id="closeSidebar">✕</button>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Theme</p>
+        <div class="theme-swatches" id="themeSwatches"></div>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Wallpaper</p>
+        <div class="wallpaper-grid" id="wallpaperGrid"></div>
+        <label class="custom-bg-label">
+          <input type="file" id="customBgInput" accept="image/*" style="display:none"/>
+          <span>📁 Custom background</span>
+        </label>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Room</p>
+        <div class="room-info">
+          <span id="sidebarRoom"></span>
+          <span id="sidebarOnline" class="online-pill">● 0 online</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <button class="danger-btn" id="clearHistoryBtn">🗑 Clear history</button>
+      </div>
     </aside>
 
     <div class="chat-window" id="chatWindow">
       <header class="chat-header">
         <button class="icon-btn" id="openSidebar">☰</button>
-        <div class="chat-header-info"><span class="chat-room-name" id="chatRoomName">zerox</span><span class="chat-online" id="chatOnline">● 0 online</span></div>
+        <div class="chat-header-info">
+          <span class="chat-room-name" id="chatRoomName">zerox</span>
+          <span class="chat-online" id="chatOnline">● 0 online</span>
+        </div>
         <button class="icon-btn" id="callBtn" title="Voice call">📞</button>
         <button class="icon-btn" id="hideChatBtn" title="Back">📚</button>
       </header>
