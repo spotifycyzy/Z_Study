@@ -28,77 +28,87 @@
 <body>
 <div id="blossomContainer"></div>
 
-<div id="musicBar">
-  <div class="music-bar-inner">
-    <button class="mp-btn" id="mpToggleBtn">🎵</button>
-    <div class="mp-track-info">
-      <span class="mp-title" id="mpTitle">No track</span>
-      <span class="mp-sub" id="mpSub">Add a song</span>
-    </div>
-    <div class="mp-controls">
-      <button class="mp-btn" id="mpPrev">⏮</button>
-      <button class="mp-btn mp-play" id="mpPlay">▶</button>
-      <button class="mp-btn" id="mpNext">⏭</button>
-    </div>
-    <div class="mp-right">
-      <span class="mp-sync-pill" id="mpSyncPill">🔴 solo</span>
-      <button class="mp-btn" id="mpOpenFull">⬆</button>
+<div id="zxHandle">
+  <div class="mini-controls">
+    <button class="mp-btn" id="miniPrev">⏮</button>
+    <button class="mp-btn mp-play" id="miniPlay">▶</button>
+    <button class="mp-btn" id="miniNext">⏭</button>
+  </div>
+  <div class="mini-info">
+    <div class="mini-title-wrap">
+      <span id="miniTitle">Swipe down to open ZeroX Hub</span>
     </div>
   </div>
+  <div class="handle-bar-line"></div>
 </div>
 
-<div id="musicPanel" class="hidden">
-  <div class="music-panel-inner">
-    <div class="mp-panel-header">
-      <span class="mp-panel-title">🎵 zerox player</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
-        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
-        <button class="mp-btn" id="mpClosePanel">✕</button>
+<div id="zxPanel">
+  <div id="closeHandle"><div class="close-bar-line"></div></div>
+
+  <div class="zx-header">
+    <span class="zx-logo">ZeroX <span>Hub</span></span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
+      <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
+      <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
+        <span style="font-size:12px;color:#7ADB8A">🔗 Synced</span>
+        <button class="mp-btn" id="mpUnsyncBtn" style="padding:4px 8px;font-size:11px">Leave</button>
       </div>
     </div>
+  </div>
+
+  <div class="zx-body">
+    <div id="zxPlayerSection" class="mode-cinema">
+      <div id="cinemaMode">
+        <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
+        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;"></div>
+        <div id="spFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
+          <iframe id="spFrame" style="width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
+        </div>
+      </div>
+      <div id="spotifyMode" class="hidden">
+        <div class="vinyl-record" id="vinylRecord"></div>
+        <div class="music-info">
+          <h2 id="musicTitle">Loading...</h2>
+          <p id="musicArtist">Cloud Audio Stream</p>
+        </div>
+      </div>
+    </div>
+
     <div class="mp-tabs">
-      <button class="mp-tab active" data-tab="url">URL / File</button>
+      <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
       <button class="mp-tab" data-tab="spotify">Spotify</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
+
     <div class="mp-tab-content active" id="tab-url">
       <div class="mp-input-row">
-        <input id="urlInput" class="mp-input" type="text" placeholder="Paste audio/YouTube/Spotify URL…"/>
-        <button class="mp-add-btn" id="urlAddBtn">Add</button>
+        <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
+        <button class="mp-add-btn" id="urlAddBtn">Play</button>
       </div>
       <label class="mp-file-label">
         <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
-        <span>📁 Choose local file</span>
+        <span>📁 Play Local File</span>
       </label>
-      <video id="nativeAudio" controls playsinline style="width:100%; max-height:250px; margin-top:12px; display:none; border-radius:12px; background:#000; filter:hue-rotate(300deg)"></video>
     </div>
+
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Paste link or Search song name..."/>
+        <input id="ytInput" class="mp-input" type="text" placeholder="Paste YouTube link..."/>
         <button class="mp-add-btn" id="ytAddBtn">Load</button>
       </div>
-      <div id="ytSearchResults" class="yt-search-results"></div>
-      <div class="yt-frame-wrap" id="ytFrameWrap" style="display:none; margin-top: 12px;">
-        <iframe id="ytFrame" width="100%" height="200" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen playsinline></iframe>
-      </div>
     </div>
+
     <div class="mp-tab-content" id="tab-spotify">
       <div class="mp-input-row">
         <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
         <button class="mp-add-btn" id="spAddBtn">Load</button>
       </div>
-      <div class="sp-frame-wrap" id="spFrameWrap" style="display:none; margin-top: 12px;">
-        <iframe id="spFrame" style="border-radius:12px;width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
-      </div>
     </div>
+
     <div class="mp-tab-content" id="tab-queue">
       <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
-    </div>
-    <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
-      <p>🔗 Listening together — synced</p>
-      <button class="mp-btn" id="mpUnsyncBtn">Leave sync</button>
     </div>
   </div>
 </div>
@@ -119,6 +129,7 @@
       <span class="search-icon">🔍</span>
     </div>
   </nav>
+
   <section class="study-hero">
     <div class="hero-content">
       <p class="hero-eyebrow">Welcome back</p>
@@ -149,7 +160,7 @@
     <h2 class="section-title">Saved Notes</h2>
     <div id="bookmarksList"></div>
   </section>
-  <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
+  <footer class="study-footer">© 2025 StudyVault · All notes private & encrypted</footer>
 </div>
 
 <div id="notesViewer" class="hidden">
@@ -267,7 +278,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-
 <script src="config.js"></script>
 <script src="gesture.js"></script>
 <script src="player.js"></script>
