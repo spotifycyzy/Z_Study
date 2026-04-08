@@ -1,25 +1,27 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX MUSIC PLAYER — player.js
-   CLOUD SYNC ENGINE (For Telegram/Drive Direct Links & YT)
-   FIXED: Auto-Play New Links & CORS Bypass + PURE OVERLAY
+   Pure 50% Overlay - Zero Lag & Fixed Alignment
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
   /* ── DOM ───────────────────────────────────────────────── */
   const panel       = document.getElementById('musicPanel');
+  const musicBar    = document.getElementById('musicBar');
   const mpTitle     = document.getElementById('mpTitle');
   const mpSub       = document.getElementById('mpSub');
   const mpPlay      = document.getElementById('mpPlay');
   const mpPrev      = document.getElementById('mpPrev');
   const mpNext      = document.getElementById('mpNext');
   
+  const mpClosePanel= document.getElementById('mpClosePanel');
   const mpSyncPill  = document.getElementById('mpSyncPill');
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const nativeAudio = document.getElementById('nativeAudio'); // Video Tag
+  
+  const nativeAudio = document.getElementById('nativeAudio');
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -32,10 +34,9 @@
   const spFrameWrap = document.getElementById('spFrameWrap');
   const queueList   = document.getElementById('queueList');
 
-  // Mobile Video Fixes + CORS Bypass
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
-  nativeAudio.removeAttribute('crossorigin'); // CORS fix for Telegram Links
+  nativeAudio.removeAttribute('crossorigin');
 
   /* ── State ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
@@ -46,7 +47,6 @@
   let ytPlayer        = null; 
   let isYtReady       = false;
   
-  // Anti-Loop Logic (Prevents Echo)
   let isRemoteAction  = false;
   let remoteTimer     = null;
   function setRemoteAction() {
@@ -63,61 +63,58 @@
       style.innerHTML = `@keyframes fadeInOut { 0%{opacity:0;transform:translate(-50%,10px)} 10%{opacity:1;transform:translate(-50%,0)} 90%{opacity:1} 100%{opacity:0} }`;
       document.head.appendChild(style);
     }
-    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+    document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  /* ── 📱 PURE OVERLAY GESTURE ENGINE (NO PUSH) ───────────── */
-  const musicBar = document.getElementById('musicBar');
-  const mpClosePanel = document.getElementById('mpClosePanel');
+  /* ── 📱 LAG-FREE OVERLAY GESTURE ENGINE ────────────────── */
   let startY = 0;
   let isPanelOpen = false;
 
-  // We rely on CSS transform now, so remove the old hard-hidden class
+  // Make sure panel is not hidden by HTML class so CSS transform can handle it
   panel.classList.remove('hidden'); 
   
   function openPanel() {
     if (isPanelOpen) return;
     isPanelOpen = true;
     panel.classList.add('zx-open');
-    document.body.style.overflow = 'hidden'; // Lock background scroll safely
+    document.body.style.overflow = 'hidden'; // Prevents background scroll lag
   }
   
   function closePanel() {
     if (!isPanelOpen) return;
     isPanelOpen = false;
     panel.classList.remove('zx-open');
-    document.body.style.overflow = ''; // Unlock background
+    document.body.style.overflow = '';
   }
 
-  // Swipe Down on the top handle
+  // Pull down from MusicBar
   musicBar.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   musicBar.addEventListener('touchmove', (e) => {
     if (isPanelOpen) return;
-    if (e.touches[0].clientY - startY > 20) openPanel();
+    if (e.touches[0].clientY - startY > 15) openPanel();
   }, {passive: true});
-  musicBar.addEventListener('click', openPanel); // Tap to open for desktop
+  musicBar.addEventListener('click', openPanel);
 
-  // Swipe Up on the panel to close
+  // Pull up from Panel
   panel.addEventListener('touchstart', (e) => {
-    // Only allow swipe to close if scrolled to the very top of the panel
-    if (panel.querySelector('.music-panel-inner').scrollTop <= 5) startY = e.touches[0].clientY;
+    const inner = panel.querySelector('.music-panel-inner');
+    if (inner && inner.scrollTop <= 5) startY = e.touches[0].clientY;
     else startY = null;
   }, {passive: true});
   
   panel.addEventListener('touchmove', (e) => {
     if (!isPanelOpen || startY === null) return;
-    if (startY - e.touches[0].clientY > 30) closePanel();
+    if (startY - e.touches[0].clientY > 25) closePanel();
   }, {passive: true});
 
   if (mpClosePanel) mpClosePanel.addEventListener('click', closePanel);
 
-  // Prevent background scrolling behind the overlay
+  // Stop background scroll thrashing
   document.addEventListener('touchmove', (e) => {
     if (isPanelOpen && !e.target.closest('.music-panel-inner')) {
       e.preventDefault();
     }
   }, { passive: false });
-
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
@@ -129,15 +126,7 @@
     });
   });
 
-  /* ── ERROR HANDLER FOR DEAD LINKS ───────────────────────── */
-  nativeAudio.addEventListener('error', () => {
-    if (activeType === 'stream' || activeType === 'audio') {
-        showToast("❌ Link expired ya unsupported format hai!");
-        setTrackInfo("Error", "Broken Link");
-    }
-  });
-
-  /* ── YouTube API Setup ──────────────────────────────────── */
+  /* ── YOUTUBE API Setup ──────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
     ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
@@ -164,9 +153,7 @@
     const val = urlInput.value.trim(); if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); }
     else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); }
-    else { 
-      addToQueue({ type: 'stream', title: 'Cloud Media Stream', url: val }); 
-    }
+    else { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); }
     urlInput.value = '';
   });
 
@@ -186,23 +173,16 @@
 
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
-    if (synced) {
-        showToast("💡 Pro Tip: Is file ko Telegram pe bhej kar uska direct link URL box me daalo (HD Sync ke liye)!");
-    } else {
-        const url = URL.createObjectURL(file);
-        addToQueue({ type: 'stream', title: file.name, url: url });
-    }
+    const url = URL.createObjectURL(file);
+    addToQueue({ type: 'stream', title: file.name, url: url });
   });
 
-  /* ── Queue Management (FIXED AUTO-PLAY) ─────────────────── */
+  /* ── Queue Management ─────────────────── */
   function addToQueue(item) {
     if(queue.length > 0 && queue[queue.length-1].url === item.url) {
-        playQueueItem(queue.length - 1);
-        return;
+        playQueueItem(queue.length - 1); return;
     }
-    queue.push(item); 
-    saveQueue(); 
-    renderQueue();
+    queue.push(item); saveQueue(); renderQueue();
     playQueueItem(queue.length - 1);
   }
   
@@ -214,7 +194,7 @@
     queue.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP'; if (item.type === 'stream') icon = '☁️ CLOUD';
+      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP'; if (item.type === 'stream') icon = '☁️';
       el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
@@ -223,15 +203,14 @@
 
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
-    
-    if (synced && !isRemoteAction && !item.url.startsWith('blob:')) {
-      broadcastSync({ action: 'change_song', item: item });
-    }
+    if (synced && !isRemoteAction && !item.url.startsWith('blob:')) { broadcastSync({ action: 'change_song', item: item }); }
     renderMedia(item);
   }
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
+  mpNext.addEventListener('click', playNext);
+  mpPrev.addEventListener('click', playPrev);
 
   /* 🔥 MEDIA RENDERER 🔥 */
   function renderMedia(item) {
@@ -253,32 +232,20 @@
     else if (item.type === 'stream') {
       activeType = 'stream'; nativeAudio.style.display = 'block';
       nativeAudio.src = item.url; 
-      
       nativeAudio.play().then(() => {
-          showToast("▶ Media Playing!");
           isPlaying = true; updatePlayBtn();
       }).catch((err)=>{
-          console.warn("Autoplay blocked:", err);
           showToast("⚠️ Tap Play button to start");
           isPlaying = false; updatePlayBtn();
       });
-      
-      setTrackInfo(item.title, '☁️ Streaming (Direct)');
+      setTrackInfo(item.title, '☁️ Streaming');
     }
   }
 
   /* ── PLAY/PAUSE/SEEK SYNC ── */
-  nativeAudio.addEventListener('play',  () => { 
-    isPlaying = true; updatePlayBtn(); 
-    if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-  });
-  nativeAudio.addEventListener('pause', () => { 
-    isPlaying = false; updatePlayBtn(); 
-    if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime });
-  });
-  nativeAudio.addEventListener('seeked', () => {
-    if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
-  });
+  nativeAudio.addEventListener('play',  () => { isPlaying = true; updatePlayBtn(); if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); });
+  nativeAudio.addEventListener('pause', () => { isPlaying = false; updatePlayBtn(); if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); });
+  nativeAudio.addEventListener('seeked', () => { if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); });
   nativeAudio.addEventListener('ended', playNext);
 
   /* ── UNIVERSAL CONTROLLER ──────────────────── */
@@ -310,7 +277,6 @@
 
   function broadcastSync(data) { if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); }
 
-  // 📥 RECEIVER ENGINE
   window._zxReceiveSync = function (data) {
     if (data.action === 'request_sync') {
       if (synced && queue.length > 0 && queue[currentIdx] && !queue[currentIdx].url.startsWith('blob:')) {
@@ -328,7 +294,6 @@
     if (!synced) return; 
     setRemoteAction();
 
-    // Track Changes
     if (data.action === 'change_song') {
       let idx = queue.findIndex(q => q.url && q.url === data.item.url);
       if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
@@ -336,7 +301,6 @@
       return;
     }
 
-    // Playback Sync
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
