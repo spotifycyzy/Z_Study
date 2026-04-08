@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css
-   FIXED: Dynamic Height, Aesthetic Merged Z-Logo
+   FIXED: Split Search Button & Aesthetic Z-Logo
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -118,7 +118,18 @@
 .mp-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
 .mp-input { flex: 1; padding: 12px; background: rgba(42,0,24,0.6); border: 1px solid rgba(232,67,106,0.2); border-radius: 12px; color: #fff; outline: none; }
 .mp-input:focus { border-color: #E8436A; }
-.mp-add-btn { padding: 0 20px; background: linear-gradient(135deg,#E8436A,#C2005F); border: none; border-radius: 12px; color: #fff; font-weight: 600; cursor: pointer; }
+.mp-add-btn { padding: 0 20px; background: linear-gradient(135deg,#E8436A,#C2005F); border: none; border-radius: 12px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+/* 💥 NEW: DIVIDED SEARCH BUTTON 💥 */
+.split-btn-wrap { display: flex; }
+.split-left { 
+  border-top-right-radius: 0; border-bottom-right-radius: 0; 
+  padding: 0 12px; border-right: 1px solid rgba(255,255,255,0.15);
+}
+.split-right { 
+  border-top-left-radius: 0; border-bottom-left-radius: 0; 
+  padding: 0 12px; background: linear-gradient(135deg, #B450FF, #7A00FF);
+}
 
 /* ── Overlays Action Row & Button ── */
 .action-buttons-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
@@ -144,7 +155,6 @@
 .ep-item:hover .ep-play-icon { opacity: 1; }
 
 .yt-search-results { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-/* Naya styling YT & Spotify Search ke liye */
 .yt-search-item {
   display: flex; align-items: center; gap: 10px; padding: 8px;
   background: rgba(180,80,255,0.05); border: 1px solid rgba(180,80,255,0.15);
