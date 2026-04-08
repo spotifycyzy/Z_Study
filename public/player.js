@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Gesture Swipe, Context-Aware UI, and Universal Sync
+   Top Bar Toggle + Auto-Opening Smart Search Overlays
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -9,14 +9,13 @@
   const panel       = document.getElementById('zxPanel');
   const handle      = document.getElementById('zxHandle');
   const closeHandle = document.getElementById('closeHandle');
+  const panelToggleBtn = document.getElementById('panelToggleBtn'); // Naya button
   
-  // Media Players
-  const nativeAudio = document.getElementById('nativeAudio'); // Acts as both video/audio
+  const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spFrameWrap = document.getElementById('spFrameWrap');
   const spFrame     = document.getElementById('spFrame');
   
-  // Context UI Switchers
   const cinemaMode  = document.getElementById('cinemaMode');
   const spotifyMode = document.getElementById('spotifyMode');
   const vinylRecord = document.getElementById('vinylRecord');
@@ -24,12 +23,10 @@
   const musicArtist = document.getElementById('musicArtist');
   const miniTitle   = document.getElementById('miniTitle');
 
-  // Controls (Mini + Main panel share same logic)
   const mpPlays     = document.querySelectorAll('.mp-play');
   const mpPrevs     = [document.getElementById('miniPrev')]; 
   const mpNexts     = [document.getElementById('miniNext')];
   
-  // Inputs & Queue
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -39,13 +36,19 @@
   const spAddBtn    = document.getElementById('spAddBtn');
   const queueList   = document.getElementById('queueList');
 
-  // Sync Network
+  // Second Overlay Elements
+  const toggleListBtnUrl   = document.getElementById('toggleListBtnUrl');
+  const episodesOverlayUrl = document.getElementById('episodesOverlayUrl');
+  const dynamicEpListUrl   = document.getElementById('dynamicEpListUrl');
+  const toggleListBtnYt    = document.getElementById('toggleListBtnYt');
+  const episodesOverlayYt  = document.getElementById('episodesOverlayYt');
+  const ytSearchResults    = document.getElementById('ytSearchResults');
+
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
 
-  // Setup Mobile Video settings
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
   nativeAudio.removeAttribute('crossorigin');
@@ -58,38 +61,58 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
-  
   let isRemoteAction  = false;
   let remoteTimer     = null;
-  function setRemoteAction() {
-    isRemoteAction = true; clearTimeout(remoteTimer);
-    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); 
+  function setRemoteAction() { isRemoteAction = true; clearTimeout(remoteTimer); remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); }
+
+  /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
+  let startY = 0;
+  let isPanelOpen = false;
+  
+  function openPanel() {
+    if(isPanelOpen) return;
+    isPanelOpen = true;
+    panel.classList.add('zx-open');
+    if(panelToggleBtn) panelToggleBtn.textContent = '🔼'; // Icon change
+  }
+  
+  function closePanel() {
+    if(!isPanelOpen) return;
+    isPanelOpen = false;
+    panel.classList.remove('zx-open');
+    if(panelToggleBtn) panelToggleBtn.textContent = '🔽'; // Icon change
   }
 
-  /* ── 📱 SWIPE GESTURE ENGINE (PULL DOWN/UP) ─────────────── */
-  let startY = 0;
-  
+  // Right Side Button Click
+  if(panelToggleBtn) {
+    panelToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if(isPanelOpen) closePanel(); else openPanel();
+    });
+  }
+
+  // Swipe Down on handle
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   handle.addEventListener('touchmove', (e) => {
-    let diff = e.touches[0].clientY - startY;
-    if (diff > 40) panel.className = 'zx-open';
+    if(!isPanelOpen && (e.touches[0].clientY - startY) > 20) openPanel();
   }, {passive: true});
 
+  // Handle Click (Ignored if clicking buttons)
+  handle.addEventListener('click', (e) => {
+    if(e.target.closest('.mp-btn')) return; 
+    if(!isPanelOpen) openPanel(); else closePanel();
+  });
+
+  // Swipe Up on panel
   closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   closeHandle.addEventListener('touchmove', (e) => {
-    let diff = startY - e.touches[0].clientY;
-    if (diff > 40) panel.className = 'zx-closed';
+    if(isPanelOpen && (startY - e.touches[0].clientY) > 20) closePanel();
   }, {passive: true});
-  
-  closeHandle.addEventListener('click', () => panel.className = 'zx-closed');
+  closeHandle.addEventListener('click', closePanel);
 
-  // Prevent background scrolling when panel is open
-  document.addEventListener('touchmove', (e) => {
-    if (panel.classList.contains('zx-open') && !e.target.closest('.zx-body')) {
-      e.preventDefault();
-    }
+  panel.addEventListener('touchmove', (e) => {
+    if (isPanelOpen && !e.target.closest('.zx-body')) { e.preventDefault(); }
   }, { passive: false });
-
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
@@ -101,12 +124,15 @@
     });
   });
 
-  /* ── TOAST MESSAGES ────────────────────────────────────── */
   function showToast(msg) {
     const t = document.createElement('div'); t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
-    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
+    document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
+
+  /* ── 💥 OVERLAYS TOGGLE BUTTONS 💥 ────────────────────── */
+  if(toggleListBtnUrl) toggleListBtnUrl.addEventListener('click', () => episodesOverlayUrl.classList.toggle('hidden'));
+  if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
 
   /* ── YOUTUBE ENGINE ────────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
@@ -130,19 +156,69 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── INPUT MANAGERS ────────────────────────────────────── */
+  /* ── INPUT MANAGERS (WITH AUTO-OPEN LOGIC) ─────────────── */
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
-    if (isYouTubeUrl(val)) { loadYouTube(val); }
-    else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); }
-    else { addToQueue({ type: 'stream', title: val.split('/').pop() || 'Cloud Media', url: val }); }
-    urlInput.value = '';
+    
+    if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; }
+    else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); urlInput.value = ''; }
+    else if (val.startsWith('http')) { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); urlInput.value = ''; }
+    else {
+        // 💥 AUTO OPEN LIBRARIAN EPISODES 💥
+        // Agar link me 'http' nahi hai, toh hum use playlist ka naam manenge.
+        showToast(`🔍 Fetching episodes for: ${val}`);
+        dynamicEpListUrl.innerHTML = ''; 
+        
+        // Mock episodes (yahan actual API/DB aayega)
+        let mockEpisodes = [
+            { title: `${val} - Ep 1`, url: "mock1" },
+            { title: `${val} - Ep 2`, url: "mock2" },
+            { title: `${val} - Ep 3`, url: "mock3" }
+        ];
+        
+        mockEpisodes.forEach(ep => {
+            const div = document.createElement('div');
+            div.className = 'ep-item';
+            div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
+            div.onclick = () => { showToast(`Loaded ${ep.title}`); /* addToQueue(ep.url) */ };
+            dynamicEpListUrl.appendChild(div);
+        });
+        
+        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open overlay
+        urlInput.value = '';
+    }
   });
 
-  ytAddBtn.addEventListener('click', () => { const val = ytInput.value.trim(); if (!val) return; loadYouTube(val); ytInput.value = ''; });
-  spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
+  ytAddBtn.addEventListener('click', () => { 
+    const val = ytInput.value.trim(); if (!val) return; 
+    
+    if (isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
+    
+    // 💥 AUTO OPEN YOUTUBE SEARCH RESULTS 💥
+    showToast(`🔍 Searching YouTube for: ${val}`);
+    ytSearchResults.innerHTML = '';
+    
+    // Mock Search Results (yahan API connect hogi)
+    let mockResults = [
+        { title: `${val} - Official Music Video`, ch: "T-Series", url: "https://www.youtube.com/watch?v=" },
+        { title: `${val} - Lofi Mix`, ch: "Lofi Girl", url: "https://www.youtube.com/watch?v=" },
+    ];
+    
+    mockResults.forEach(vid => {
+        const div = document.createElement('div');
+        div.className = 'yt-result-item';
+        div.innerHTML = `<div class="yt-result-info"><div class="yt-result-title">${vid.title}</div><div class="yt-result-ch">${vid.ch}</div></div><button class="yt-play-btn">▶</button>`;
+        div.onclick = () => { loadYouTube(vid.url); };
+        ytSearchResults.appendChild(div);
+    });
 
-  fileInput.addEventListener('change', () => {
+    episodesOverlayYt.classList.remove('hidden'); // Auto-Open overlay
+    ytInput.value = ''; 
+  });
+
+  if(spAddBtn) spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
+
+  if(fileInput) fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     const url = URL.createObjectURL(file);
     addToQueue({ type: 'stream', title: file.name, url: url });
@@ -163,13 +239,13 @@
   function addToQueue(item) {
     if(queue.length > 0 && queue[queue.length-1].url === item.url) { playQueueItem(queue.length - 1); return; }
     queue.push(item); saveQueue(); renderQueue();
-    playQueueItem(queue.length - 1); // Auto-play new item
+    playQueueItem(queue.length - 1);
   }
   
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
 
   function renderQueue() {
-    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Empty</p>'; return; }
+    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; return; }
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div');
@@ -194,12 +270,10 @@
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-    // Reset all views
-    nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
+    nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; if(spFrameWrap) spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
-    if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
+    if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     
-    // Check if Audio or Video to switch UI Mode
     const isAudioOnly = item.type === 'spotify' || item.title.toLowerCase().endsWith('.mp3') || item.title.toLowerCase().endsWith('.m4a');
     
     if (isAudioOnly) {
@@ -213,17 +287,17 @@
     if (item.type === 'youtube') {
       const id = item.ytId || extractYouTubeId(item.url); if (!id) return;
       activeType = 'youtube'; ytFrameWrap.style.display = 'block';
-      if (isYtReady) ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
+      if (isYtReady && typeof ytPlayer.loadVideoById === 'function') ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
       setTrackInfo(item.title, 'YouTube Live');
     } 
     else if (item.type === 'spotify') {
-      activeType = 'spotify'; spFrameWrap.style.display = 'block';
+      activeType = 'spotify'; if(spFrameWrap) spFrameWrap.style.display = 'block';
       const embedUrl = item.url.includes('/embed/') ? item.url : item.url.replace('open.spotify.com', 'open.spotify.com/embed');
-      spFrame.src = embedUrl; setTrackInfo(item.title, 'Spotify Track');
+      if(spFrame) spFrame.src = embedUrl; setTrackInfo(item.title, 'Spotify Track');
     } 
     else if (item.type === 'stream') {
       activeType = 'stream'; 
-      if (!isAudioOnly) nativeAudio.style.display = 'block'; // Show video player if it's a movie
+      if (!isAudioOnly) nativeAudio.style.display = 'block'; 
       
       nativeAudio.src = item.url; 
       nativeAudio.play().then(() => {
@@ -261,7 +335,7 @@
   nativeAudio.addEventListener('seeked', () => { if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); });
   nativeAudio.addEventListener('ended', playNext);
 
-  /* ── DEEP SYNC NETWORK (WebSockets) ────────────────────── */
+  /* ── DEEP SYNC NETWORK ────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
     synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
