@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css
-   Glassmorphism + Mobile Gesture UI
+   Glassmorphism + Mobile Gesture UI + Split Screen Push
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Mini Player) ── */
@@ -11,7 +11,7 @@
   z-index: 1000; display: flex; align-items: center; padding: 0 15px;
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  touch-action: none; /* Allows capturing swipe gestures */
+  touch-action: none;
 }
 .handle-bar-line {
   position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
@@ -40,9 +40,9 @@
   box-shadow: 0 0 12px rgba(232,67,106,0.5); padding: 0;
 }
 
-/* ── 2. THE STEALTH PANEL ── */
+/* ── 2. THE STEALTH PANEL (Top 50% Split Screen) ── */
 #zxPanel {
-  position: fixed; top: 0; left: 0; width: 100%; height: 85vh;
+  position: fixed; top: 0; left: 0; width: 100%; height: 50vh; /* Exactly half screen */
   background: rgba(13, 0, 8, 0.96);
   backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
   z-index: 1001; color: #fff;
@@ -75,10 +75,10 @@
 /* Player UI Switcher */
 #zxPlayerSection { margin-bottom: 20px; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; }
-#spotifyMode { text-align: center; padding: 20px 0; }
+#spotifyMode { text-align: center; padding: 10px 0; }
 
 .vinyl-record {
-  width: 160px; height: 160px; margin: 0 auto 20px; border-radius: 50%;
+  width: 120px; height: 120px; margin: 0 auto 15px; border-radius: 50%;
   background: url('https://i.imgur.com/8Q5FqWj.jpeg') center/cover;
   border: 4px solid #222; box-shadow: inset 0 0 20px #000, 0 0 30px rgba(232,67,106,0.3);
   animation: spin 4s linear infinite paused;
@@ -86,8 +86,8 @@
 .vinyl-record.playing { animation-play-state: running; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-.music-info h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-.music-info p { color: #aaa; font-size: 14px; }
+.music-info h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.music-info p { color: #aaa; font-size: 13px; }
 .hidden { display: none !important; }
 
 /* Tabs & Inputs */
@@ -112,7 +112,23 @@
 .qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
 
-/* Push body down so handle is always visible */
+/* ── 3. PUSH DOWN EFFECT (SPLIT SCREEN) ── */
 body { padding-top: 50px; }
-#chatApp { top: 50px; }
-#notesViewer { top: 50px; }
+#chatApp, #notesViewer { top: 50px; }
+
+/* When Panel Opens, smoothly push everything down by 50vh */
+body.panel-active #chatApp,
+body.panel-active #notesViewer {
+  top: 50vh !important;
+}
+body.panel-active #studySite {
+  margin-top: calc(50vh - 50px);
+}
+
+/* Animations for the push effect */
+#chatApp, #notesViewer {
+  transition: top 0.4s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.4s ease, transform 0.4s ease;
+}
+#studySite {
+  transition: margin-top 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
