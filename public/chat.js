@@ -198,7 +198,7 @@ function enterChat() {
   chatMain.classList.remove('hidden');
   spawnChatBlossoms();
   connectWS();
-  listenToFirebase(); 
+  listenToFirebase(); // <--- FIREBASE HISTORY START
   
   /* Restore custom bg after chatWindow is visible */
   const _customBg = localStorage.getItem('zerox_custom_bg');
@@ -675,7 +675,7 @@ stickerToggle.addEventListener('click', () => stickerPicker.classList.toggle('hi
    THEMES
 ════════════════════════════════════════════════════════ */
 const THEMES = [
-  {name:'Rose',    bg:'#0D0008',surface:'#1A0010',surfaceHigh:'#2A0018',border:'rgba(232,67,106,0.22)',rose:'#E8436A',blush:'#FFB5C8',magenta:'#C2005F',text:'#FFE8EF',textMuted:'rgba(255,232,239,0.5)',myBubble:'linear-gradient(135deg,#E8436A,#C2005F)',herBubble:'#2A0018',swatch:'#E8436A'},
+  {name:'Rose',    bg:'#0D0008',surface:'#1A0010',surfaceHigh:'#2A0018',border:'rgba(232,67,106,0.22)',rose:'#E8436A',blush:'#FFB5C8',magenta:'#C2005F',text:'#FFE8EF',textMuted:'rgba(255,232,239,0.55)',myBubble:'linear-gradient(135deg,#E8436A,#C2005F)',herBubble:'#2A0018',swatch:'#E8436A'},
   {name:'Midnight',bg:'#080812',surface:'#10102A',surfaceHigh:'#1A1A3A',border:'rgba(100,120,255,0.22)',rose:'#6478FF',blush:'#B8C4FF',magenta:'#4050DD',text:'#E8ECFF',textMuted:'rgba(232,236,255,0.5)',myBubble:'linear-gradient(135deg,#6478FF,#4050DD)',herBubble:'#1A1A3A',swatch:'#6478FF'},
   {name:'Forest',  bg:'#060E08',surface:'#0E1A10',surfaceHigh:'#182218',border:'rgba(80,180,100,0.22)',rose:'#50B464',blush:'#A8E0B0',magenta:'#288A3C',text:'#E0F4E4',textMuted:'rgba(224,244,228,0.5)',myBubble:'linear-gradient(135deg,#50B464,#288A3C)',herBubble:'#182218',swatch:'#50B464'},
   {name:'Amber',   bg:'#0E0800',surface:'#1A1000',surfaceHigh:'#2A1A00',border:'rgba(230,160,40,0.22)',rose:'#E6A028',blush:'#FFD890',magenta:'#C07800',text:'#FFF4DC',textMuted:'rgba(255,244,220,0.5)',myBubble:'linear-gradient(135deg,#E6A028,#C07800)',herBubble:'#2A1A00',swatch:'#E6A028'},
