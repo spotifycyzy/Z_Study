@@ -14,6 +14,7 @@
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spFrameWrap = document.getElementById('spFrameWrap');
+  const ytFrame     = document.getElementById('ytFrame');
   const spFrame     = document.getElementById('spFrame');
   
   // Context UI Switchers
@@ -22,12 +23,12 @@
   const vinylRecord = document.getElementById('vinylRecord');
   const musicTitle  = document.getElementById('musicTitle');
   const musicArtist = document.getElementById('musicArtist');
-  const miniTitle   = document.getElementById('miniTitle');
+  const mpTitle     = document.getElementById('mpTitle');
 
-  // Controls (Mini + Main panel share same logic)
-  const mpPlays     = document.querySelectorAll('.mp-play');
-  const mpPrevs     = [document.getElementById('miniPrev')]; 
-  const mpNexts     = [document.getElementById('miniNext')];
+  // Controls
+  const mpPlay      = document.getElementById('mpPlay');
+  const mpPrev      = document.getElementById('miniPrev'); 
+  const mpNext      = document.getElementById('miniNext');
   
   // Inputs & Queue
   const urlInput    = document.getElementById('urlInput');
@@ -35,6 +36,8 @@
   const fileInput   = document.getElementById('fileInput');
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
+  const spInput     = document.getElementById('spInput');
+  const spAddBtn    = document.getElementById('spAddBtn');
   const queueList   = document.getElementById('queueList');
 
   // Sync Network
@@ -111,9 +114,7 @@
   /* ── YOUTUBE ENGINE ────────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
-    ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
-    ytPlayer = new YT.Player('ytPlayerInner', {
-      height: '180', width: '100%', playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
+    ytPlayer = new YT.Player('ytFrame', {
       events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
     });
   };
@@ -140,6 +141,7 @@
   });
 
   ytAddBtn.addEventListener('click', () => { const val = ytInput.value.trim(); if (!val) return; loadYouTube(val); ytInput.value = ''; });
+  if(spAddBtn) spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
 
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
@@ -188,14 +190,14 @@
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  mpNexts.forEach(b => b.addEventListener('click', playNext));
-  mpPrevs.forEach(b => b.addEventListener('click', playPrev));
+  mpNext.addEventListener('click', playNext);
+  mpPrev.addEventListener('click', playPrev);
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
-    if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
+    if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     
     const isAudioOnly = item.type === 'spotify' || item.title.toLowerCase().endsWith('.mp3') || item.title.toLowerCase().endsWith('.m4a');
     
@@ -210,7 +212,7 @@
     if (item.type === 'youtube') {
       const id = item.ytId || extractYouTubeId(item.url); if (!id) return;
       activeType = 'youtube'; ytFrameWrap.style.display = 'block';
-      if (isYtReady) ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
+      if (isYtReady && typeof ytPlayer.loadVideoById === 'function') ytPlayer.loadVideoById(id); else setTimeout(() => renderMedia(item), 500);
       setTrackInfo(item.title, 'YouTube Live');
     } 
     else if (item.type === 'spotify') {
@@ -234,22 +236,22 @@
   }
 
   /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
-  mpPlays.forEach(btn => btn.addEventListener('click', () => {
+  mpPlay.addEventListener('click', () => {
     if (activeType === 'stream') {
        if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{});
     } else if (activeType === 'youtube' && ytPlayer) {
        if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
     }
-  }));
+  });
 
   function updatePlayBtn() { 
-    mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
+    mpPlay.textContent = isPlaying ? '⏸' : '▶'; 
     if (isPlaying) vinylRecord.classList.add('playing'); else vinylRecord.classList.remove('playing');
   }
   
   function setTrackInfo(title, sub) { 
     musicTitle.textContent = title; musicArtist.textContent = sub; 
-    miniTitle.textContent = `${title} • ${sub}`;
+    mpTitle.textContent = `${title} • ${sub}`;
   }
 
   /* ── PLAY/PAUSE SYNC LISTENERS ─────────────────────────── */
