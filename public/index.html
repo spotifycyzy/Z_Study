@@ -115,16 +115,19 @@
 
     <div class="mp-tab-content" id="tab-spotify">
       <div class="mp-input-row">
-        <input id="spInput" class="mp-input" type="text" placeholder="Search any song (or paste Spotify link)…"/>
-        <button class="mp-add-btn" id="spAddBtn">Search</button>
+        <input id="spInput" class="mp-input" type="text" placeholder="Search Global Music…"/>
+        <div class="split-btn-wrap">
+          <button class="mp-add-btn split-left" id="spSearchSongBtn">🎵 Song</button>
+          <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 List</button>
+        </div>
       </div>
       <div class="action-buttons-row" style="justify-content:flex-end">
-        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Songs</button>
+        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Results</button>
       </div>
       <div id="episodesOverlaySp" class="episodes-container hidden">
         <div class="ep-header">Global Music Results</div>
         <div class="yt-search-results active" id="spSearchResults">
-          <p class="mp-empty">Type a song name above and hit search.</p>
+          <p class="mp-empty">Type a name above and choose Song or List.</p>
         </div>
       </div>
     </div>
