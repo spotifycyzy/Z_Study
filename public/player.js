@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Gesture Swipe, Context-Aware UI, and Split Screen Push
+   Pure Overlay Extension (No Split Screen Push)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -62,17 +62,16 @@
   let remoteTimer     = null;
   function setRemoteAction() { isRemoteAction = true; clearTimeout(remoteTimer); remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); }
 
-  /* ── 📱 SWIPE GESTURE ENGINE (SPLIT SCREEN PUSH) ───────── */
+  /* ── 📱 SWIPE GESTURE ENGINE (PURE OVERLAY) ────────────── */
   let startY = 0;
   
   function openPanel() {
     panel.className = 'zx-open';
-    document.body.classList.add('panel-active'); // Triggers CSS to push chat/study site down
+    // No push-down triggers here! 💥 Just pure overlay.
   }
   
   function closePanel() {
     panel.className = 'zx-closed';
-    document.body.classList.remove('panel-active'); // Pulls them back up
   }
 
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
@@ -107,7 +106,7 @@
 
   function showToast(msg) {
     const t = document.createElement('div'); t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
     document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
   }
 
