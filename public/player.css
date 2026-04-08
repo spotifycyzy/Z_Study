@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Fullscreen Video Centering & Disappearing Video Bug
+   FIXED: Fullscreen Centering, Touch Lag, and Styling
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -11,6 +11,7 @@
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   cursor: pointer; touch-action: none;
+  transform: translateZ(0);
 }
 .handle-bar-line { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 .mini-controls { display: flex; gap: 5px; align-items: center; }
@@ -54,7 +55,6 @@
 .zm-m { position: absolute; bottom: -2px; right: -10px; font-size: 12px; transform: rotate(20deg); opacity: 0.9; z-index: 3; filter: drop-shadow(0 0 4px rgba(255,181,200,0.8)); }
 
 /* ── 2. THE STEALTH PANEL ── */
-/* FIX: Removed contain and translateZ from here so fullscreen API works perfectly */
 #zxPanel {
   position: fixed; top: 52px; left: 0; width: 100%; height: auto; max-height: 75vh; 
   background: #0d0008; 
@@ -63,6 +63,7 @@
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
+  /* Removed contain properties completely to fix fullscreen tap lag */
 }
 #zxPanel.zx-open { transform: translateY(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
@@ -83,23 +84,27 @@
 #zxPlayerSection { margin-bottom: 15px; width: 100%; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
 
-/* 💥 FIX: Perfect 16:9 Aspect Ratio for YT Video 💥 */
+/* 💥 FIX: Perfect 16:9 Aspect Ratio with No Empty Space 💥 */
 #ytFrameWrap {
   display: none;
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9; /* Modern responsive aspect ratio */
-  border-radius: 12px;
+  padding-bottom: 56.25%; /* Industry standard for 16:9 video */
+  height: 0;
   overflow: hidden;
   background: #000;
+  border-radius: 12px;
+  transform: translateZ(0);
 }
 #ytPlayerInner {
   position: absolute;
   top: 0; left: 0;
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
   border: 0;
 }
+/* Ensure fullscreen removes borders and rounds */
+#ytPlayerInner:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
 
 /* 🔥 THE FEEL ANIMATION 🔥 */
 #spotifyMode { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; }
@@ -179,7 +184,7 @@
 .qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
 
-/* ── 💥 CHAT APP LAG FIX (GPU PROMOTION) 💥 ── */
+/* ── 💥 CHAT APP LAG FIX 💥 ── */
 #chatApp {
   transform: translateZ(0); 
   will-change: transform;
