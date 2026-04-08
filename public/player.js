@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   Official YT (Tab 1) + Piped Unlimited Audio (Tab 2) + ALL SYNC/FILES
+   FIXED: Deep Sync Network Bug for YT & Global Audio
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -70,10 +70,11 @@
   let isRemoteAction  = false;
   let remoteTimer     = null;
 
+  // 💥 FIX: Increased lock time to 2 seconds to allow YT buffering without loop glitch 💥
   function setRemoteAction() { 
       isRemoteAction = true; 
       clearTimeout(remoteTimer); 
-      remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); 
+      remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2000); 
   }
 
   /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
@@ -196,7 +197,7 @@
   });
 
   /* ── TAB 1: OFFICIAL YOUTUBE SEARCH ───────────────── */
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // Teri API Key lag gayi
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
@@ -318,8 +319,15 @@
   }
 
   function playQueueItem(i) {
-    if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
-    if (synced && !isRemoteAction && item.url && !item.url.startsWith('blob:')) { broadcastSync({ action: 'change_song', item: item }); }
+    if (i < 0 || i >= queue.length) return; 
+    currentIdx = i; saveQueue(); renderQueue(); 
+    const item = queue[i];
+    
+    // 💥 FIX: Removed strict item.url check so it allows YT and Global Audio to sync! 💥
+    const isBlob = item.url && item.url.startsWith('blob:');
+    if (synced && !isRemoteAction && !isBlob) { 
+        broadcastSync({ action: 'change_song', item: item }); 
+    }
     renderMedia(item);
   }
 
@@ -397,7 +405,7 @@
   nativeAudio.addEventListener('seeked', () => { if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); });
   nativeAudio.addEventListener('ended', playNext);
 
-  /* ── DEEP SYNC NETWORK (Restored Full Feature) ────────── */
+  /* ── DEEP SYNC NETWORK ────────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
     synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
@@ -413,14 +421,17 @@
 
   window._zxReceiveSync = function (data) {
     if (data.action === 'request_sync') {
-      if (synced && queue.length > 0 && queue[currentIdx] && queue[currentIdx].url && !queue[currentIdx].url.startsWith('blob:')) {
-           broadcastSync({ action: 'change_song', item: queue[currentIdx] });
+      const curItem = queue[currentIdx];
+      // 💥 FIX: Correct validation for sync request 💥
+      const isBlob = curItem && curItem.url && curItem.url.startsWith('blob:');
+      if (synced && curItem && !isBlob) {
+           broadcastSync({ action: 'change_song', item: curItem });
            setTimeout(() => {
               let curTime = 0; 
-              if (activeType === 'youtube' && ytPlayer) curTime = ytPlayer.getCurrentTime(); 
+              if (activeType === 'youtube' && ytPlayer && isYtReady) curTime = ytPlayer.getCurrentTime(); 
               else if (activeType === 'stream') curTime = nativeAudio.currentTime;
               broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
-           }, 1000);
+           }, 1500); // Wait 1.5s for receiver to load before syncing time
       } return;
     }
 
