@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Split Search Button & Aesthetic Vinyl Animations
+   FIXED: Smooth 60FPS Marquee (GPU Accelerated)
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -17,9 +17,27 @@
 .mini-controls { display: flex; gap: 5px; align-items: center; }
 .mini-info { flex: 1; overflow: hidden; margin: 0 10px; }
 .mini-right { display: flex; align-items: center; }
-.mini-title-wrap { font-size: 13px; font-weight: 600; color: #FFE8EF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-#miniTitle { display: inline-block; animation: scrollText 10s linear infinite; }
-@keyframes scrollText { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+/* 💥 FIXED 60FPS MARQUEE (GPU ACCELERATED) 💥 */
+.mini-title-wrap { 
+  font-size: 13px; font-weight: 600; color: #FFE8EF; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+  text-align: center; 
+  transform: translateZ(0); 
+}
+#miniTitle { 
+  display: inline-block; 
+  animation: scrollText 10s linear infinite; 
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+@keyframes scrollText { 
+  0% { transform: translate3d(100%, 0, 0); } 
+  100% { transform: translate3d(-100%, 0, 0); } 
+}
 
 .mp-btn { background: none; border: none; color: rgba(255,181,200,0.8); font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: all 0.2s; font-family: 'Sora', sans-serif; font-weight: 600; }
 .mp-btn:hover { color: #FFB5C8; background: rgba(232,67,106,0.12); }
