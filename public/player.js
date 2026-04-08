@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Z-Button Toggle + LIVE YouTube & Global Music APIs
+   Top Z-Button Toggle + OFFICIAL GOOGLE YOUTUBE API
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -141,7 +141,7 @@
   if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
   if(toggleListBtnSp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
 
-  /* ── YOUTUBE ENGINE ────────────────────────────────────── */
+  /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
     ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
@@ -173,7 +173,6 @@
     else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); urlInput.value = ''; }
     else if (val.startsWith('http')) { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); urlInput.value = ''; }
     else {
-        // LIBRARIAN MOCK (Will be set later)
         showToast(`🔍 Fetching episodes for: ${val}`);
         dynamicEpListUrl.innerHTML = ''; 
         let mockEpisodes = [ { title: `${val} - Ep 1`, url: "mock1" }, { title: `${val} - Ep 2`, url: "mock2" } ];
@@ -189,47 +188,66 @@
     }
   });
 
-  // 2. LIVE YOUTUBE SEARCH API (Piped)
+  // 2. 🔥 OFFICIAL GOOGLE YOUTUBE API 🔥
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // TERA API KEY YAHAN AA GAYA 💥
+
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
     if (isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
     
-    ytSearchResults.innerHTML = '<p class="mp-empty">Searching YouTube...</p>';
-    episodesOverlayYt.classList.remove('hidden'); // Auto open
+    if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YAHAN_APNI_API_KEY_PASTE_KAR') {
+        showToast('❌ Please add your YouTube API Key in player.js');
+        return;
+    }
+
+    ytSearchResults.innerHTML = '<p class="mp-empty">Searching YouTube officially...</p>';
+    episodesOverlayYt.classList.remove('hidden'); // Auto open overlay
     
-    fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(val)}&filter=videos`)
+    const ytApiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(val)}&type=video&key=${YOUTUBE_API_KEY}`;
+
+    fetch(ytApiUrl)
       .then(res => res.json())
       .then(data => {
         ytSearchResults.innerHTML = '';
-        if(!data.items || data.items.length === 0) { ytSearchResults.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+        if(!data.items || data.items.length === 0) { 
+            ytSearchResults.innerHTML = '<p class="mp-empty">No results found.</p>'; 
+            return; 
+        }
         
-        data.items.slice(0, 15).forEach(vid => {
-            const vidId = vid.url.split('v=')[1];
+        data.items.forEach(vid => {
+            const vidId = vid.id.videoId;
+            const title = vid.snippet.title;
+            const channel = vid.snippet.channelTitle;
+            const thumb = vid.snippet.thumbnails.medium.url;
+            
             const div = document.createElement('div');
             div.className = 'yt-search-item';
             div.innerHTML = `
-              <img src="${vid.thumbnail}" class="yt-search-thumb"/>
+              <img src="${thumb}" class="yt-search-thumb"/>
               <div class="yt-search-info">
-                <div class="yt-search-title">${vid.title}</div>
-                <div class="yt-search-sub">${vid.uploaderName}</div>
+                <div class="yt-search-title">${title}</div>
+                <div class="yt-search-sub">${channel}</div>
               </div>
             `;
-            div.onclick = () => { loadYouTube(`https://youtube.com/watch?v=${vidId}`); };
+            div.onclick = () => { loadYouTube(`https://youtube.com/watch?v=$${vidId}`); };
             ytSearchResults.appendChild(div);
         });
       })
-      .catch(() => { ytSearchResults.innerHTML = '<p class="mp-empty">Error searching YouTube. API limit reached.</p>'; });
+      .catch((err) => { 
+          console.error("YouTube API Error:", err);
+          ytSearchResults.innerHTML = '<p class="mp-empty">Error searching YouTube. Check API Key or quota.</p>'; 
+      });
       
     ytInput.value = ''; 
   });
 
-  // 3. LIVE GLOBAL MUSIC API (JioSaavn / saavn.dev)
+  // 3. LIVE GLOBAL MUSIC API (JioSaavn open-source fallback)
   if(spAddBtn) spAddBtn.addEventListener('click', () => { 
     const val = spInput.value.trim(); if (!val) return; 
     if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = ''; return; }
     
     spSearchResults.innerHTML = '<p class="mp-empty">Searching global music...</p>';
-    episodesOverlaySp.classList.remove('hidden'); // Auto open
+    episodesOverlaySp.classList.remove('hidden'); 
     
     fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(val)}`)
       .then(res => res.json())
@@ -257,7 +275,7 @@
              spSearchResults.appendChild(div);
          });
       })
-      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Music search failed. Try again.</p>'; });
+      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Music search failed. Public API might be down.</p>'; });
       
     spInput.value = ''; 
   });
