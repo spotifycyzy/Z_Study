@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Z-Button Toggle + Auto-Opening Overlays
+   Top Z-Button Toggle + Auto-Opening Smart Search Overlays
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -9,7 +9,7 @@
   const panel       = document.getElementById('zxPanel');
   const handle      = document.getElementById('zxHandle');
   const closeHandle = document.getElementById('closeHandle');
-  const panelToggleBtn = document.getElementById('panelToggleBtn');
+  const panelToggleBtn = document.getElementById('panelToggleBtn'); // Naya Z button
   
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
@@ -115,7 +115,7 @@
   }
 
   panel.addEventListener('touchmove', (e) => {
-    if (isPanelOpen && !e.target.closest('.zx-body')) { e.preventDefault(); }
+    if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); }
   }, { passive: false });
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
@@ -186,7 +186,7 @@
             dynamicEpListUrl.appendChild(div);
         });
         
-        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open
+        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open overlay
         urlInput.value = '';
     }
   });
@@ -213,7 +213,7 @@
         ytSearchResults.appendChild(div);
     });
 
-    episodesOverlayYt.classList.remove('hidden'); // Auto-Open
+    episodesOverlayYt.classList.remove('hidden'); // Auto-Open overlay
     ytInput.value = ''; 
   });
 
