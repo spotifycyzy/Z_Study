@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Z-Button Toggle + Auto-Opening Smart Search Overlays
+   Top Z-Button Toggle + LIVE YouTube & Global Music APIs
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -9,7 +9,7 @@
   const panel       = document.getElementById('zxPanel');
   const handle      = document.getElementById('zxHandle');
   const closeHandle = document.getElementById('closeHandle');
-  const panelToggleBtn = document.getElementById('panelToggleBtn'); // Naya Z button
+  const panelToggleBtn = document.getElementById('panelToggleBtn'); 
   
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
@@ -30,6 +30,7 @@
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
+  
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
   const spInput     = document.getElementById('spInput');
@@ -40,9 +41,14 @@
   const toggleListBtnUrl   = document.getElementById('toggleListBtnUrl');
   const episodesOverlayUrl = document.getElementById('episodesOverlayUrl');
   const dynamicEpListUrl   = document.getElementById('dynamicEpListUrl');
+  
   const toggleListBtnYt    = document.getElementById('toggleListBtnYt');
   const episodesOverlayYt  = document.getElementById('episodesOverlayYt');
   const ytSearchResults    = document.getElementById('ytSearchResults');
+
+  const toggleListBtnSp    = document.getElementById('toggleListBtnSp');
+  const episodesOverlaySp  = document.getElementById('episodesOverlaySp');
+  const spSearchResults    = document.getElementById('spSearchResults');
 
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
@@ -85,13 +91,11 @@
     if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
-  // Handle Swipe Down
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   handle.addEventListener('touchmove', (e) => {
     if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel();
   }, {passive: true});
 
-  // Top Bar Right "Z" Button Click
   if(panelToggleBtn) {
     panelToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -99,13 +103,11 @@
     });
   }
 
-  // Handle Click (Ignored if clicking buttons)
   handle.addEventListener('click', (e) => {
     if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; 
     if(!isPanelOpen) openPanel(); else closePanel();
   });
 
-  // Swipe Up on panel
   if (closeHandle) {
     closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
     closeHandle.addEventListener('touchmove', (e) => {
@@ -137,6 +139,7 @@
   /* ── 💥 OVERLAYS TOGGLE BUTTONS 💥 ────────────────────── */
   if(toggleListBtnUrl) toggleListBtnUrl.addEventListener('click', () => episodesOverlayUrl.classList.toggle('hidden'));
   if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
+  if(toggleListBtnSp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
 
   /* ── YOUTUBE ENGINE ────────────────────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
@@ -160,7 +163,9 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── INPUT MANAGERS (WITH AUTO-OPEN LOGIC) ─────────────── */
+  /* ── INPUT MANAGERS & LIVE APIs ─────────────────────── */
+  
+  // 1. URL / LIBRARIAN BOT
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
     
@@ -168,16 +173,10 @@
     else if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); urlInput.value = ''; }
     else if (val.startsWith('http')) { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); urlInput.value = ''; }
     else {
-        // 💥 AUTO OPEN LIBRARIAN EPISODES 💥
+        // LIBRARIAN MOCK (Will be set later)
         showToast(`🔍 Fetching episodes for: ${val}`);
         dynamicEpListUrl.innerHTML = ''; 
-        
-        let mockEpisodes = [
-            { title: `${val} - Ep 1`, url: "mock1" },
-            { title: `${val} - Ep 2`, url: "mock2" },
-            { title: `${val} - Ep 3`, url: "mock3" }
-        ];
-        
+        let mockEpisodes = [ { title: `${val} - Ep 1`, url: "mock1" }, { title: `${val} - Ep 2`, url: "mock2" } ];
         mockEpisodes.forEach(ep => {
             const div = document.createElement('div');
             div.className = 'ep-item';
@@ -185,39 +184,83 @@
             div.onclick = () => { showToast(`Loaded ${ep.title}`); };
             dynamicEpListUrl.appendChild(div);
         });
-        
-        episodesOverlayUrl.classList.remove('hidden'); // Auto-Open overlay
+        episodesOverlayUrl.classList.remove('hidden');
         urlInput.value = '';
     }
   });
 
+  // 2. LIVE YOUTUBE SEARCH API (Piped)
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
-    
     if (isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
     
-    // 💥 AUTO OPEN YOUTUBE SEARCH RESULTS 💥
-    showToast(`🔍 Searching YouTube for: ${val}`);
-    ytSearchResults.innerHTML = '';
+    ytSearchResults.innerHTML = '<p class="mp-empty">Searching YouTube...</p>';
+    episodesOverlayYt.classList.remove('hidden'); // Auto open
     
-    let mockResults = [
-        { title: `${val} - Official Music Video`, ch: "T-Series", url: "https://www.youtube.com/watch?v=" },
-        { title: `${val} - Lofi Mix`, ch: "Lofi Girl", url: "https://www.youtube.com/watch?v=" },
-    ];
-    
-    mockResults.forEach(vid => {
-        const div = document.createElement('div');
-        div.className = 'yt-result-item';
-        div.innerHTML = `<div class="yt-result-info"><div class="yt-result-title">${vid.title}</div><div class="yt-result-ch">${vid.ch}</div></div><button class="yt-play-btn">▶</button>`;
-        div.onclick = () => { loadYouTube(vid.url); };
-        ytSearchResults.appendChild(div);
-    });
-
-    episodesOverlayYt.classList.remove('hidden'); // Auto-Open overlay
+    fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(val)}&filter=videos`)
+      .then(res => res.json())
+      .then(data => {
+        ytSearchResults.innerHTML = '';
+        if(!data.items || data.items.length === 0) { ytSearchResults.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+        
+        data.items.slice(0, 15).forEach(vid => {
+            const vidId = vid.url.split('v=')[1];
+            const div = document.createElement('div');
+            div.className = 'yt-search-item';
+            div.innerHTML = `
+              <img src="${vid.thumbnail}" class="yt-search-thumb"/>
+              <div class="yt-search-info">
+                <div class="yt-search-title">${vid.title}</div>
+                <div class="yt-search-sub">${vid.uploaderName}</div>
+              </div>
+            `;
+            div.onclick = () => { loadYouTube(`https://youtube.com/watch?v=${vidId}`); };
+            ytSearchResults.appendChild(div);
+        });
+      })
+      .catch(() => { ytSearchResults.innerHTML = '<p class="mp-empty">Error searching YouTube. API limit reached.</p>'; });
+      
     ytInput.value = ''; 
   });
 
-  if(spAddBtn) spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
+  // 3. LIVE GLOBAL MUSIC API (JioSaavn / saavn.dev)
+  if(spAddBtn) spAddBtn.addEventListener('click', () => { 
+    const val = spInput.value.trim(); if (!val) return; 
+    if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = ''; return; }
+    
+    spSearchResults.innerHTML = '<p class="mp-empty">Searching global music...</p>';
+    episodesOverlaySp.classList.remove('hidden'); // Auto open
+    
+    fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(val)}`)
+      .then(res => res.json())
+      .then(json => {
+         spSearchResults.innerHTML = '';
+         const data = json.data?.results || [];
+         if(data.length === 0) { spSearchResults.innerHTML = '<p class="mp-empty">No songs found.</p>'; return; }
+         
+         data.slice(0, 15).forEach(song => {
+             const title = song.name;
+             const artist = song.primaryArtists || 'Unknown Artist';
+             let audioUrl = song.downloadUrl.find(q => q.quality === '320kbps')?.url || song.downloadUrl[0]?.url;
+             let imgUrl = song.image.find(i => i.quality === '150x150')?.url || song.image[0]?.url;
+             
+             const div = document.createElement('div');
+             div.className = 'yt-search-item';
+             div.innerHTML = `
+               <img src="${imgUrl}" class="yt-search-thumb" style="border-radius:50%; width:45px;"/>
+               <div class="yt-search-info">
+                 <div class="yt-search-title">${title}</div>
+                 <div class="yt-search-sub">${artist}</div>
+               </div>
+             `;
+             div.onclick = () => { addToQueue({ type: 'stream', title: `${title} - ${artist}`, url: audioUrl }); };
+             spSearchResults.appendChild(div);
+         });
+      })
+      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Music search failed. Try again.</p>'; });
+      
+    spInput.value = ''; 
+  });
 
   if(fileInput) fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
