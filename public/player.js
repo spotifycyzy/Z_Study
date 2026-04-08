@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Z-Button Toggle + OFFICIAL GOOGLE YOUTUBE API
+   Top Z-Button Toggle + OFFICIAL GOOGLE YOUTUBE API (Fixed)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -189,7 +189,7 @@
   });
 
   // 2. 🔥 OFFICIAL GOOGLE YOUTUBE API 🔥
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // TERA API KEY YAHAN AA GAYA 💥
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // Teri API Key
 
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
@@ -229,7 +229,8 @@
                 <div class="yt-search-sub">${channel}</div>
               </div>
             `;
-            div.onclick = () => { loadYouTube(`https://youtube.com/watch?v=$${vidId}`); };
+            // 💥 FIX HERE: Properly formatted URL that regex will catch 💥
+            div.onclick = () => { loadYouTube(`https://www.youtube.com/watch?v=${vidId}`); };
             ytSearchResults.appendChild(div);
         });
       })
@@ -286,6 +287,7 @@
     addToQueue({ type: 'stream', title: file.name, url: url });
   });
 
+  // 💥 URL Checkers 💥
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
   function isSpotifyUrl(url) { return /spo/.test(url) && /tify/.test(url); }
