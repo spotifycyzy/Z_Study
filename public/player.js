@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Top Z-Button Toggle + OFFICIAL GOOGLE YOUTUBE API (Fixed)
+   Z-Button Toggle + OFFICIAL GOOGLE YT + UNLIMITED GLOBAL MUSIC
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -33,9 +33,11 @@
   
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
-  const spInput     = document.getElementById('spInput');
-  const spAddBtn    = document.getElementById('spAddBtn');
-  const queueList   = document.getElementById('queueList');
+  
+  const spInput             = document.getElementById('spInput');
+  const spSearchSongBtn     = document.getElementById('spSearchSongBtn');
+  const spSearchPlaylistBtn = document.getElementById('spSearchPlaylistBtn');
+  const queueList           = document.getElementById('queueList');
 
   // Second Overlay Elements
   const toggleListBtnUrl   = document.getElementById('toggleListBtnUrl');
@@ -189,7 +191,7 @@
   });
 
   // 2. 🔥 OFFICIAL GOOGLE YOUTUBE API 🔥
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // Teri API Key
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // Teri API Key lag gayi!
 
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
@@ -216,6 +218,7 @@
         
         data.items.forEach(vid => {
             const vidId = vid.id.videoId;
+            if(!vidId) return; // Skip channels/playlists for now
             const title = vid.snippet.title;
             const channel = vid.snippet.channelTitle;
             const thumb = vid.snippet.thumbnails.medium.url;
@@ -229,8 +232,7 @@
                 <div class="yt-search-sub">${channel}</div>
               </div>
             `;
-            // 💥 FIX HERE: Properly formatted URL that regex will catch 💥
-            div.onclick = () => { loadYouTube(`https://www.youtube.com/watch?v=${vidId}`); };
+            div.onclick = () => { loadYouTube(`https://www.youtube.com/watch?v=$${vidId}`); };
             ytSearchResults.appendChild(div);
         });
       })
@@ -242,27 +244,31 @@
     ytInput.value = ''; 
   });
 
-  // 3. LIVE GLOBAL MUSIC API (JioSaavn open-source fallback)
-  if(spAddBtn) spAddBtn.addEventListener('click', () => { 
+  // 3. 🔥 GLOBAL MUSIC: SEARCH SONG (UNLIMITED OPEN-SOURCE API) 🔥
+  const SAAVN_BASE_URL = 'https://saavn.sumit.co/api';
+
+  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => { 
     const val = spInput.value.trim(); if (!val) return; 
     if (isSpotifyUrl(val)) { addToQueue({ type: 'spotify', title: 'Spotify Track', url: val }); spInput.value = ''; return; }
     
-    spSearchResults.innerHTML = '<p class="mp-empty">Searching global music...</p>';
+    spSearchResults.innerHTML = '<p class="mp-empty">Searching global songs...</p>';
     episodesOverlaySp.classList.remove('hidden'); 
     
-    fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(val)}`)
+    fetch(`${SAAVN_BASE_URL}/search/songs?query=${encodeURIComponent(val)}`)
       .then(res => res.json())
       .then(json => {
          spSearchResults.innerHTML = '';
-         const data = json.data?.results || [];
+         const data = json.data?.results || json.data || [];
          if(data.length === 0) { spSearchResults.innerHTML = '<p class="mp-empty">No songs found.</p>'; return; }
          
          data.slice(0, 15).forEach(song => {
-             const title = song.name;
+             const title = song.name || song.title;
              const artist = song.primaryArtists || 'Unknown Artist';
-             let audioUrl = song.downloadUrl.find(q => q.quality === '320kbps')?.url || song.downloadUrl[0]?.url;
-             let imgUrl = song.image.find(i => i.quality === '150x150')?.url || song.image[0]?.url;
+             let audioUrl = song.downloadUrl?.find(q => q.quality === '320kbps')?.url || song.downloadUrl?.[0]?.url || song.url;
+             let imgUrl = song.image?.find(i => i.quality === '150x150')?.url || song.image?.[0]?.url;
              
+             if(!audioUrl) return; 
+
              const div = document.createElement('div');
              div.className = 'yt-search-item';
              div.innerHTML = `
@@ -276,10 +282,74 @@
              spSearchResults.appendChild(div);
          });
       })
-      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Music search failed. Public API might be down.</p>'; });
+      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Music search failed. Open-source API might be busy.</p>'; });
       
     spInput.value = ''; 
   });
+
+  // 4. 🔥 GLOBAL MUSIC: SEARCH PLAYLIST (UNLIMITED OPEN-SOURCE API) 🔥
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => { 
+    const val = spInput.value.trim(); if (!val) return; 
+    
+    spSearchResults.innerHTML = '<p class="mp-empty">Searching global playlists...</p>';
+    episodesOverlaySp.classList.remove('hidden'); 
+    
+    fetch(`${SAAVN_BASE_URL}/search/playlists?query=${encodeURIComponent(val)}`)
+      .then(res => res.json())
+      .then(json => {
+         spSearchResults.innerHTML = '';
+         const data = json.data?.results || json.data || [];
+         if(data.length === 0) { spSearchResults.innerHTML = '<p class="mp-empty">No playlists found.</p>'; return; }
+         
+         data.slice(0, 15).forEach(pl => {
+             const title = pl.name || pl.title;
+             const count = pl.songCount || 'Various';
+             let imgUrl = pl.image?.find(i => i.quality === '150x150')?.url || pl.image?.[0]?.url;
+             
+             const div = document.createElement('div');
+             div.className = 'yt-search-item';
+             div.innerHTML = `
+               <img src="${imgUrl}" class="yt-search-thumb" style="border-radius:8px; width:45px;"/>
+               <div class="yt-search-info">
+                 <div class="yt-search-title">${title}</div>
+                 <div class="yt-search-sub">${count} Songs</div>
+               </div>
+             `;
+             
+             // 💥 WHEN PLAYLIST IS CLICKED, FETCH ITS SONGS AND LOAD IN QUEUE 💥
+             div.onclick = () => { 
+                 showToast(`Loading playlist: ${title}...`);
+                 fetch(`${SAAVN_BASE_URL}/playlists?id=${pl.id}`)
+                   .then(res => res.json())
+                   .then(plJson => {
+                       const songs = plJson.data?.songs || plJson.data?.list || [];
+                       if(songs.length === 0) { showToast("Empty playlist!"); return; }
+                       
+                       let added = 0;
+                       songs.forEach(song => {
+                           let audioUrl = song.downloadUrl?.find(q => q.quality === '320kbps')?.url || song.downloadUrl?.[0]?.url;
+                           if(audioUrl) {
+                               queue.push({ type: 'stream', title: `${song.name || song.title} - ${song.primaryArtists || ''}`, url: audioUrl });
+                               added++;
+                           }
+                       });
+                       
+                       if(added > 0) {
+                           saveQueue(); renderQueue();
+                           showToast(`Added ${added} songs to queue!`);
+                           if(!isPlaying) playQueueItem(queue.length - added);
+                       }
+                   })
+                   .catch(() => showToast("Failed to load playlist songs."));
+             };
+             spSearchResults.appendChild(div);
+         });
+      })
+      .catch(() => { spSearchResults.innerHTML = '<p class="mp-empty">Playlist search failed.</p>'; });
+      
+    spInput.value = ''; 
+  });
+
 
   if(fileInput) fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
