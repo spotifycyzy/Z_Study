@@ -1,51 +1,37 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Battery-Friendly Pulse Animation (No Marquee Lag)
+   FIXED: Chat Lag, Battery Pulse, & All Missing Styles Restored
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
 #zxHandle {
   position: fixed; top: 0; left: 0; width: 100%; height: 52px;
-  background: rgba(10, 5, 12, 0.95);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: #0a050c; /* Removed blur for chat performance */
   z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   cursor: pointer; touch-action: none;
+  transform: translateZ(0); /* Hardware Acceleration */
 }
 .handle-bar-line { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 .mini-controls { display: flex; gap: 5px; align-items: center; }
 .mini-info { flex: 1; overflow: hidden; margin: 0 10px; }
 .mini-right { display: flex; align-items: center; }
 
-/* 💥 BATTERY-FRIENDLY PREMIUM PULSE ANIMATION (No laggy scrolling) 💥 */
+/* 💥 BATTERY-FRIENDLY PREMIUM PULSE ANIMATION 💥 */
 .mini-title-wrap { 
-  font-size: 13px; 
-  font-weight: 600; 
-  color: #FFE8EF; 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-  text-align: center; 
-  width: 100%;
-  padding: 0 5px;
+  font-size: 13px; font-weight: 600; color: #FFE8EF; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+  text-align: center; width: 100%; padding: 0 5px;
 }
 #miniTitle { 
-  display: inline-block; 
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  display: inline-block; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   animation: pulseGlow 3s ease-in-out infinite alternate; 
+  will-change: opacity;
 }
 @keyframes pulseGlow { 
-  0% { 
-      opacity: 0.75; 
-      text-shadow: 0 0 0px rgba(255, 181, 200, 0); 
-  } 
-  100% { 
-      opacity: 1; 
-      text-shadow: 0 0 10px rgba(255, 181, 200, 0.7); 
-  } 
+  0% { opacity: 0.75; text-shadow: 0 0 0px rgba(255, 181, 200, 0); } 
+  100% { opacity: 1; text-shadow: 0 0 10px rgba(255, 181, 200, 0.7); } 
 }
 
 .mp-btn { background: none; border: none; color: rgba(255,181,200,0.8); font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: all 0.2s; font-family: 'Sora', sans-serif; font-weight: 600; }
@@ -55,16 +41,13 @@
 /* 💥 AESTHETIC MERGED Z-BUTTON 💥 */
 .z-trigger-btn {
   background: linear-gradient(135deg, rgba(232,67,106,0.15), rgba(194,0,95,0.1));
-  border: 1px solid rgba(232,67,106,0.4);
-  border-radius: 12px; padding: 4px 14px;
+  border: 1px solid rgba(232,67,106,0.4); border-radius: 12px; padding: 4px 14px;
   cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   box-shadow: 0 0 10px rgba(232,67,106,0.15);
 }
 .z-trigger-btn:hover, .z-trigger-btn.active {
   background: linear-gradient(135deg, rgba(232,67,106,0.3), rgba(194,0,95,0.25));
-  border-color: #FFB5C8;
-  box-shadow: 0 0 15px rgba(232,67,106,0.5);
-  transform: translateY(-1px);
+  border-color: #FFB5C8; box-shadow: 0 0 15px rgba(232,67,106,0.5); transform: translateY(-1px);
 }
 .z-merged-logo { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 26px; }
 .zm-z { font-family: 'Cinzel Decorative', serif; font-size: 26px; font-weight: 900; background: linear-gradient(135deg, #FFB5C8, #E8436A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 6px rgba(232,67,106,0.6)); line-height: 1; z-index: 2; }
@@ -74,18 +57,20 @@
 /* ── 2. THE STEALTH PANEL ── */
 #zxPanel {
   position: fixed; top: 52px; left: 0; width: 100%; height: auto; max-height: 75vh; 
-  background: rgba(13, 0, 8, 0.98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: #0d0008; /* Solid color for performance */
   z-index: 99999; color: #fff; display: flex; flex-direction: column;
-  transform: translateY(calc(-100% - 52px)); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  transform: translateY(calc(-100% - 52px)) translateZ(0); 
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
+  contain: content; /* Isolates video layout */
 }
-#zxPanel.zx-open { transform: translateY(0); }
+#zxPanel.zx-open { transform: translateY(0) translateZ(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
 .close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 
 /* Panel Internal */
-.music-panel-inner { padding: 0 16px 16px; overflow-y: auto; display: flex; flex-direction: column; }
+.music-panel-inner { padding: 0 16px 16px; overflow-y: auto; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
 .music-panel-inner::-webkit-scrollbar { width: 3px; }
 .music-panel-inner::-webkit-scrollbar-thumb { background: rgba(232,67,106,0.4); border-radius: 5px; }
 
@@ -95,8 +80,8 @@
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-/* Player Box */
-#zxPlayerSection { margin-bottom: 15px; }
+/* ── PLAYER SECTION ── */
+#zxPlayerSection { margin-bottom: 15px; transform: translateZ(0); contain: strict; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
 
 /* 🔥 THE FEEL ANIMATION 🔥 */
@@ -107,8 +92,8 @@
   background-size: cover; background-position: center;
   border: 4px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 0 15px #000, 0 0 20px rgba(232, 67, 106, 0.2);
-  position: relative; animation: spin 4s linear infinite paused;
-  overflow: hidden;
+  position: relative; animation: spin 4s linear infinite paused; overflow: hidden;
+  will-change: transform;
 }
 .vinyl-record::after {
   content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -176,6 +161,18 @@
 .qi-title { flex: 1; font-size: 14px; color: #FFE8EF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
+
+/* ── 💥 CHAT APP LAG FIX (GPU PROMOTION) 💥 ── */
+#chatApp {
+  transform: translateZ(0); 
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000;
+}
+.messages-area {
+  -webkit-overflow-scrolling: touch; 
+  transform: translateZ(0);
+}
 
 body { padding-top: 50px; }
 #chatApp, #notesViewer { top: 50px; }
