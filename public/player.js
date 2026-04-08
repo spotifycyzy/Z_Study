@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js
-   Gesture Swipe, Context-Aware UI, and Universal Sync
+   Gesture Swipe, Context-Aware UI, and Split Screen Push
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -11,7 +11,7 @@
   const closeHandle = document.getElementById('closeHandle');
   
   // Media Players
-  const nativeAudio = document.getElementById('nativeAudio'); // Acts as both video/audio
+  const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spFrameWrap = document.getElementById('spFrameWrap');
   const spFrame     = document.getElementById('spFrame');
@@ -35,8 +35,6 @@
   const fileInput   = document.getElementById('fileInput');
   const ytInput     = document.getElementById('ytInput');
   const ytAddBtn    = document.getElementById('ytAddBtn');
-  const spInput     = document.getElementById('spInput');
-  const spAddBtn    = document.getElementById('spAddBtn');
   const queueList   = document.getElementById('queueList');
 
   // Sync Network
@@ -45,7 +43,6 @@
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
 
-  // Setup Mobile Video settings
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
   nativeAudio.removeAttribute('crossorigin');
@@ -58,38 +55,42 @@
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
-  
   let isRemoteAction  = false;
   let remoteTimer     = null;
-  function setRemoteAction() {
-    isRemoteAction = true; clearTimeout(remoteTimer);
-    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); 
-  }
+  function setRemoteAction() { isRemoteAction = true; clearTimeout(remoteTimer); remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); }
 
-  /* ── 📱 SWIPE GESTURE ENGINE (PULL DOWN/UP) ─────────────── */
+  /* ── 📱 SWIPE GESTURE ENGINE (SPLIT SCREEN PUSH) ───────── */
   let startY = 0;
   
+  function openPanel() {
+    panel.className = 'zx-open';
+    document.body.classList.add('panel-active'); // Triggers CSS to push chat/study site down
+  }
+  
+  function closePanel() {
+    panel.className = 'zx-closed';
+    document.body.classList.remove('panel-active'); // Pulls them back up
+  }
+
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   handle.addEventListener('touchmove', (e) => {
     let diff = e.touches[0].clientY - startY;
-    if (diff > 40) panel.className = 'zx-open';
+    if (diff > 40) openPanel();
   }, {passive: true});
 
   closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   closeHandle.addEventListener('touchmove', (e) => {
     let diff = startY - e.touches[0].clientY;
-    if (diff > 40) panel.className = 'zx-closed';
+    if (diff > 40) closePanel();
   }, {passive: true});
   
-  closeHandle.addEventListener('click', () => panel.className = 'zx-closed');
+  closeHandle.addEventListener('click', closePanel);
 
-  // Prevent background scrolling when panel is open
   document.addEventListener('touchmove', (e) => {
     if (panel.classList.contains('zx-open') && !e.target.closest('.zx-body')) {
       e.preventDefault();
     }
   }, { passive: false });
-
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
@@ -101,7 +102,6 @@
     });
   });
 
-  /* ── TOAST MESSAGES ────────────────────────────────────── */
   function showToast(msg) {
     const t = document.createElement('div'); t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;animation:fadeInOut 3s forwards;';
@@ -113,7 +113,7 @@
   window.onYouTubeIframeAPIReady = function() {
     ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
     ytPlayer = new YT.Player('ytPlayerInner', {
-      height: '220', width: '100%', playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
+      height: '180', width: '100%', playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
       events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
     });
   };
@@ -140,7 +140,6 @@
   });
 
   ytAddBtn.addEventListener('click', () => { const val = ytInput.value.trim(); if (!val) return; loadYouTube(val); ytInput.value = ''; });
-  spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
 
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
@@ -163,7 +162,7 @@
   function addToQueue(item) {
     if(queue.length > 0 && queue[queue.length-1].url === item.url) { playQueueItem(queue.length - 1); return; }
     queue.push(item); saveQueue(); renderQueue();
-    playQueueItem(queue.length - 1); // Auto-play new item
+    playQueueItem(queue.length - 1);
   }
   
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
@@ -194,12 +193,10 @@
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-    // Reset all views
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
     
-    // Check if Audio or Video to switch UI Mode
     const isAudioOnly = item.type === 'spotify' || item.title.toLowerCase().endsWith('.mp3') || item.title.toLowerCase().endsWith('.m4a');
     
     if (isAudioOnly) {
@@ -223,7 +220,7 @@
     } 
     else if (item.type === 'stream') {
       activeType = 'stream'; 
-      if (!isAudioOnly) nativeAudio.style.display = 'block'; // Show video player if it's a movie
+      if (!isAudioOnly) nativeAudio.style.display = 'block'; 
       
       nativeAudio.src = item.url; 
       nativeAudio.play().then(() => {
@@ -261,7 +258,7 @@
   nativeAudio.addEventListener('seeked', () => { if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); });
   nativeAudio.addEventListener('ended', playNext);
 
-  /* ── DEEP SYNC NETWORK (WebSockets) ────────────────────── */
+  /* ── DEEP SYNC NETWORK ────────────────────── */
   mpSyncBtn.addEventListener('click', () => {
     synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
     mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
