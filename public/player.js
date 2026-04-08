@@ -1,23 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js
-   Pure Overlay Extension (No Split Screen Push)
+   ZEROX HUB — player.js (Zero-Lag Optimized Overlay)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
-  /* ── DOM ELEMENTS ──────────────────────────────────────── */
   const panel       = document.getElementById('zxPanel');
   const handle      = document.getElementById('zxHandle');
   const closeHandle = document.getElementById('closeHandle');
   
-  // Media Players
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   const spFrameWrap = document.getElementById('spFrameWrap');
-  const ytFrame     = document.getElementById('ytFrame');
-  const spFrame     = document.getElementById('spFrame');
   
-  // Context UI Switchers
   const cinemaMode  = document.getElementById('cinemaMode');
   const spotifyMode = document.getElementById('spotifyMode');
   const vinylRecord = document.getElementById('vinylRecord');
@@ -25,12 +19,10 @@
   const musicArtist = document.getElementById('musicArtist');
   const mpTitle     = document.getElementById('mpTitle');
 
-  // Controls
   const mpPlay      = document.getElementById('mpPlay');
   const mpPrev      = document.getElementById('miniPrev'); 
   const mpNext      = document.getElementById('miniNext');
   
-  // Inputs & Queue
   const urlInput    = document.getElementById('urlInput');
   const urlAddBtn   = document.getElementById('urlAddBtn');
   const fileInput   = document.getElementById('fileInput');
@@ -40,7 +32,6 @@
   const spAddBtn    = document.getElementById('spAddBtn');
   const queueList   = document.getElementById('queueList');
 
-  // Sync Network
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
@@ -48,9 +39,7 @@
 
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
-  nativeAudio.removeAttribute('crossorigin');
 
-  /* ── STATE ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
@@ -62,37 +51,41 @@
   let remoteTimer     = null;
   function setRemoteAction() { isRemoteAction = true; clearTimeout(remoteTimer); remoteTimer = setTimeout(() => { isRemoteAction = false; }, 800); }
 
-  /* ── 📱 SWIPE GESTURE ENGINE (PURE OVERLAY) ────────────── */
+  /* ── 📱 SWIPE GESTURE ENGINE (ZERO-LAG FIX) ────────────── */
   let startY = 0;
+  let isPanelOpen = false;
   
   function openPanel() {
-    panel.className = 'zx-open';
-    // No push-down triggers here! 💥 Just pure overlay.
+    if (isPanelOpen) return;
+    isPanelOpen = true;
+    panel.classList.add('zx-open');
+    document.body.style.overflow = 'hidden'; // Locks background scroll cleanly without lag
   }
   
   function closePanel() {
-    panel.className = 'zx-closed';
+    if (!isPanelOpen) return;
+    isPanelOpen = false;
+    panel.classList.remove('zx-open');
+    document.body.style.overflow = ''; // Unlocks background scroll
   }
 
+  // Pull Down
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   handle.addEventListener('touchmove', (e) => {
+    if (isPanelOpen) return; // Prevent lag loop
     let diff = e.touches[0].clientY - startY;
-    if (diff > 40) openPanel();
+    if (diff > 35) openPanel();
   }, {passive: true});
 
+  // Pull Up
   closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
   closeHandle.addEventListener('touchmove', (e) => {
+    if (!isPanelOpen) return;
     let diff = startY - e.touches[0].clientY;
-    if (diff > 40) closePanel();
+    if (diff > 35) closePanel();
   }, {passive: true});
   
   closeHandle.addEventListener('click', closePanel);
-
-  document.addEventListener('touchmove', (e) => {
-    if (panel.classList.contains('zx-open') && !e.target.closest('.zx-body')) {
-      e.preventDefault();
-    }
-  }, { passive: false });
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
@@ -107,7 +100,7 @@
   function showToast(msg) {
     const t = document.createElement('div'); t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
-    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+    document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
   /* ── YOUTUBE ENGINE ────────────────────────────────────── */
@@ -142,7 +135,7 @@
   ytAddBtn.addEventListener('click', () => { const val = ytInput.value.trim(); if (!val) return; loadYouTube(val); ytInput.value = ''; });
   if(spAddBtn) spAddBtn.addEventListener('click', () => { const val = spInput.value.trim(); if (!val) return; addToQueue({ type: 'spotify', title: 'Spotify', url: val }); spInput.value = ''; });
 
-  fileInput.addEventListener('change', () => {
+  if(fileInput) fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
     const url = URL.createObjectURL(file);
     addToQueue({ type: 'stream', title: file.name, url: url });
@@ -169,13 +162,13 @@
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
 
   function renderQueue() {
-    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Empty</p>'; return; }
+    if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty" style="color:#aaa;text-align:center;">Queue empty.</p>'; return; }
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = '🎵'; if (item.type === 'youtube') icon = '▶ YT'; if (item.type === 'spotify') icon = '♫ SP'; if (item.type === 'stream') icon = '☁️';
-      el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
+      let icon = '🎵'; if (item.type === 'youtube') icon = '▶'; if (item.type === 'stream') icon = '☁️';
+      el.innerHTML = `<span style="font-size:12px">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
     });
@@ -189,12 +182,12 @@
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  mpNext.addEventListener('click', playNext);
-  mpPrev.addEventListener('click', playPrev);
+  if(mpNext) mpNext.addEventListener('click', playNext);
+  if(mpPrev) mpPrev.addEventListener('click', playPrev);
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-    nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; spFrameWrap.style.display = 'none';
+    nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none'; if(spFrameWrap) spFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     
@@ -215,9 +208,9 @@
       setTrackInfo(item.title, 'YouTube Live');
     } 
     else if (item.type === 'spotify') {
-      activeType = 'spotify'; spFrameWrap.style.display = 'block';
+      activeType = 'spotify'; if(spFrameWrap) spFrameWrap.style.display = 'block';
       const embedUrl = item.url.includes('/embed/') ? item.url : item.url.replace('open.spotify.com', 'open.spotify.com/embed');
-      spFrame.src = embedUrl; setTrackInfo(item.title, 'Spotify Track');
+      if(spFrame) spFrame.src = embedUrl; setTrackInfo(item.title, 'Spotify Track');
     } 
     else if (item.type === 'stream') {
       activeType = 'stream'; 
@@ -235,7 +228,7 @@
   }
 
   /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
-  mpPlay.addEventListener('click', () => {
+  if(mpPlay) mpPlay.addEventListener('click', () => {
     if (activeType === 'stream') {
        if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{});
     } else if (activeType === 'youtube' && ytPlayer) {
@@ -244,7 +237,7 @@
   });
 
   function updatePlayBtn() { 
-    mpPlay.textContent = isPlaying ? '⏸' : '▶'; 
+    if(mpPlay) mpPlay.textContent = isPlaying ? '⏸' : '▶'; 
     if (isPlaying) vinylRecord.classList.add('playing'); else vinylRecord.classList.remove('playing');
   }
   
