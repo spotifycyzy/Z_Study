@@ -73,7 +73,7 @@
     <div class="mp-tabs">
       <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
-      <button class="mp-tab" data-tab="spotify">Spotify</button>
+      <button class="mp-tab" data-tab="spotify">Global Music</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
 
@@ -82,7 +82,6 @@
         <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
         <button class="mp-add-btn" id="urlAddBtn">Play</button>
       </div>
-      
       <div class="action-buttons-row">
         <label class="mp-file-label">
           <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
@@ -90,7 +89,6 @@
         </label>
         <button id="toggleListBtnUrl" class="mp-ep-btn">📑 View Episodes</button>
       </div>
-
       <div id="episodesOverlayUrl" class="episodes-container hidden">
         <div class="ep-header">Librarian Results</div>
         <div class="ep-list" id="dynamicEpListUrl">
@@ -102,25 +100,32 @@
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
         <input id="ytInput" class="mp-input" type="text" placeholder="Search YouTube or Paste link..."/>
-        <button class="mp-add-btn" id="ytAddBtn">Load</button>
+        <button class="mp-add-btn" id="ytAddBtn">Search</button>
       </div>
-
       <div class="action-buttons-row" style="justify-content:flex-end">
         <button id="toggleListBtnYt" class="mp-ep-btn">📑 View Results</button>
       </div>
-
       <div id="episodesOverlayYt" class="episodes-container hidden">
         <div class="ep-header">YouTube Search Results</div>
         <div class="yt-search-results active" id="ytSearchResults">
-          <p class="mp-empty">Search a song above to load thumbnails.</p>
+          <p class="mp-empty">Type something above and hit search.</p>
         </div>
       </div>
     </div>
 
     <div class="mp-tab-content" id="tab-spotify">
       <div class="mp-input-row">
-        <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
-        <button class="mp-add-btn" id="spAddBtn">Load</button>
+        <input id="spInput" class="mp-input" type="text" placeholder="Search any song (or paste Spotify link)…"/>
+        <button class="mp-add-btn" id="spAddBtn">Search</button>
+      </div>
+      <div class="action-buttons-row" style="justify-content:flex-end">
+        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Songs</button>
+      </div>
+      <div id="episodesOverlaySp" class="episodes-container hidden">
+        <div class="ep-header">Global Music Results</div>
+        <div class="yt-search-results active" id="spSearchResults">
+          <p class="mp-empty">Type a song name above and hit search.</p>
+        </div>
       </div>
     </div>
 
@@ -136,7 +141,6 @@
     <div class="nav-links"><a href="#subjects">Subjects</a><a href="#recent">Recent</a><a href="#bookmarks">Saved</a></div>
     <div class="nav-search"><input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/><span class="search-icon">🔍</span></div>
   </nav>
-  
   <section class="study-hero">
     <div class="hero-content">
       <p class="hero-eyebrow">Welcome back</p>
