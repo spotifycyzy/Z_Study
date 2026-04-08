@@ -45,17 +45,13 @@
 
   <div class="zx-body">
     <div id="zxPlayerSection" class="mode-cinema">
-      
       <div id="cinemaMode">
         <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
-        
         <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;"></div>
-        
         <div id="spFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
           <iframe id="spFrame" style="width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
         </div>
       </div>
-
       <div id="spotifyMode" class="hidden">
         <div class="vinyl-record" id="vinylRecord"></div>
         <div class="music-info">
@@ -68,7 +64,6 @@
     <div class="mp-tabs">
       <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
-      <button class="mp-tab" data-tab="spotify">Spotify</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
 
@@ -90,13 +85,6 @@
       </div>
     </div>
 
-    <div class="mp-tab-content" id="tab-spotify">
-      <div class="mp-input-row">
-        <input id="spInput" class="mp-input" type="text" placeholder="Paste Spotify URL…"/>
-        <button class="mp-add-btn" id="spAddBtn">Load</button>
-      </div>
-    </div>
-
     <div class="mp-tab-content" id="tab-queue">
       <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
     </div>
@@ -105,19 +93,9 @@
 
 <div id="studySite">
   <nav class="study-nav">
-    <div class="nav-brand">
-      <span class="brand-icon">📚</span>
-      <span class="brand-name" id="brandName">StudyVault</span>
-    </div>
-    <div class="nav-links">
-      <a href="#subjects">Subjects</a>
-      <a href="#recent">Recent</a>
-      <a href="#bookmarks">Saved</a>
-    </div>
-    <div class="nav-search">
-      <input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/>
-      <span class="search-icon">🔍</span>
-    </div>
+    <div class="nav-brand"><span class="brand-icon">📚</span><span class="brand-name" id="brandName">StudyVault</span></div>
+    <div class="nav-links"><a href="#subjects">Subjects</a><a href="#recent">Recent</a><a href="#bookmarks">Saved</a></div>
+    <div class="nav-search"><input type="text" id="searchInput" placeholder="Search topics…" autocomplete="off"/><span class="search-icon">🔍</span></div>
   </nav>
   
   <section class="study-hero">
@@ -125,31 +103,20 @@
       <p class="hero-eyebrow">Welcome back</p>
       <h1 class="hero-title" id="heroTitle">StudyVault<br/><em>knowledge library</em></h1>
       <p class="hero-sub">Click any chapter to read AI-generated notes.</p>
-      <div class="hero-stats">
-        <div class="stat"><span class="stat-n" id="statSubjects">5</span><span class="stat-l">Subjects</span></div>
-        <div class="stat"><span class="stat-n" id="statChapters">0</span><span class="stat-l">Chapters</span></div>
-        <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
-      </div>
     </div>
-    <div class="hero-visual" aria-hidden="true">
-      <div class="book-stack">
-        <div class="book b1"></div><div class="book b2"></div>
-        <div class="book b3"></div><div class="book b4"></div>
-      </div>
-    </div>
+    <div class="hero-visual" aria-hidden="true"><div class="book-stack"><div class="book b1"></div><div class="book b2"></div><div class="book b3"></div><div class="book b4"></div></div></div>
   </section>
   <section class="study-subjects" id="subjects"><h2 class="section-title">Subjects</h2><div class="subjects-grid" id="subjectsGrid"></div></section>
   <section class="study-recent" id="recent"><h2 class="section-title">Recently Viewed</h2><div class="recent-list" id="recentList"></div></section>
   <section class="study-bookmarks" id="bookmarks"><h2 class="section-title">Saved Notes</h2><div id="bookmarksList"></div></section>
-  <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
+  <footer class="study-footer">© 2025 StudyVault · All notes private & encrypted</footer>
 </div>
 
 <div id="notesViewer" class="hidden">
   <div class="notes-header">
     <button class="notes-back" id="notesBack">← Back</button>
     <div class="notes-title-wrap">
-      <span class="notes-subject" id="notesSubject"></span>
-      <h2 class="notes-title" id="notesTitle"></h2>
+      <span class="notes-subject" id="notesSubject"></span><h2 class="notes-title" id="notesTitle"></h2>
     </div>
     <button class="notes-bookmark" id="notesBookmark">🔲</button>
   </div>
@@ -163,6 +130,7 @@
 
 <div id="chatApp" class="hidden">
   <div id="chatBlossoms"></div>
+
   <div id="unlockScreen" class="unlock-screen">
     <div class="unlock-card">
       <div class="unlock-logo"><span class="unlock-z">Z</span><span class="unlock-name-brand">erox</span></div>
@@ -189,24 +157,52 @@
         <button class="icon-btn" id="callBtn" title="Voice call">📞</button>
         <button class="icon-btn" id="hideChatBtn" title="Back">📚</button>
       </header>
-      <div class="messages-area" id="messagesArea"><div class="messages-inner" id="messagesInner"></div></div>
+
+      <div class="messages-area" id="messagesArea">
+        <div class="messages-inner" id="messagesInner"></div>
+      </div>
       <div class="typing-bar" id="typingBar"></div>
-      <div class="reply-bar" id="replyBar"><span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span><span class="reply-bar-text" id="replyBarText"></span><button class="reply-bar-cancel" id="replyBarCancel">✕</button></div>
-      <div class="sticker-picker hidden" id="stickerPicker"><div class="sticker-tabs" id="stickerTabs"></div><div class="sticker-grid" id="stickerGrid"></div></div>
+
+      <div class="reply-bar" id="replyBar">
+        <span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span>
+        <span class="reply-bar-text" id="replyBarText"></span>
+        <button class="reply-bar-cancel" id="replyBarCancel">✕</button>
+      </div>
+
+      <div class="sticker-picker hidden" id="stickerPicker">
+        <div class="sticker-tabs" id="stickerTabs"></div>
+        <div class="sticker-grid" id="stickerGrid"></div>
+      </div>
+
       <div class="input-bar">
         <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
         <button class="attach-btn" id="attachBtn">📎</button>
         <input type="file" id="mediaInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip" style="display:none"/>
         <button class="voice-record-btn" id="voiceBtn">🎙</button>
         <textarea id="msgInput" class="msg-input" placeholder="Message…" rows="1" maxlength="2000"></textarea>
-        <button class="send-btn" id="sendBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+        <button class="send-btn" id="sendBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
 </div>
-<div class="call-overlay hidden" id="callOverlay"><div class="call-avatar" id="callAvatar">?</div><div class="call-name" id="callName">Calling…</div><div class="call-status" id="callStatus">connecting…</div><div class="call-actions"><button class="call-btn mute" id="callMute">🎤</button><button class="call-btn end" id="callEnd">📵</button></div></div>
+
+<div class="call-overlay hidden" id="callOverlay">
+  <div class="call-avatar" id="callAvatar">?</div>
+  <div class="call-name" id="callName">Calling…</div>
+  <div class="call-status" id="callStatus">connecting…</div>
+  <div class="call-actions">
+    <button class="call-btn mute" id="callMute">🎤</button>
+    <button class="call-btn end" id="callEnd">📵</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+
 <script src="config.js"></script>
 <script src="gesture.js"></script>
 <script src="player.js"></script>
