@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   FIXED: Deep Sync Network Bug for YT & Global Audio
+   FIXED: Piped Auto-Failover & Fullscreen Centering
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -13,7 +13,6 @@
   
   const nativeAudio = document.getElementById('nativeAudio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
-  const spFrameWrap = document.getElementById('spFrameWrap');
   
   const cinemaMode  = document.getElementById('cinemaMode');
   const spotifyMode = document.getElementById('spotifyMode');
@@ -38,7 +37,6 @@
   const spSearchPlaylistBtn = document.getElementById('spSearchPlaylistBtn');
   const queueList           = document.getElementById('queueList');
 
-  // Second Overlay Elements
   const toggleListBtnUrl   = document.getElementById('toggleListBtnUrl');
   const episodesOverlayUrl = document.getElementById('episodesOverlayUrl');
   const dynamicEpListUrl   = document.getElementById('dynamicEpListUrl');
@@ -70,7 +68,6 @@
   let isRemoteAction  = false;
   let remoteTimer     = null;
 
-  // 💥 FIX: Increased lock time to 2 seconds to allow YT buffering without loop glitch 💥
   function setRemoteAction() { 
       isRemoteAction = true; 
       clearTimeout(remoteTimer); 
@@ -88,7 +85,6 @@
     document.body.style.overflow = 'hidden'; 
     if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
-  
   function closePanel() {
     if(!isPanelOpen) return;
     isPanelOpen = false;
@@ -147,12 +143,13 @@
   if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
   if(toggleListBtnSp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
 
-  /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
+  /* ── 💥 YOUTUBE ENGINE (FIXED FULLSCREEN SIZING) 💥 ── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
     ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
     ytPlayer = new YT.Player('ytPlayerInner', {
-      height: '220', width: '100%', playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
+      width: '100%', height: '100%', /* FIX: CSS will control aspect ratio now */
+      playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
       events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
     });
   };
@@ -233,16 +230,36 @@
     ytInput.value = ''; 
   });
 
-  /* ── TAB 2: GLOBAL MUSIC (UNLIMITED PIPED AUDIO) ── */
-  const PIPED_BASE = 'https://pipedapi.kavin.rocks'; 
+  /* ── 💥 TAB 2: PIPED AUTO-SWITCHING ENGINE (ANTI-FAIL) 💥 ── */
+  // Agar ek block ho gaya, toh dusre pe jump karega
+  const PIPED_SERVERS = [
+      'https://pipedapi.smnz.de',
+      'https://pipedapi.tokhmi.xyz',
+      'https://api.piped.projectsegfau.lt',
+      'https://pipedapi.kavin.rocks'
+  ];
+  let currentPipedIdx = 0;
+
+  async function fetchPipedData(endpoint) {
+      for(let i=0; i<PIPED_SERVERS.length; i++) {
+          let server = PIPED_SERVERS[(currentPipedIdx + i) % PIPED_SERVERS.length];
+          try {
+              let res = await fetch(server + endpoint);
+              if(res.ok) {
+                  currentPipedIdx = (currentPipedIdx + i) % PIPED_SERVERS.length; // Save working server
+                  return await res.json();
+              }
+          } catch(e) { console.log(server + " failed, trying next..."); }
+      }
+      throw new Error("All servers down");
+  }
 
   function searchPiped(query, filter) {
       if(!query) return;
-      spSearchResults.innerHTML = '<p class="mp-empty">Extracting from Global Library...</p>';
+      spSearchResults.innerHTML = '<p class="mp-empty">Connecting to strongest global server...</p>';
       episodesOverlaySp.classList.remove('hidden');
 
-      fetch(`${PIPED_BASE}/search?q=${encodeURIComponent(query)}&filter=${filter}`)
-        .then(res => res.json())
+      fetchPipedData(`/search?q=${encodeURIComponent(query)}&filter=${filter}`)
         .then(data => {
             spSearchResults.innerHTML = '';
             if(!data.items || data.items.length === 0) { spSearchResults.innerHTML = '<p class="mp-empty">Nothing found.</p>'; return; }
@@ -261,8 +278,7 @@
                 div.onclick = () => {
                     if(item.type === 'playlist') {
                         showToast(`Loading Playlist...`);
-                        fetch(`${PIPED_BASE}/playlists/${item.url.split('list=')[1]}`)
-                            .then(r => r.json())
+                        fetchPipedData(`/playlists/${item.url.split('list=')[1]}`)
                             .then(pData => {
                                 let added = 0;
                                 pData.relatedStreams.forEach(s => {
@@ -279,7 +295,7 @@
                 };
                 spSearchResults.appendChild(div);
             });
-        }).catch(() => spSearchResults.innerHTML = '<p class="mp-empty">Global API busy. Try again.</p>');
+        }).catch(() => spSearchResults.innerHTML = '<p class="mp-empty">All Global servers busy. Try again later.</p>');
       spInput.value = '';
   }
 
@@ -323,7 +339,6 @@
     currentIdx = i; saveQueue(); renderQueue(); 
     const item = queue[i];
     
-    // 💥 FIX: Removed strict item.url check so it allows YT and Global Audio to sync! 💥
     const isBlob = item.url && item.url.startsWith('blob:');
     if (synced && !isRemoteAction && !isBlob) { 
         broadcastSync({ action: 'change_song', item: item }); 
@@ -359,8 +374,7 @@
       setTrackInfo(item.title, 'Global Stream');
       showToast('Extracting audio stream...');
 
-      fetch(`${PIPED_BASE}/streams/${item.ytId}`)
-        .then(res => res.json())
+      fetchPipedData(`/streams/${item.ytId}`)
         .then(data => {
             if(!data.audioStreams) { showToast('Audio extraction failed.'); return; }
             let stream = data.audioStreams.find(s => s.mimeType.includes('mp4') || s.mimeType.includes('m4a')) || data.audioStreams[0];
@@ -422,7 +436,6 @@
   window._zxReceiveSync = function (data) {
     if (data.action === 'request_sync') {
       const curItem = queue[currentIdx];
-      // 💥 FIX: Correct validation for sync request 💥
       const isBlob = curItem && curItem.url && curItem.url.startsWith('blob:');
       if (synced && curItem && !isBlob) {
            broadcastSync({ action: 'change_song', item: curItem });
@@ -431,7 +444,7 @@
               if (activeType === 'youtube' && ytPlayer && isYtReady) curTime = ytPlayer.getCurrentTime(); 
               else if (activeType === 'stream') curTime = nativeAudio.currentTime;
               broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
-           }, 1500); // Wait 1.5s for receiver to load before syncing time
+           }, 1500); 
       } return;
     }
 
