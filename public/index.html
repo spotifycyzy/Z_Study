@@ -26,9 +26,12 @@
     </div>
   </div>
   <div class="mini-right">
-    <button id="panelToggleBtn" class="z-trigger-btn">
-      <span class="z-logo-char">Z</span>
-      <span class="z-icons-char">🎧🎵</span>
+    <button id="panelToggleBtn" class="z-trigger-btn" title="Open Hub">
+      <div class="z-merged-logo">
+        <span class="zm-h">🎧</span>
+        <span class="zm-z">Z</span>
+        <span class="zm-m">🎵</span>
+      </div>
     </button>
   </div>
   <div class="handle-bar-line"></div>
@@ -37,19 +40,19 @@
 <div id="zxPanel" class="zx-closed">
   <div id="closeHandle"><div class="close-bar-line"></div></div>
 
-  <div class="zx-header">
-    <span class="zx-logo">ZeroX <span>Hub</span></span>
-    <div style="display:flex;gap:8px;align-items:center">
-      <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
-      <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
-      <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
-        <span style="font-size:12px;color:#7ADB8A">🔗 Synced</span>
-        <button class="mp-btn" id="mpUnsyncBtn" style="padding:4px 8px;font-size:11px">Leave</button>
+  <div class="music-panel-inner">
+    <div class="zx-header" style="padding: 0 0 15px 0;">
+      <span class="zx-logo">ZeroX <span>Hub</span></span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
+        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
+        <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
+          <span style="font-size:12px;color:#7ADB8A">🔗 Synced</span>
+          <button class="mp-btn" id="mpUnsyncBtn" style="padding:4px 8px;font-size:11px">Leave</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="zx-body">
     <div id="zxPlayerSection" class="mode-cinema">
       <div id="cinemaMode">
         <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
@@ -195,12 +198,10 @@
         <button class="icon-btn" id="callBtn" title="Voice call">📞</button>
         <button class="icon-btn" id="hideChatBtn" title="Back">📚</button>
       </header>
-
       <div class="messages-area" id="messagesArea"><div class="messages-inner" id="messagesInner"></div></div>
       <div class="typing-bar" id="typingBar"></div>
       <div class="reply-bar" id="replyBar"><span style="font-size:12px;color:rgba(255,181,200,0.6)">↩ Replying to:</span><span class="reply-bar-text" id="replyBarText"></span><button class="reply-bar-cancel" id="replyBarCancel">✕</button></div>
       <div class="sticker-picker hidden" id="stickerPicker"><div class="sticker-tabs" id="stickerTabs"></div><div class="sticker-grid" id="stickerGrid"></div></div>
-
       <div class="input-bar">
         <button class="icon-btn sticker-toggle" id="stickerToggle">😊</button>
         <button class="attach-btn" id="attachBtn">📎</button>
@@ -212,7 +213,6 @@
     </div>
   </div>
 </div>
-
 <div class="call-overlay hidden" id="callOverlay"><div class="call-avatar" id="callAvatar">?</div><div class="call-name" id="callName">Calling…</div><div class="call-status" id="callStatus">connecting…</div><div class="call-actions"><button class="call-btn mute" id="callMute">🎤</button><button class="call-btn end" id="callEnd">📵</button></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
