@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css
-   Auto-Opening Dynamic Overlays + Top Bar Button
+   FIXED: No Overlap, Z-Button, 50vh Layout
 ═══════════════════════════════════════════════════════════ */
 
-/* ── 1. THE GHOST HANDLE (Mini Player Top Bar) ── */
+/* ── 1. THE GHOST HANDLE (Top Bar) ── */
 #zxHandle {
-  position: fixed; top: 0; left: 0; width: 100%; height: 50px;
+  position: fixed; top: 0; left: 0; width: 100%; height: 52px;
   background: rgba(10, 5, 12, 0.95);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
@@ -25,14 +25,41 @@
 .mp-btn:hover { color: #FFB5C8; background: rgba(232,67,106,0.12); }
 .mp-play { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,#E8436A,#C2005F); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(232,67,106,0.5); padding: 0; }
 
-/* ── 2. THE STEALTH PANEL (50% Overlay) ── */
+/* 💥 NEW: ATTRACTIVE Z-BUTTON 💥 */
+.z-trigger-btn {
+  display: flex; align-items: center; gap: 3px;
+  background: linear-gradient(135deg, rgba(232,67,106,0.12), rgba(194,0,95,0.12));
+  border: 1px solid rgba(232,67,106,0.4);
+  border-radius: 12px; padding: 6px 12px;
+  cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 10px rgba(232,67,106,0.15);
+}
+.z-trigger-btn:hover, .z-trigger-btn.active {
+  background: linear-gradient(135deg, rgba(232,67,106,0.3), rgba(194,0,95,0.3));
+  border-color: #E8436A;
+  box-shadow: 0 0 15px rgba(232,67,106,0.5);
+  transform: translateY(-1px);
+}
+.z-logo-char {
+  font-family: 'Cinzel Decorative', serif; font-size: 16px; font-weight: 800;
+  color: #E8436A; text-shadow: 0 0 8px rgba(232,67,106,0.6);
+}
+.z-icons-char {
+  font-size: 13px; letter-spacing: -2px; margin-left: 2px;
+  filter: drop-shadow(0 0 4px rgba(255,181,200,0.6));
+}
+
+/* ── 2. THE STEALTH PANEL (Top 50% Overlay) ── */
 #zxPanel {
-  position: fixed; top: 0; left: 0; width: 100%; height: 50vh;
+  position: fixed; 
+  top: 52px; /* 💥 FIX: Starts below the handle to fix overlap */
+  left: 0; width: 100%; 
+  height: 55vh; max-height: 600px;
   background: rgba(13, 0, 8, 0.98);
-  backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   z-index: 99999; color: #fff;
   display: flex; flex-direction: column;
-  transform: translateY(-100%); 
+  transform: translateY(calc(-100% - 52px)); /* Perfectly hides above */
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
   border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
@@ -86,7 +113,7 @@
 .mp-file-label { display: inline-flex; padding: 10px 15px; border-radius: 12px; border: 1px dashed rgba(232,67,106,0.4); color: #FFB5C8; font-size: 13px; cursor: pointer; transition: 0.2s; }
 .mp-file-label:hover { border-color: #E8436A; }
 
-.mp-ep-btn { display: inline-flex; padding: 10px 15px; border-radius: 12px; background: rgba(180,80,255,0.1); border: 1px solid rgba(180,80,255,0.35); color: #E8ECFF; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; font-family: 'Sora', sans-serif; }
+.mp-ep-btn { flex: 1; display: inline-flex; justify-content: center; padding: 10px 15px; border-radius: 12px; background: rgba(180,80,255,0.1); border: 1px solid rgba(180,80,255,0.35); color: #E8ECFF; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; font-family: 'Sora', sans-serif; }
 .mp-ep-btn:hover { background: rgba(180,80,255,0.2); border-color: #B450FF; box-shadow: 0 0 10px rgba(180,80,255,0.2); }
 
 /* ── Dynamic Second Overlay (Episodes & YT Results) ── */
@@ -103,7 +130,6 @@
 .ep-item .ep-play-icon { color: #B450FF; font-size: 16px; opacity: 0; transition: 0.2s; }
 .ep-item:hover .ep-play-icon { opacity: 1; }
 
-/* YouTube specific results overlay fixes */
 .yt-search-results { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 
 /* Queue */
