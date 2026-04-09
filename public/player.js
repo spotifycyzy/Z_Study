@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   💥 MAJOR UPDATE: Integrated M-Zix (JioSaavn API) for Instant Play
+   💥 MAJOR FIX: Multi-Server M-Zix Failover & Smooth UI
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -198,62 +198,77 @@
     ytInput.value = ''; 
   });
 
-  /* ── 💥 TAB 2: M-ZIX ENGINE (JIOSAAVN DIRECT API) 💥 ── */
-  // Piped is gone. We use saavn.dev for instant, zero-delay 320kbps streams!
+  /* ── 💥 TAB 2: MULTI-MIRROR M-ZIX ENGINE (NEVER FAILS) 💥 ── */
   
   async function searchMzixGlobal(query) {
       if(!query) return;
-      spSearchResults.innerHTML = '<p class="mp-empty">Searching M-Zix Global Library...</p>';
+      spSearchResults.innerHTML = '<p class="mp-empty">Searching Global Network...</p>';
       episodesOverlaySp.classList.remove('hidden');
 
-      try {
-          // Open source JioSaavn Wrapper (Ultra Fast)
-          let res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
-          let json = await res.json();
-          let items = json.data.results;
+      // 3 Different servers so it never gets blocked
+      const SAAVN_APIS = [
+          `https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`,
+          `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodeURIComponent(query)}`,
+          `https://saavn.me/search/songs?query=${encodeURIComponent(query)}`
+      ];
 
-          if(!items || items.length === 0) throw new Error("No results");
+      let success = false;
 
-          spSearchResults.innerHTML = '';
-          items.forEach(song => {
-              const div = document.createElement('div');
-              div.className = 'yt-search-item';
+      for (let url of SAAVN_APIS) {
+          try {
+              let res = await fetch(url);
+              if(!res.ok) continue;
+              let json = await res.json();
               
-              // Get highest quality image and audio link
-              let thumb = song.image.slice(-1)[0].url || song.image[0].url;
-              let audioLink = song.downloadUrl.slice(-1)[0].url || song.downloadUrl[0].url;
-              let artistName = song.artists.primary[0]?.name || 'Unknown Artist';
+              // Handle different API data structures
+              let items = json.data.results || json.data; 
+              if(!items || items.length === 0) continue;
 
-              div.innerHTML = `
-                <img src="${thumb}" class="yt-search-thumb" style="border-radius:50%;"/>
-                <div class="yt-search-info">
-                  <div class="yt-search-title">${song.name}</div>
-                  <div class="yt-search-sub">${artistName}</div>
-                </div>
-              `;
-              
-              // We pass it directly as a 'stream' so it plays natively & instantly!
-              div.onclick = () => {
-                  addToQueue({ 
-                      type: 'stream', 
-                      title: song.name, 
-                      url: audioLink, 
-                      thumb: thumb, 
-                      isMzix: true // Flag to show it's a global song
-                  });
-                  showToast("Playing instant stream...");
-              };
-              spSearchResults.appendChild(div);
-          });
-      } catch(e) {
-          spSearchResults.innerHTML = '<p class="mp-empty">M-Zix Server Error. Try another song.</p>';
+              spSearchResults.innerHTML = '';
+              items.forEach(song => {
+                  // Get highest quality image and audio link safely
+                  let thumb = '';
+                  if(song.image && Array.isArray(song.image)) thumb = song.image.slice(-1)[0]?.url || song.image[0]?.url;
+                  
+                  let audioLink = '';
+                  if(song.downloadUrl && Array.isArray(song.downloadUrl)) audioLink = song.downloadUrl.slice(-1)[0]?.url || song.downloadUrl[0]?.url;
+                  
+                  let artistName = 'Unknown Artist';
+                  if(song.artists && song.artists.primary && song.artists.primary[0]) artistName = song.artists.primary[0].name;
+                  else if (song.primaryArtists) artistName = song.primaryArtists;
+
+                  if(!audioLink) return; // Skip invalid songs
+
+                  const div = document.createElement('div');
+                  div.className = 'yt-search-item';
+                  div.innerHTML = `
+                    <img src="${thumb}" class="yt-search-thumb" style="border-radius:50%;"/>
+                    <div class="yt-search-info">
+                      <div class="yt-search-title">${song.name || song.title}</div>
+                      <div class="yt-search-sub">${artistName}</div>
+                    </div>
+                  `;
+                  
+                  div.onclick = () => {
+                      addToQueue({ type: 'stream', title: song.name || song.title, url: audioLink, thumb: thumb, isMzix: true });
+                      showToast("Playing instant stream...");
+                  };
+                  spSearchResults.appendChild(div);
+              });
+
+              success = true;
+              break; // Stop loop if successful
+          } catch(e) {
+              console.log("M-Zix Server mirror failed, switching...");
+          }
       }
+
+      if(!success) { spSearchResults.innerHTML = '<p class="mp-empty">All Global Servers busy. Try again in 1 minute.</p>'; }
       spInput.value = '';
   }
 
-  // Hook both buttons to M-Zix Search
   if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
-  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => searchMzixGlobal(spInput.value)); // Future updates can expand playlists
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
 
   /* ── URL CHECKERS ─────────────────────────────────── */
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
@@ -312,7 +327,6 @@
       activeType = 'stream'; 
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
       
-      // If it's from M-Zix, show its cover art, else default art
       vinylRecord.style.backgroundImage = `url('${item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg'}')`;
       
       nativeAudio.src = item.url; 
