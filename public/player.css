@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    STEALTH MUSIC HUB — player.css (100% FULL CODE)
-   FIXED: Zero Fullscreen Tap Lag & Perfect Clean Layout
+   FIXED: Fullscreen Centering, Touch Lag, and Styling
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. THE GHOST HANDLE (Top Bar) ── */
@@ -11,6 +11,7 @@
   border-bottom: 1px solid rgba(232, 67, 106, 0.2);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   cursor: pointer; touch-action: none;
+  transform: translateZ(0);
 }
 .handle-bar-line { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 .mini-controls { display: flex; gap: 5px; align-items: center; }
@@ -26,6 +27,7 @@
 #miniTitle { 
   display: inline-block; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   animation: pulseGlow 3s ease-in-out infinite alternate; 
+  will-change: opacity;
 }
 @keyframes pulseGlow { 
   0% { opacity: 0.75; text-shadow: 0 0 0px rgba(255, 181, 200, 0); } 
@@ -59,8 +61,9 @@
   z-index: 99999; color: #fff; display: flex; flex-direction: column;
   transform: translateY(calc(-100% - 52px)); 
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-  border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
+  will-change: transform; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
+  /* Removed contain properties completely to fix fullscreen tap lag */
 }
 #zxPanel.zx-open { transform: translateY(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
@@ -77,19 +80,21 @@
 .mp-sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(232,67,106,0.1); border: 1px solid rgba(232,67,106,0.25); color: rgba(255,181,200,0.7); }
 .mp-sync-badge.synced { background: rgba(122,219,138,0.1); border-color: rgba(122,219,138,0.4); color: #7ADB8A; }
 
-/* ── PLAYER SECTION (REMOVED CSS TRAPS FOR SMOOTH FULLSCREEN) ── */
+/* ── PLAYER SECTION (FIXED Aspect Ratio for Perfect Centering) ── */
 #zxPlayerSection { margin-bottom: 15px; width: 100%; }
 #cinemaMode { width: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
 
-/* 💥 FIX: Clean Wrapper Without Transforms 💥 */
+/* 💥 FIX: Perfect 16:9 Aspect Ratio with No Empty Space 💥 */
 #ytFrameWrap {
   display: none;
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%; /* 16:9 HD standard */
+  padding-bottom: 56.25%; /* Industry standard for 16:9 video */
   height: 0;
+  overflow: hidden;
   background: #000;
   border-radius: 12px;
+  transform: translateZ(0);
 }
 #ytPlayerInner {
   position: absolute;
@@ -97,11 +102,9 @@
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 12px;
 }
-/* Native Fullscreen Fix */
-iframe:-webkit-full-screen { border-radius: 0 !important; width: 100vw !important; height: 100vh !important; }
-iframe:fullscreen { border-radius: 0 !important; width: 100vw !important; height: 100vh !important; }
+/* Ensure fullscreen removes borders and rounds */
+#ytPlayerInner:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
 
 /* 🔥 THE FEEL ANIMATION 🔥 */
 #spotifyMode { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; }
@@ -112,6 +115,7 @@ iframe:fullscreen { border-radius: 0 !important; width: 100vw !important; height
   border: 4px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 0 15px #000, 0 0 20px rgba(232, 67, 106, 0.2);
   position: relative; animation: spin 4s linear infinite paused; overflow: hidden;
+  will-change: transform;
 }
 .vinyl-record::after {
   content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -180,8 +184,17 @@ iframe:fullscreen { border-radius: 0 !important; width: 100vw !important; height
 .qi-type { font-size: 10px; color: rgba(255,181,200,0.5); }
 .qi-del { background: none; border: none; color: #E8436A; cursor: pointer; }
 
-/* ── CHAT APP LAG FIX ── */
-#chatApp { transform: translateZ(0); will-change: transform; backface-visibility: hidden; perspective: 1000; }
-.messages-area { -webkit-overflow-scrolling: touch; transform: translateZ(0); }
+/* ── 💥 CHAT APP LAG FIX 💥 ── */
+#chatApp {
+  transform: translateZ(0); 
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000;
+}
+.messages-area {
+  -webkit-overflow-scrolling: touch; 
+  transform: translateZ(0);
+}
+
 body { padding-top: 50px; }
 #chatApp, #notesViewer { top: 50px; }
