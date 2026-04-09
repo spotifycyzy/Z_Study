@@ -241,34 +241,3 @@ body.is-fullscreen #zxPanel {
 
 body { padding-top: 50px; }
 #chatApp, #notesViewer { top: 50px; }
-
-/* ── yt-dlp extraction loading state ───────────────────── */
-.premium-thumb { transition: all 0.4s ease; }
-.premium-thumb.loading { opacity: 0.5; filter: blur(2px); }
-
-/* ── search add button ──────────────────────────────────── */
-.yt-add-btn {
-  background: linear-gradient(135deg,#E8436A,#C2005F);
-  border: none; border-radius: 50%;
-  width: 30px; height: 30px; min-width: 30px;
-  color: #fff; font-size: 14px;
-  cursor: pointer; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 8px rgba(232,67,106,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.yt-add-btn:hover { transform: scale(1.12); box-shadow: 0 0 14px rgba(232,67,106,0.65); }
-
-/* ── progress bar wrap ──────────────────────────────────── */
-#zxProgressWrap { user-select: none; }
-
-/* ── toast ──────────────────────────────────────────────── */
-@keyframes fadeInOut { 0%,100%{opacity:0} 10%,85%{opacity:1} }
-
-/* ── yt search result item ──────────────────────────────── */
-.yt-search-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(180,80,255,0.05); border: 1px solid rgba(180,80,255,0.15); border-radius: 12px; cursor: pointer; transition: 0.2s; }
-.yt-search-item:hover { background: rgba(180,80,255,0.13); border-color: #B450FF; }
-.yt-search-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
-.yt-search-info { flex: 1; overflow: hidden; }
-.yt-search-title { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.yt-search-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
