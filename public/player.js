@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   💥 MAJOR FIX: Multi-Server M-Zix Failover & Smooth UI
+   FIXED: Hybrid Piped + YT Official Fallback Engine
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -69,26 +69,34 @@
   let remoteTimer     = null;
 
   function setRemoteAction() { 
-      isRemoteAction = true; clearTimeout(remoteTimer); 
+      isRemoteAction = true; 
+      clearTimeout(remoteTimer); 
       remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2000); 
   }
 
   /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
-  let startY = 0; let isPanelOpen = false;
+  let startY = 0;
+  let isPanelOpen = false;
   
   function openPanel() {
-    if(isPanelOpen) return; isPanelOpen = true;
-    panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
+    if(isPanelOpen) return;
+    isPanelOpen = true;
+    panel.classList.add('zx-open');
+    document.body.style.overflow = 'hidden'; 
     if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   function closePanel() {
-    if(!isPanelOpen) return; isPanelOpen = false;
-    panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
+    if(!isPanelOpen) return;
+    isPanelOpen = false;
+    panel.classList.remove('zx-open');
+    document.body.style.overflow = ''; 
     if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-  handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
+  handle.addEventListener('touchmove', (e) => {
+    if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel();
+  }, {passive: true});
 
   if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
   handle.addEventListener('click', (e) => {
@@ -101,14 +109,17 @@
     closeHandle.addEventListener('click', closePanel);
   }
 
-  panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
+  panel.addEventListener('touchmove', (e) => {
+    if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); }
+  }, { passive: false });
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active'); document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
     });
   });
 
@@ -156,8 +167,10 @@
         dynamicEpListUrl.innerHTML = ''; 
         let mockEpisodes = [ { title: `${val} - Ep 1`, url: "mock1" }, { title: `${val} - Ep 2`, url: "mock2" } ];
         mockEpisodes.forEach(ep => {
-            const div = document.createElement('div'); div.className = 'ep-item'; div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
-            div.onclick = () => showToast(`Loaded ${ep.title}`); dynamicEpListUrl.appendChild(div);
+            const div = document.createElement('div');
+            div.className = 'ep-item'; div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
+            div.onclick = () => showToast(`Loaded ${ep.title}`);
+            dynamicEpListUrl.appendChild(div);
         });
         episodesOverlayUrl.classList.remove('hidden'); urlInput.value = '';
     }
@@ -198,77 +211,101 @@
     ytInput.value = ''; 
   });
 
-  /* ── 💥 TAB 2: MULTI-MIRROR M-ZIX ENGINE (NEVER FAILS) 💥 ── */
-  
-  async function searchMzixGlobal(query) {
+  /* ── 💥 TAB 2: HYBRID GLOBAL ENGINE (PIPED + YT FALLBACK) 💥 ── */
+  const PIPED_SERVERS = [
+      'https://pipedapi.kavin.rocks',
+      'https://api.piped.privacydev.net',
+      'https://pipedapi.tokhmi.xyz',
+      'https://pipedapi.smnz.de'
+  ];
+  let pipedIdx = 0;
+
+  async function fetchPipedData(endpoint) {
+      for(let i=0; i<PIPED_SERVERS.length; i++) {
+          let server = PIPED_SERVERS[(pipedIdx + i) % PIPED_SERVERS.length];
+          try {
+              let res = await fetch(server + endpoint);
+              if(res.ok) { pipedIdx = (pipedIdx + i) % PIPED_SERVERS.length; return await res.json(); }
+          } catch(e) {}
+      } throw new Error("All Piped down");
+  }
+
+  // 💥 THE MAGIC FALLBACK FUNCTION 💥
+  async function searchHybridGlobal(query, filter) {
       if(!query) return;
-      spSearchResults.innerHTML = '<p class="mp-empty">Searching Global Network...</p>';
+      spSearchResults.innerHTML = '<p class="mp-empty">Extracting from Global Library...</p>';
       episodesOverlaySp.classList.remove('hidden');
 
-      // 3 Different servers so it never gets blocked
-      const SAAVN_APIS = [
-          `https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`,
-          `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodeURIComponent(query)}`,
-          `https://saavn.me/search/songs?query=${encodeURIComponent(query)}`
-      ];
-
-      let success = false;
-
-      for (let url of SAAVN_APIS) {
+      try {
+          // Attempt 1: Free Piped API
+          let data = await fetchPipedData(`/search?q=${encodeURIComponent(query)}&filter=${filter}`);
+          renderGlobalUI(data.items.slice(0, 15));
+      } catch (err) {
+          console.log("Piped blocked. Silently falling back to Official YT API...");
           try {
-              let res = await fetch(url);
-              if(!res.ok) continue;
-              let json = await res.json();
+              // Attempt 2: Official YT API Fallback (Guaranteed to work if quota exists)
+              let type = filter === 'music_playlists' ? 'playlist' : 'video';
+              let ytRes = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=${type}&key=${YOUTUBE_API_KEY}`);
+              let ytData = await ytRes.json();
+              if(!ytData.items) throw new Error("No data");
               
-              // Handle different API data structures
-              let items = json.data.results || json.data; 
-              if(!items || items.length === 0) continue;
-
-              spSearchResults.innerHTML = '';
-              items.forEach(song => {
-                  // Get highest quality image and audio link safely
-                  let thumb = '';
-                  if(song.image && Array.isArray(song.image)) thumb = song.image.slice(-1)[0]?.url || song.image[0]?.url;
-                  
-                  let audioLink = '';
-                  if(song.downloadUrl && Array.isArray(song.downloadUrl)) audioLink = song.downloadUrl.slice(-1)[0]?.url || song.downloadUrl[0]?.url;
-                  
-                  let artistName = 'Unknown Artist';
-                  if(song.artists && song.artists.primary && song.artists.primary[0]) artistName = song.artists.primary[0].name;
-                  else if (song.primaryArtists) artistName = song.primaryArtists;
-
-                  if(!audioLink) return; // Skip invalid songs
-
-                  const div = document.createElement('div');
-                  div.className = 'yt-search-item';
-                  div.innerHTML = `
-                    <img src="${thumb}" class="yt-search-thumb" style="border-radius:50%;"/>
-                    <div class="yt-search-info">
-                      <div class="yt-search-title">${song.name || song.title}</div>
-                      <div class="yt-search-sub">${artistName}</div>
-                    </div>
-                  `;
-                  
-                  div.onclick = () => {
-                      addToQueue({ type: 'stream', title: song.name || song.title, url: audioLink, thumb: thumb, isMzix: true });
-                      showToast("Playing instant stream...");
-                  };
-                  spSearchResults.appendChild(div);
-              });
-
-              success = true;
-              break; // Stop loop if successful
-          } catch(e) {
-              console.log("M-Zix Server mirror failed, switching...");
+              let mappedData = ytData.items.map(v => ({
+                  type: type, 
+                  url: type==='playlist' ? `/watch?list=${v.id.playlistId}` : `/watch?v=${v.id.videoId}`,
+                  title: v.snippet.title,
+                  thumbnail: v.snippet.thumbnails.medium.url,
+                  uploaderName: v.snippet.channelTitle
+              }));
+              renderGlobalUI(mappedData);
+          } catch (e2) {
+              spSearchResults.innerHTML = '<p class="mp-empty">All servers busy. Rate limit exceeded.</p>';
           }
       }
-
-      if(!success) { spSearchResults.innerHTML = '<p class="mp-empty">All Global Servers busy. Try again in 1 minute.</p>'; }
       spInput.value = '';
   }
 
-  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
-  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
+  function renderGlobalUI(items) {
+      spSearchResults.innerHTML = '';
+      if(!items || items.length === 0) { spSearchResults.innerHTML = '<p class="mp-empty">Nothing found.</p>'; return; }
+      
+      items.forEach(item => {
+          const div = document.createElement('div'); div.className = 'yt-search-item';
+          div.innerHTML = `
+            <img src="${item.thumbnail}" class="yt-search-thumb" style="${item.type === 'playlist' ? 'border-radius:8px' : 'border-radius:50%;'}"/>
+            <div class="yt-search-info"><div class="yt-search-title">${item.title}</div><div class="yt-search-sub">${item.uploaderName || 'Global'}</div></div>
+          `;
+
+          div.onclick = async () => {
+              if(item.type === 'playlist') {
+                  showToast(`Loading Playlist...`);
+                  try {
+                      let pData = await fetchPipedData(`/playlists/${item.url.split('list=')[1]}`);
+                      let added = 0;
+                      pData.relatedStreams.forEach(s => {
+                          queue.push({ type: 'global_audio', title: s.title, ytId: s.url.split('v=')[1], thumb: s.thumbnail }); added++;
+                      });
+                      saveQueue(); renderQueue(); showToast(`Added ${added} songs!`);
+                      if(!isPlaying) playQueueItem(queue.length - added);
+                  } catch(e) {
+                      // Fallback for playlist tracks using YT API
+                      fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${item.url.split('list=')[1]}&key=${YOUTUBE_API_KEY}`)
+                        .then(r=>r.json()).then(yData=>{
+                            let added = 0;
+                            yData.items.forEach(v => { queue.push({ type: 'global_audio', title: v.snippet.title, ytId: v.snippet.resourceId.videoId, thumb: v.snippet.thumbnails.medium.url }); added++; });
+                            saveQueue(); renderQueue(); showToast(`Added ${added} songs!`);
+                            if(!isPlaying) playQueueItem(queue.length - added);
+                        });
+                  }
+              } else {
+                  addToQueue({ type: 'global_audio', title: item.title, ytId: item.url.split('v=')[1], thumb: item.thumbnail });
+              }
+          };
+          spSearchResults.appendChild(div);
+      });
+  }
+
+  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => searchHybridGlobal(spInput.value, 'music_songs'));
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => searchHybridGlobal(spInput.value, 'music_playlists'));
 
   /* ── URL CHECKERS ─────────────────────────────────── */
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
@@ -289,7 +326,7 @@
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div'); el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = item.isMzix ? '🎧' : (item.type === 'stream' ? '☁️' : '▶'); 
+      let icon = item.type === 'global_audio' ? '🎧' : '▶'; if (item.type === 'stream') icon = '☁️';
       el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
@@ -322,17 +359,30 @@
       if (isYtReady) ytPlayer.loadVideoById(item.ytId); else setTimeout(() => renderMedia(item), 500);
       setTrackInfo(item.title, 'YouTube Video');
     } 
-    // Tab 2 & Cloud: M-Zix API / Native Audio Streams
+    // Tab 2: Global Music (Piped Audio Stream for Background Play)
+    else if (item.type === 'global_audio') {
+      activeType = 'stream';
+      cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
+      
+      if(item.thumb) vinylRecord.style.backgroundImage = `url('${item.thumb}')`;
+      setTrackInfo(item.title, 'Global Stream');
+      showToast('Extracting audio stream...');
+
+      fetchPipedData(`/streams/${item.ytId}`)
+        .then(data => {
+            if(!data.audioStreams) { showToast('Audio extraction failed.'); return; }
+            let stream = data.audioStreams.find(s => s.mimeType.includes('mp4') || s.mimeType.includes('m4a')) || data.audioStreams[0];
+            nativeAudio.src = stream.url; 
+            nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap play to start"));
+        }).catch(()=> showToast('Stream fetch error. Try another song.'));
+    }
     else if (item.type === 'stream') {
       activeType = 'stream'; 
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
-      
-      vinylRecord.style.backgroundImage = `url('${item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg'}')`;
-      
+      vinylRecord.style.backgroundImage = `url('https://i.imgur.com/8Q5FqWj.jpeg')`;
       nativeAudio.src = item.url; 
       nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap play to start"));
-      
-      setTrackInfo(item.title, item.isMzix ? 'Global M-Zix Stream' : 'Local/Cloud Media');
+      setTrackInfo(item.title, 'Local/Cloud Media');
     }
   }
 
