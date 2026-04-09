@@ -1,451 +1,593 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js
-   Server-side yt-dlp extraction → native <audio> element
-   Full background playback. No iframe. No CORS issues.
+   ZEROX HUB — player.js (100% FULL CODE EXPANDED)
+   💥 FIXED FOR REAL: Safe String Concatenation for Cobalt URL
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
-  /* ── DOM ──────────────────────────────────────────────── */
-  const panel          = document.getElementById('zxPanel');
-  const handle         = document.getElementById('zxHandle');
-  const closeHandle    = document.getElementById('closeHandle');
-  const panelToggleBtn = document.getElementById('panelToggleBtn');
-  const spotifyMode    = document.getElementById('spotifyMode');
-  const cinemaMode     = document.getElementById('cinemaMode');
-  const ytFrameWrap    = document.getElementById('ytFrameWrap');
-  const nativeAudio    = document.getElementById('nativeAudio');
-  const musicTitle     = document.getElementById('musicTitle');
-  const musicArtist    = document.getElementById('musicArtist');
-  const miniTitle      = document.getElementById('miniTitle');
-  const mpPlays        = document.querySelectorAll('.mp-play');
-  const mpPrevEl       = document.getElementById('miniPrev');
-  const mpNextEl       = document.getElementById('miniNext');
-  const urlInput       = document.getElementById('urlInput');
-  const urlAddBtn      = document.getElementById('urlAddBtn');
-  const fileInput      = document.getElementById('fileInput');
-  const ytInput        = document.getElementById('ytInput');
-  const ytAddBtn       = document.getElementById('ytAddBtn');
-  const spInput        = document.getElementById('spInput');
+  /* ── DOM ELEMENTS ──────────────────────────────────────── */
+  const panel       = document.getElementById('zxPanel');
+  const handle      = document.getElementById('zxHandle');
+  const closeHandle = document.getElementById('closeHandle');
+  const panelToggleBtn = document.getElementById('panelToggleBtn'); 
+  
+  const nativeAudio = document.getElementById('nativeAudio');
+  const ytFrameWrap = document.getElementById('ytFrameWrap');
+  
+  const cinemaMode  = document.getElementById('cinemaMode');
+  const spotifyMode = document.getElementById('spotifyMode');
+  
+  // AUDIO VISUALIZER ELEMENTS
+  const streamThumb = document.getElementById('streamThumb') || createVisualizerUI();
+  const visualizer  = document.getElementById('visualizer');
+  
+  const musicTitle  = document.getElementById('musicTitle');
+  const musicArtist = document.getElementById('musicArtist');
+  const miniTitle   = document.getElementById('miniTitle');
+
+  const mpPlays     = document.querySelectorAll('.mp-play');
+  const mpPrevs     = [document.getElementById('miniPrev')]; 
+  const mpNexts     = [document.getElementById('miniNext')];
+  
+  const urlInput    = document.getElementById('urlInput');
+  const urlAddBtn   = document.getElementById('urlAddBtn');
+  const fileInput   = document.getElementById('fileInput');
+  
+  const ytInput     = document.getElementById('ytInput');
+  const ytAddBtn    = document.getElementById('ytAddBtn');
+  
+  const spInput             = document.getElementById('spInput');
   const spSearchSongBtn     = document.getElementById('spSearchSongBtn');
   const spSearchPlaylistBtn = document.getElementById('spSearchPlaylistBtn');
-  const queueList      = document.getElementById('queueList');
-  const ytSearchResults= document.getElementById('ytSearchResults');
-  const spSearchResults= document.getElementById('spSearchResults');
-  const episodesOverlayYt = document.getElementById('episodesOverlayYt');
-  const episodesOverlaySp = document.getElementById('episodesOverlaySp');
-  const toggleListBtnYt= document.getElementById('toggleListBtnYt');
-  const toggleListBtnSp= document.getElementById('toggleListBtnSp');
-  const mpSyncBadge    = document.getElementById('mpSyncBadge');
-  const mpSyncBtn      = document.getElementById('mpSyncBtn');
-  const mpSyncInfo     = document.getElementById('mpSyncInfo');
-  const mpUnsyncBtn    = document.getElementById('mpUnsyncBtn');
+  const queueList           = document.getElementById('queueList');
 
-  /* Make sure native audio works in background */
+  const toggleListBtnUrl   = document.getElementById('toggleListBtnUrl');
+  const episodesOverlayUrl = document.getElementById('episodesOverlayUrl');
+  const dynamicEpListUrl   = document.getElementById('dynamicEpListUrl');
+  
+  const toggleListBtnYt    = document.getElementById('toggleListBtnYt');
+  const episodesOverlayYt  = document.getElementById('episodesOverlayYt');
+  const ytSearchResults    = document.getElementById('ytSearchResults');
+
+  const toggleListBtnSp    = document.getElementById('toggleListBtnSp');
+  const episodesOverlaySp  = document.getElementById('episodesOverlaySp');
+  const spSearchResults    = document.getElementById('spSearchResults');
+
+  const mpSyncBadge = document.getElementById('mpSyncBadge');
+  const mpSyncBtn   = document.getElementById('mpSyncBtn');
+  const mpSyncInfo  = document.getElementById('mpSyncInfo');
+  const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
+
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
-  nativeAudio.preload = 'auto';
 
-  /* Hide cinema/YT iframe — we never use it */
-  if (cinemaMode)  cinemaMode.style.display  = 'none';
-  if (ytFrameWrap) ytFrameWrap.style.display = 'none';
-
-  /* Ensure visualizer exists */
-  if (!document.getElementById('streamThumb')) {
-    spotifyMode.innerHTML = `
-      <img id="streamThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" class="premium-thumb"/>
-      <div class="music-visualizer" id="visualizer">
-        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-        <div class="bar"></div><div class="bar"></div>
-      </div>`;
-  }
-  spotifyMode.classList.remove('hidden');
-
-  /* Progress bar — insert after visualizer */
-  if (!document.getElementById('zxProgress')) {
-    const prog = document.createElement('div');
-    prog.innerHTML = `
-      <div id="zxProgressWrap" style="width:100%;padding:10px 0 4px;cursor:pointer">
-        <div style="width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">
-          <div id="zxProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#E8436A,#C2005F);border-radius:4px;transition:width 0.5s linear"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px">
-          <span id="zxTimeNow" style="font-size:10px;color:rgba(255,181,200,0.6)">0:00</span>
-          <span id="zxTimeTot" style="font-size:10px;color:rgba(255,181,200,0.4)">0:00</span>
-        </div>
-      </div>`;
-    spotifyMode.appendChild(prog);
-    document.getElementById('zxProgressWrap').addEventListener('click', e => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const pct  = (e.clientX - rect.left) / rect.width;
-      if (nativeAudio.duration) nativeAudio.currentTime = pct * nativeAudio.duration;
-    });
-  }
-
-  /* ── STATE ────────────────────────────────────────────── */
-  let queue          = JSON.parse(localStorage.getItem('zx_queue') || '[]');
-  let currentIdx     = parseInt(localStorage.getItem('zx_qidx')   || '0');
-  let synced         = false;
-  let isPlaying      = false;
-  let isRemoteAction = false;
-  let remoteTimer    = null;
-  let extracting     = false;
-
-  function setRemote() {
-    isRemoteAction = true;
-    clearTimeout(remoteTimer);
-    remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2500);
-  }
-
-  /* ── PANEL OPEN/CLOSE ─────────────────────────────────── */
-  let startY = 0, isPanelOpen = false;
-  function openPanel()  { if (isPanelOpen) return;  isPanelOpen=true;  panel.classList.add('zx-open');    document.body.style.overflow='hidden'; panelToggleBtn?.classList.add('active'); }
-  function closePanel() { if (!isPanelOpen) return; isPanelOpen=false; panel.classList.remove('zx-open'); document.body.style.overflow='';       panelToggleBtn?.classList.remove('active'); }
-
-  handle.addEventListener('touchstart', e => { startY=e.touches[0].clientY; }, {passive:true});
-  handle.addEventListener('touchmove',  e => { if (!isPanelOpen && e.touches[0].clientY-startY>15) openPanel(); }, {passive:true});
-  handle.addEventListener('click', e => { if (e.target.closest('.mp-btn,.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
-  panelToggleBtn?.addEventListener('click', e => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
-  if (closeHandle) {
-    closeHandle.addEventListener('touchstart', e => { startY=e.touches[0].clientY; }, {passive:true});
-    closeHandle.addEventListener('touchmove',  e => { if (isPanelOpen && startY-e.touches[0].clientY>15) closePanel(); }, {passive:true});
-    closeHandle.addEventListener('click', closePanel);
-  }
-
-  /* ── TABS ─────────────────────────────────────────────── */
-  document.querySelectorAll('.mp-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
-    });
-  });
-
-  toggleListBtnYt?.addEventListener('click', () => episodesOverlayYt?.classList.toggle('hidden'));
-  toggleListBtnSp?.addEventListener('click', () => episodesOverlaySp?.classList.toggle('hidden'));
-
-  /* ── TOAST ────────────────────────────────────────────── */
-  function toast(msg, dur=2800) {
-    const t = document.createElement('div');
-    t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.25s;max-width:80vw;text-align:center;';
-    document.body.appendChild(t);
-    requestAnimationFrame(() => t.style.opacity='1');
-    setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, dur);
-  }
-
-  /* ══════════════════════════════════════════════════════
-     CORE: EXTRACT AUDIO VIA SERVER
-     Calls GET /api/audio?id=YTID
-     Server runs yt-dlp and returns a direct audio URL.
-     Native <audio> plays it — background playback works.
-  ══════════════════════════════════════════════════════ */
-  async function extractAndPlay(item) {
-    if (extracting) return;
-    extracting = true;
-
-    setInfo(item.title, '⏳ Extracting audio…');
-    toast('⏳ Fetching audio stream…', 4000);
-    updateThumb(item.thumb);
-
-    try {
-      const res  = await fetch(`/api/audio?id=${item.ytId}`);
-      const data = await res.json();
-
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || 'No URL returned');
-      }
-
-      // Set the direct audio URL — native <audio> plays it
-      nativeAudio.src = data.url;
-      nativeAudio.load();
-
-      const playPromise = nativeAudio.play();
-      if (playPromise) {
-        await playPromise;
-      }
-
-      setInfo(item.title, '🎵 Playing');
-      if (synced && !isRemoteAction) {
-        broadcastSync({ action:'change_song', item });
-      }
-
-    } catch (err) {
-      console.error('[player] Extract error:', err);
-      toast('❌ ' + (err.message || 'Extraction failed'));
-      setInfo(item.title, '❌ Failed — try next');
-    } finally {
-      extracting = false;
-    }
-  }
-
-  /* ── URL / FILE TAB ───────────────────────────────────── */
-  urlAddBtn.addEventListener('click', () => {
-    const val = urlInput.value.trim(); if (!val) return;
-    urlInput.value = '';
-    if (isYTUrl(val)) {
-      const ytId = extractYTId(val);
-      if (ytId) addToQueue({ type:'yt', title:'YouTube Audio', ytId, thumb:'' });
-      else toast('❌ Could not parse YouTube URL');
-    } else if (val.startsWith('http')) {
-      addToQueue({ type:'direct', title: val.split('/').pop().split('?')[0] || 'Audio', url:val, thumb:'' });
-    } else {
-      toast('Please enter a valid URL');
-    }
-  });
-  urlInput.addEventListener('keydown', e => { if (e.key==='Enter') urlAddBtn.click(); });
-
-  fileInput?.addEventListener('change', () => {
-    const f = fileInput.files[0]; if (!f) return;
-    addToQueue({ type:'direct', title:f.name, url:URL.createObjectURL(f), thumb:'' });
-    fileInput.value = '';
-  });
-
-  /* ── SEARCH TABS ──────────────────────────────────────── */
-  ytAddBtn?.addEventListener('click', () => { doSearch(ytInput.value.trim(), 'ytSearchResults', 'video'); ytInput.value=''; });
-  ytInput?.addEventListener('keydown', e => { if (e.key==='Enter') ytAddBtn?.click(); });
-
-  spSearchSongBtn?.addEventListener('click', () => { doSearch(spInput.value.trim(), 'spSearchResults', 'music'); spInput.value=''; });
-  spSearchPlaylistBtn?.addEventListener('click', () => { doSearch(spInput.value.trim(), 'spSearchResults', 'music'); spInput.value=''; });
-  spInput?.addEventListener('keydown', e => { if (e.key==='Enter') spSearchSongBtn?.click(); });
-
-  async function doSearch(query, targetId, type) {
-    if (!query) return;
-
-    /* Direct YT URL? Just add it */
-    if (isYTUrl(query)) {
-      const ytId = extractYTId(query);
-      if (ytId) { addToQueue({type:'yt', title:'YouTube', ytId, thumb:''}); return; }
-    }
-
-    const resDiv = document.getElementById(targetId);
-    if (!resDiv) return;
-    resDiv.innerHTML = '<p class="mp-empty">🔍 Searching…</p>';
-    if (targetId==='ytSearchResults') episodesOverlayYt?.classList.remove('hidden');
-    if (targetId==='spSearchResults') episodesOverlaySp?.classList.remove('hidden');
-
-    try {
-      const res  = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}`);
-      const data = await res.json();
-
-      if (!data.items?.length) {
-        resDiv.innerHTML = '<p class="mp-empty">No results found.</p>';
-        return;
-      }
-
-      resDiv.innerHTML = '';
-      data.items.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'yt-search-item';
-        el.innerHTML = `
-          <img src="${item.thumb}" class="yt-search-thumb" loading="lazy"/>
-          <div class="yt-search-info">
-            <div class="yt-search-title">${escHtml(item.title)}</div>
-            <div class="yt-search-sub">${escHtml(item.channel)}</div>
+  /* ── 💥 DYNAMICALLY CREATE VISUALIZER UI IF NOT IN HTML 💥 ── */
+  function createVisualizerUI() {
+      const spMode = document.getElementById('spotifyMode');
+      spMode.innerHTML = `
+          <img id="streamThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" class="premium-thumb" />
+          <div class="music-visualizer" id="visualizer">
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
           </div>
-          <button class="yt-add-btn" title="Add & play">▶</button>`;
-        el.addEventListener('click', () => {
-          addToQueue({ type:'yt', title:item.title, ytId:item.ytId, thumb:item.thumbHq||item.thumb });
-          toast(`▶ ${item.title.slice(0,35)}…`);
-        });
-        resDiv.appendChild(el);
+      `;
+      return document.getElementById('streamThumb');
+  }
+
+  /* ── STATE ─────────────────────────────────────────────── */
+  let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
+  let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
+  let synced          = false;
+  let activeType      = 'none'; 
+  let isPlaying       = false;
+  let ytPlayer        = null; 
+  let isYtReady       = false;
+  let isRemoteAction  = false;
+  let remoteTimer     = null;
+
+  function setRemoteAction() { 
+      isRemoteAction = true; 
+      clearTimeout(remoteTimer); 
+      remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2000); 
+  }
+
+  /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
+  let startY = 0; let isPanelOpen = false;
+  
+  function openPanel() {
+      if(isPanelOpen) return; isPanelOpen = true;
+      panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
+      if(panelToggleBtn) panelToggleBtn.classList.add('active');
+  }
+  function closePanel() {
+      if(!isPanelOpen) return; isPanelOpen = false;
+      panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
+      if(panelToggleBtn) panelToggleBtn.classList.remove('active');
+  }
+
+  handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
+  handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
+  if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
+  handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
+  
+  if (closeHandle) {
+      closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
+      closeHandle.addEventListener('touchmove', (e) => { if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel(); }, {passive: true});
+      closeHandle.addEventListener('click', closePanel);
+  }
+  panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
+
+  /* ── TABS LOGIC ────────────────────────────────────────── */
+  document.querySelectorAll('.mp-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+          document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active'); document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       });
-    } catch (e) {
-      resDiv.innerHTML = `<p class="mp-empty">Search error: ${e.message}</p>`;
-    }
+  });
+
+  function showToast(msg) {
+      const t = document.createElement('div'); t.textContent = msg;
+      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
+      document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  /* ── QUEUE ────────────────────────────────────────────── */
-  function addToQueue(item) {
-    queue.push(item);
-    saveQueue();
-    renderQueue();
-    playQueueItem(queue.length - 1);
+  if(toggleListBtnUrl) toggleListBtnUrl.addEventListener('click', () => episodesOverlayUrl.classList.toggle('hidden'));
+  if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
+  if(toggleListBtnSp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
+
+  /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
+  const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = function() {
+      ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
+      ytPlayer = new YT.Player('ytPlayerInner', {
+          width: '100%', height: '100%',
+          playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
+          events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
+      });
+  };
+
+  function onPlayerStateChange(event) {
+      if (!synced || isRemoteAction) {
+          if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); }
+          if (event.data === YT.PlayerState.PAUSED)  { isPlaying = false; updatePlayBtn(); }
+          return;
+      }
+      const time = ytPlayer.getCurrentTime();
+      if (event.data === YT.PlayerState.PLAYING) { 
+          isPlaying = true; 
+          updatePlayBtn(); 
+          broadcastSync({ action: 'play', time }); 
+      }
+      else if (event.data === YT.PlayerState.PAUSED) { 
+          isPlaying = false; 
+          updatePlayBtn(); 
+          broadcastSync({ action: 'pause', time }); 
+      }
+      else if (event.data === YT.PlayerState.ENDED) { 
+          playNext(); 
+      }
   }
 
-  function saveQueue() {
-    try {
-      // Don't persist blob URLs (they die on reload)
-      const safe = queue.map(i => i.url?.startsWith('blob:') ? {...i, url:''} : i);
-      localStorage.setItem('zx_queue',  JSON.stringify(safe.slice(-60)));
-      localStorage.setItem('zx_qidx',  String(currentIdx));
-    } catch {}
+  /* ── TAB 0: URL / LIBRARIAN ─────────────────────── */
+  urlAddBtn.addEventListener('click', () => {
+      const val = urlInput.value.trim(); if (!val) return;
+      
+      if (isYouTubeUrl(val)) { 
+          loadYouTube(val); 
+          urlInput.value = ''; 
+      }
+      else if (val.startsWith('http')) { 
+          addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); 
+          urlInput.value = ''; 
+      }
+      else {
+          showToast(`🔍 Fetching episodes for: ${val}`);
+          dynamicEpListUrl.innerHTML = ''; 
+          let mockEpisodes = [ 
+              { title: `${val} - Ep 1`, url: "mock1" }, 
+              { title: `${val} - Ep 2`, url: "mock2" } 
+          ];
+          mockEpisodes.forEach(ep => {
+              const div = document.createElement('div'); 
+              div.className = 'ep-item'; 
+              div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
+              div.onclick = () => showToast(`Loaded ${ep.title}`);
+              dynamicEpListUrl.appendChild(div);
+          });
+          episodesOverlayUrl.classList.remove('hidden'); 
+          urlInput.value = '';
+      }
+  });
+
+  if(fileInput) {
+      fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0]; 
+          if (!file) return;
+          addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
+      });
+  }
+
+  /* ── THE API KEY ── */
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
+
+  /* ── TAB 1 & 2: OFFICIAL YOUTUBE SEARCH FOR COBALT ───────────────── */
+  function searchYouTubeForCobalt(query, targetResultsDiv, type) {
+      if (!query) return; 
+      if (isYouTubeUrl(query)) { loadYouTube(query); return; }
+      
+      const resDiv = document.getElementById(targetResultsDiv);
+      resDiv.innerHTML = '<p class="mp-empty">Searching Official Database...</p>'; 
+      if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
+      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+      
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
+        .then(res => res.json())
+        .then(data => {
+            resDiv.innerHTML = '';
+            if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+            
+            data.items.forEach(vid => {
+                const div = document.createElement('div'); div.className = 'yt-search-item';
+                div.innerHTML = `
+                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="${type === 'cobalt_audio' ? 'border-radius:12px;' : ''}"/>
+                  <div class="yt-search-info">
+                      <div class="yt-search-title">${vid.snippet.title}</div>
+                      <div class="yt-search-sub">${vid.snippet.channelTitle}</div>
+                  </div>
+                `;
+                div.onclick = () => {
+                    addToQueue({ 
+                        type: type, 
+                        title: vid.snippet.title, 
+                        ytId: vid.id.videoId,
+                        thumb: vid.snippet.thumbnails.high ? vid.snippet.thumbnails.high.url : vid.snippet.thumbnails.medium.url
+                    });
+                };
+                resDiv.appendChild(div);
+            });
+        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check connection.</p>');
+  }
+
+  ytAddBtn.addEventListener('click', () => { searchYouTubeForCobalt(ytInput.value.trim(), 'ytSearchResults', 'youtube'); ytInput.value = ''; });
+  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
+
+  /* ── URL CHECKERS ─────────────────────────────────── */
+  function isYouTubeUrl(url) { 
+      return /youtu\.?be|youtube\.com/.test(url); 
+  }
+  
+  function extractYouTubeId(url) { 
+      const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); 
+      return m ? m[1] : null; 
+  }
+  
+  function loadYouTube(url) {
+      const id = extractYouTubeId(url);
+      if (!id) { 
+          showToast('❌ Invalid YouTube link!'); 
+          return; 
+      }
+      addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id });
+  }
+
+  /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
+  function addToQueue(item) { 
+      queue.push(item); 
+      saveQueue(); 
+      renderQueue(); 
+      playQueueItem(queue.length - 1); 
+  }
+
+  function saveQueue() { 
+      try { 
+          localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); 
+          localStorage.setItem('zx_qidx', currentIdx); 
+      } catch(e) {} 
   }
 
   function renderQueue() {
-    if (!queue.length) {
-      queueList.innerHTML = '<p class="mp-empty">Queue empty. Search a song above.</p>';
-      return;
-    }
-    queueList.innerHTML = '';
-    queue.forEach((item, i) => {
-      const el = document.createElement('div');
-      el.className = 'mp-queue-item' + (i===currentIdx ? ' playing' : '');
-      const icon = item.type==='yt' ? '🎵' : item.type==='direct' ? '☁️' : '🎵';
-      el.innerHTML = `
-        <span class="qi-type">${icon}</span>
-        <span class="qi-title">${escHtml(item.title)}</span>
-        <button class="qi-del" data-i="${i}">✕</button>`;
-      el.addEventListener('click', e => {
-        if (e.target.classList.contains('qi-del')) {
-          queue.splice(parseInt(e.target.dataset.i), 1);
-          saveQueue(); renderQueue(); return;
-        }
-        playQueueItem(i);
+      if (queue.length === 0) { 
+          queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; 
+          return; 
+      }
+      queueList.innerHTML = '';
+      queue.forEach((item, i) => {
+          const el = document.createElement('div'); 
+          el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
+          
+          let icon = (item.type === 'cobalt_audio') ? '🎧' : (item.type === 'stream' ? '☁️' : '▶'); 
+          
+          el.innerHTML = `
+              <span class="qi-type">${icon}</span>
+              <span class="qi-title">${item.title}</span>
+              <button class="qi-del" data-i="${i}">✕</button>
+          `;
+          
+          el.onclick = (e) => { 
+              if (e.target.classList.contains('qi-del')) { 
+                  queue.splice(i, 1); 
+                  saveQueue(); 
+                  renderQueue(); 
+                  return; 
+              } 
+              playQueueItem(i); 
+          };
+          queueList.appendChild(el);
       });
-      queueList.appendChild(el);
-    });
   }
 
   function playQueueItem(i) {
-    if (i < 0 || i >= queue.length) return;
-    currentIdx = i; saveQueue(); renderQueue();
-    const item = queue[i];
-    if (item.type === 'yt') {
-      extractAndPlay(item);
-    } else if (item.type === 'direct') {
-      playDirect(item);
-    }
-  }
-
-  function playDirect(item) {
-    nativeAudio.src = item.url;
-    nativeAudio.load();
-    nativeAudio.play().then(() => {
-      setInfo(item.title, '☁️ Playing');
-      updateThumb(item.thumb);
-    }).catch(() => toast('Tap ▶ to play'));
-    if (synced && !isRemoteAction && !item.url?.startsWith('blob:')) {
-      broadcastSync({ action:'change_song', item });
-    }
+      if (i < 0 || i >= queue.length) return; 
+      currentIdx = i; 
+      saveQueue(); 
+      renderQueue(); 
+      const item = queue[i];
+      
+      const isBlob = item.url && item.url.startsWith('blob:');
+      if (synced && !isRemoteAction && !isBlob) { 
+          broadcastSync({ action: 'change_song', item: item }); 
+      }
+      renderMedia(item);
   }
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  mpNextEl?.addEventListener('click', playNext);
-  mpPrevEl?.addEventListener('click', playPrev);
+  
+  mpNexts.forEach(b => b.addEventListener('click', playNext));
+  mpPrevs.forEach(b => b.addEventListener('click', playPrev));
 
-  /* ── NATIVE AUDIO CONTROLS ────────────────────────────── */
+  /* ── 💥 THE COBALT API ENGINE (🔥 100% FIXED URL USING STRING CONCATENATION 🔥) 💥 ── */
+  async function fetchCobaltAudio(ytId) {
+      const COBALT_INSTANCES = [
+          'https://api.cobalt.tools/api/json',
+          'https://co.wuk.sh/api/json',
+          'https://cobalt.qewertyy.dev/api/json'
+      ];
+      
+      // Explicitly building the clean Official YouTube URL for Cobalt to parse
+      const targetUrl = 'https://www.youtube.com/watch?v=' + ytId;
+
+      for(let url of COBALT_INSTANCES) {
+          try {
+              let res = await fetch(url, {
+                  method: 'POST',
+                  headers: { 
+                      'Accept': 'application/json', 
+                      'Content-Type': 'application/json' 
+                  },
+                  body: JSON.stringify({ 
+                      url: targetUrl, 
+                      isAudioOnly: true,
+                      aFormat: "mp3"
+                  })
+              });
+              let data = await res.json();
+              if(data && data.url) return data.url;
+          } catch(e) { 
+              console.log("Cobalt mirror failed, trying next..."); 
+          }
+      }
+      throw new Error("All extractors failed");
+  }
+
+  /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
+  function renderMedia(item) {
+      nativeAudio.style.display = 'none'; 
+      ytFrameWrap.style.display = 'none';
+      nativeAudio.pause(); 
+      nativeAudio.removeAttribute('src'); 
+      nativeAudio.srcObject = null;
+      
+      if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') {
+          ytPlayer.pauseVideo();
+      }
+      
+      // UI Reset for Audio Visualizer
+      const vis = document.getElementById('visualizer');
+      const thumb = document.getElementById('streamThumb');
+      if(vis) vis.classList.remove('playing');
+      if(thumb) thumb.classList.remove('playing');
+      isPlaying = false;
+      updatePlayBtn();
+
+      // Tab 1: Official YouTube Video
+      if (item.type === 'youtube') {
+          activeType = 'youtube';
+          spotifyMode.classList.add('hidden'); 
+          cinemaMode.classList.remove('hidden');
+          ytFrameWrap.style.display = 'block';
+          
+          if (isYtReady) {
+              ytPlayer.loadVideoById(item.ytId); 
+          } else {
+              setTimeout(() => renderMedia(item), 500);
+          }
+          setTrackInfo(item.title, 'YouTube Video');
+      } 
+      // Tab 2: Cobalt Global Audio Stream (Pure Audio)
+      else if (item.type === 'cobalt_audio') {
+          activeType = 'stream';
+          cinemaMode.classList.add('hidden'); 
+          spotifyMode.classList.remove('hidden');
+          
+          if(thumb) thumb.src = item.thumb;
+          setTrackInfo(item.title, 'Global Stream');
+          showToast('Extracting HD Audio...');
+
+          fetchCobaltAudio(item.ytId).then(audioUrl => {
+              nativeAudio.src = audioUrl;
+              nativeAudio.play().then(() => { 
+                  isPlaying = true; 
+                  updatePlayBtn(); 
+              }).catch(() => showToast("Tap play to start"));
+          }).catch(() => showToast('Extraction error. Try another song.'));
+      }
+      // Local / Direct Cloud Files
+      else if (item.type === 'stream') {
+          activeType = 'stream'; 
+          cinemaMode.classList.add('hidden'); 
+          spotifyMode.classList.remove('hidden');
+          
+          if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
+          nativeAudio.src = item.url; 
+          nativeAudio.play().then(() => { 
+              isPlaying = true; 
+              updatePlayBtn(); 
+          }).catch(() => showToast("Tap play to start"));
+          setTrackInfo(item.title, 'Local/Cloud Media');
+      }
+  }
+
+  /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
-    if (isPlaying) nativeAudio.pause();
-    else           nativeAudio.play().catch(()=>{});
+      if (activeType === 'stream') { 
+          if (isPlaying) nativeAudio.pause(); 
+          else nativeAudio.play().catch(()=>{}); 
+      } 
+      else if (activeType === 'youtube' && ytPlayer) { 
+          if (isPlaying) ytPlayer.pauseVideo(); 
+          else ytPlayer.playVideo(); 
+      }
   }));
 
-  nativeAudio.addEventListener('play',  () => { isPlaying=true;  updateUI(); if (synced&&!isRemoteAction) broadcastSync({action:'play',  time:nativeAudio.currentTime}); });
-  nativeAudio.addEventListener('pause', () => { isPlaying=false; updateUI(); if (synced&&!isRemoteAction) broadcastSync({action:'pause', time:nativeAudio.currentTime}); });
-  nativeAudio.addEventListener('seeked',() => { if (synced&&!isRemoteAction) broadcastSync({action:'seek', time:nativeAudio.currentTime}); });
-  nativeAudio.addEventListener('ended', () => { playNext(); });
-  nativeAudio.addEventListener('error', () => { toast('Audio error — skipping'); setTimeout(playNext, 1000); });
-
-  /* Progress bar update */
-  nativeAudio.addEventListener('timeupdate', () => {
-    const bar = document.getElementById('zxProgressBar');
-    const now = document.getElementById('zxTimeNow');
-    const tot = document.getElementById('zxTimeTot');
-    if (!bar || !nativeAudio.duration) return;
-    const pct = (nativeAudio.currentTime / nativeAudio.duration) * 100;
-    bar.style.width = pct + '%';
-    if (now) now.textContent = fmtTime(nativeAudio.currentTime);
-    if (tot) tot.textContent = fmtTime(nativeAudio.duration);
-  });
-
-  function fmtTime(s) {
-    if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s/60);
-    return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-  }
-
-  /* ── UI HELPERS ───────────────────────────────────────── */
-  function updateUI() {
-    mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶');
-    const vis   = document.getElementById('visualizer');
-    const thumb = document.getElementById('streamThumb');
-    if (isPlaying) { vis?.classList.add('playing'); thumb?.classList.add('playing'); }
-    else           { vis?.classList.remove('playing'); thumb?.classList.remove('playing'); }
-  }
-
-  function setInfo(title, sub) {
-    if (musicTitle)  musicTitle.textContent  = title;
-    if (musicArtist) musicArtist.textContent = sub;
-    if (miniTitle)   miniTitle.textContent   = `${title} • ${sub}`;
-  }
-
-  function updateThumb(url) {
-    const t = document.getElementById('streamThumb');
-    if (t && url) t.src = url;
-  }
-
-  /* ── URL UTILS ────────────────────────────────────────── */
-  function isYTUrl(url)    { return /youtu\.?be|youtube\.com/.test(url); }
-  function extractYTId(url){ const m=url.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})/); return m?m[1]:null; }
-  function escHtml(s)      { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-  /* ══════════════════════════════════════════════════════
-     SYNC ENGINE
-  ══════════════════════════════════════════════════════ */
-  mpSyncBtn?.addEventListener('click', () => {
-    synced = true;
-    if (mpSyncBadge) { mpSyncBadge.textContent='🟢 Synced'; mpSyncBadge.classList.add('synced'); }
-    if (mpSyncBtn)  mpSyncBtn.style.display  = 'none';
-    if (mpSyncInfo) mpSyncInfo.style.display = 'flex';
-    broadcastSync({ action:'request_sync' });
-    toast('🔗 Sync Active — listening together');
-  });
-
-  mpUnsyncBtn?.addEventListener('click', () => {
-    synced = false;
-    if (mpSyncBadge) { mpSyncBadge.textContent='🔴 Solo'; mpSyncBadge.classList.remove('synced'); }
-    if (mpSyncBtn)  mpSyncBtn.style.display  = '';
-    if (mpSyncInfo) mpSyncInfo.style.display = 'none';
-  });
-
-  function broadcastSync(data) {
-    if (window._zxSendSync) window._zxSendSync({ type:'musicSync', ...data });
-  }
-
-  window._zxReceiveSync = function(data) {
-    if (data.action === 'request_sync') {
-      const cur = queue[currentIdx];
-      if (synced && cur && !cur.url?.startsWith('blob:')) {
-        broadcastSync({ action:'change_song', item:cur });
-        setTimeout(() => broadcastSync({ action: isPlaying?'play':'pause', time:nativeAudio.currentTime }), 1800);
+  /* 💥 AUDIO SYNC VISUALIZER CONTROLLER 💥 */
+  function updatePlayBtn() { 
+      mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
+      const vis = document.getElementById('visualizer');
+      const thumb = document.getElementById('streamThumb');
+      
+      if (isPlaying && activeType === 'stream') {
+          if(vis) vis.classList.add('playing');
+          if(thumb) thumb.classList.add('playing');
+      } else {
+          if(vis) vis.classList.remove('playing');
+          if(thumb) thumb.classList.remove('playing');
       }
-      return;
-    }
+  }
 
-    /* Auto-enable sync on receiver side */
-    synced = true;
-    if (mpSyncBadge) { mpSyncBadge.textContent='🟢 Synced'; mpSyncBadge.classList.add('synced'); }
-    if (mpSyncBtn)  mpSyncBtn.style.display  = 'none';
-    if (mpSyncInfo) mpSyncInfo.style.display = 'flex';
-    setRemote();
+  function setTrackInfo(title, sub) { 
+      musicTitle.textContent = title; 
+      musicArtist.textContent = sub; 
+      miniTitle.textContent = `${title} • ${sub}`; 
+  }
 
-    if (data.action === 'change_song') {
-      let idx = queue.findIndex(q => q.ytId===data.item.ytId || q.url===data.item.url);
-      if (idx === -1) { queue.push(data.item); idx=queue.length-1; }
-      currentIdx=idx; saveQueue(); renderQueue();
-      playQueueItem(idx);
-      return;
-    }
+  nativeAudio.addEventListener('play',  () => { 
+      isPlaying = true; 
+      updatePlayBtn(); 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
+  });
+  
+  nativeAudio.addEventListener('pause', () => { 
+      isPlaying = false; 
+      updatePlayBtn(); 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
+  });
+  
+  nativeAudio.addEventListener('seeked', () => { 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
+  });
+  
+  nativeAudio.addEventListener('ended', playNext);
 
-    if (data.action === 'play') {
-      if (Math.abs(nativeAudio.currentTime - data.time) > 1.5) nativeAudio.currentTime = data.time;
-      nativeAudio.play().catch(()=>{});
-    }
-    if (data.action === 'pause') {
-      nativeAudio.currentTime = data.time;
-      nativeAudio.pause();
-    }
-    if (data.action === 'seek') {
-      nativeAudio.currentTime = data.time;
-    }
+  /* ── DEEP SYNC NETWORK ────────────────────────── */
+  mpSyncBtn.addEventListener('click', () => {
+      synced = true; 
+      mpSyncBadge.textContent = '🟢 Synced'; 
+      mpSyncBadge.classList.add('synced');
+      mpSyncBtn.style.display = 'none'; 
+      mpSyncInfo.style.display = 'flex';
+      broadcastSync({ action: 'request_sync' }); 
+      showToast('🔗 Sync Network Active');
+  });
+
+  mpUnsyncBtn.addEventListener('click', () => {
+      synced = false; 
+      mpSyncBadge.textContent = '🔴 Solo'; 
+      mpSyncBadge.classList.remove('synced');
+      mpSyncBtn.style.display = 'block'; 
+      mpSyncInfo.style.display = 'none';
+  });
+
+  function broadcastSync(data) { 
+      if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); 
+  }
+
+  window._zxReceiveSync = function (data) {
+      if (data.action === 'request_sync') {
+          const curItem = queue[currentIdx];
+          const isBlob = curItem && curItem.url && curItem.url.startsWith('blob:');
+          if (synced && curItem && !isBlob) {
+               broadcastSync({ action: 'change_song', item: curItem });
+               setTimeout(() => {
+                  let curTime = 0; 
+                  if (activeType === 'youtube' && ytPlayer && isYtReady) {
+                      curTime = ytPlayer.getCurrentTime(); 
+                  } else if (activeType === 'stream') {
+                      curTime = nativeAudio.currentTime;
+                  }
+                  broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
+               }, 1500); 
+          } 
+          return;
+      }
+
+      if (!synced) return; 
+      setRemoteAction();
+
+      if (data.action === 'change_song') {
+          let idx = queue.findIndex(q => q.title && q.title === data.item.title);
+          if (idx === -1) { 
+              queue.push(data.item); 
+              idx = queue.length - 1; 
+          }
+          currentIdx = idx; 
+          saveQueue(); 
+          renderQueue(); 
+          renderMedia(data.item); 
+          return;
+      }
+
+      if (activeType === 'youtube' && ytPlayer && isYtReady) {
+          if (data.action === 'play') { 
+              ytPlayer.seekTo(data.time, true); 
+              ytPlayer.playVideo(); 
+          }
+          if (data.action === 'pause') { 
+              ytPlayer.pauseVideo(); 
+              ytPlayer.seekTo(data.time, true); 
+          }
+          if (data.action === 'seek') { 
+              ytPlayer.seekTo(data.time, true); 
+          }
+      } else if (activeType === 'stream') {
+          if (data.action === 'play') { 
+              if(Math.abs(nativeAudio.currentTime - data.time) > 1) {
+                  nativeAudio.currentTime = data.time; 
+              }
+              nativeAudio.play().catch(()=>{}); 
+          }
+          if (data.action === 'pause') { 
+              nativeAudio.currentTime = data.time; 
+              nativeAudio.pause(); 
+          }
+          if (data.action === 'seek') { 
+              nativeAudio.currentTime = data.time; 
+          }
+      }
   };
 
-  /* ── FULLSCREEN ────────────────────────────────────────── */
-  document.addEventListener('fullscreenchange',       () => document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement));
-  document.addEventListener('webkitfullscreenchange', () => document.body.classList.toggle('is-fullscreen', !!document.webkitFullscreenElement));
+  /* ── 💥 FULLSCREEN LAG KILLER SENSOR 💥 ── */
+  function toggleFullscreenState() {
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
+          document.body.classList.add('is-fullscreen');
+      } else {
+          document.body.classList.remove('is-fullscreen');
+      }
+  }
+  
+  document.addEventListener('fullscreenchange', toggleFullscreenState);
+  document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
-  /* ── INIT ─────────────────────────────────────────────── */
   renderQueue();
 })();
