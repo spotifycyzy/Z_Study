@@ -144,12 +144,14 @@
       urlAddBtn.addEventListener('click', () => {
           const val = urlInput.value.trim(); if (!val) return;
           if (isYouTubeUrl(val)) { 
-              addToQueue({ type: 'youtube', title: 'YouTube Audio', ytId: extractYouTubeId(val) }); 
+              // URL tab always opens as video
+              addToQueue({ type: 'youtube_video', title: 'YouTube Video', ytId: extractYouTubeId(val) }); 
           } else {
-              addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); 
+              addToQueue({ type: 'stream', title: val.split('/').pop().split('?')[0] || 'Audio', url: val }); 
           }
           urlInput.value = ''; 
       });
+      urlInput.addEventListener('keydown', e => { if(e.key==='Enter') urlAddBtn.click(); });
   }
 
   if(fileInput) {
@@ -168,20 +170,14 @@
   window.onYouTubeIframeAPIReady = function() {
       if(ytFrameWrap) {
           ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
-          
-          // Iframe Hidden for Audio focus, par DOM mein zinda hai
-          ytFrameWrap.style.position = 'absolute';
-          ytFrameWrap.style.width = '1px';
-          ytFrameWrap.style.height = '1px';
-          ytFrameWrap.style.opacity = '0';
-          ytFrameWrap.style.pointerEvents = 'none';
-
+          // Start normal — renderMedia will toggle visibility per mode
           ytPlayer = new YT.Player('ytPlayerInner', {
               width: '100%', height: '100%',
-              playerVars: { 'autoplay': 1, 'controls': 0, 'playsinline': 1 },
+              playerVars: { 'autoplay': 0, 'controls': 1, 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
               events: { 
                   'onReady': () => { isYtReady = true; }, 
-                  'onStateChange': onPlayerStateChange 
+                  'onStateChange': onPlayerStateChange,
+                  'onError': () => { showToast('Video unavailable'); playNext(); }
               }
           });
       }
@@ -221,16 +217,20 @@
   /* ── OFFICIAL YOUTUBE SEARCH API ────────────────────────── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
-  function searchYouTube(query, targetResultsDiv) {
+  function searchYouTube(query, targetResultsDiv, itemType) {
       if (!query) return; 
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">Fetching Worldwide Library...</p>'; 
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching…</p>'; 
       if(targetResultsDiv === 'ytSearchResults' && episodesOverlayYt) episodesOverlayYt.classList.remove('hidden');
       if(targetResultsDiv === 'spSearchResults' && episodesOverlaySp) episodesOverlaySp.classList.remove('hidden');
       
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
+      // Music search: add "audio" to bias toward music/lyric videos + music category
+      const q = (itemType === 'audio_yt') ? query + ' audio' : query;
+      const catFilter = (itemType === 'audio_yt') ? '&videoCategoryId=10' : '';
+      
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(q)}&type=video${catFilter}&key=${YOUTUBE_API_KEY}`)
         .then(res => res.json())
         .then(data => {
             resDiv.innerHTML = '';
@@ -247,7 +247,7 @@
                 `;
                 div.onclick = () => {
                     addToQueue({ 
-                        type: 'youtube', // Ab direct Iframe mein chalega
+                        type: itemType,
                         title: vid.snippet.title, 
                         ytId: vid.id.videoId,
                         thumb: vid.snippet.thumbnails.high ? vid.snippet.thumbnails.high.url : vid.snippet.thumbnails.medium.url
@@ -258,8 +258,17 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check connection.</p>');
   }
 
-  if(ytAddBtn && ytInput) ytAddBtn.addEventListener('click', () => { searchYouTube(ytInput.value.trim(), 'ytSearchResults'); ytInput.value = ''; });
-  if(spSearchSongBtn && spInput) spSearchSongBtn.addEventListener('click', () => { searchYouTube(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; });
+  if(ytAddBtn && ytInput) {
+      ytAddBtn.addEventListener('click', () => { searchYouTube(ytInput.value.trim(), 'ytSearchResults', 'youtube_video'); ytInput.value = ''; });
+      ytInput.addEventListener('keydown', e => { if(e.key==='Enter') ytAddBtn.click(); });
+  }
+  if(spSearchSongBtn && spInput) {
+      spSearchSongBtn.addEventListener('click', () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'audio_yt'); spInput.value = ''; });
+      spInput.addEventListener('keydown', e => { if(e.key==='Enter') spSearchSongBtn.click(); });
+  }
+  if(spSearchPlaylistBtn && spInput) {
+      spSearchPlaylistBtn.addEventListener('click', () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'audio_yt'); spInput.value = ''; });
+  }
 
   /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
   function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); }
@@ -272,7 +281,7 @@
       queue.forEach((item, i) => {
           const el = document.createElement('div'); 
           el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          let icon = (item.type === 'youtube') ? '🎧' : '☁️'; 
+          let icon = (item.type === 'youtube' || item.type === 'youtube_video') ? '▶' : (item.type === 'audio_yt') ? '🎵' : '☁️'; 
           el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
           el.onclick = (e) => { 
               if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } 
@@ -301,7 +310,8 @@
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-      nativeAudio.pause(); 
+      nativeAudio.pause();
+      nativeAudio.src = '';
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
 
       const vis = document.getElementById('visualizer');
@@ -311,53 +321,90 @@
       isPlaying = false;
       updatePlayBtn();
 
-      if(cinemaMode) cinemaMode.classList.add('hidden'); 
-      if(spotifyMode) spotifyMode.classList.remove('hidden');
       if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
 
-      // YouTube Playback via Hidden Iframe + Silent Audio Hack
-      if (item.type === 'youtube') {
+      // ── youtube_video: full visible video in iframe ──────────
+      if (item.type === 'youtube_video' || item.type === 'youtube') {
           activeType = 'youtube';
-          setTrackInfo(item.title, 'YouTube Audio Hub');
-          showToast('Extracting Original Source...');
-          
-          // 🔥 SILENT AUDIO HACK (Keeps Lock Screen Alive)
-          nativeAudio.src = "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3";
-          nativeAudio.loop = true;
-          nativeAudio.play().catch(() => {});
-
+          // Show cinema (video) mode, hide audio visualizer
+          if(cinemaMode) {
+              cinemaMode.classList.remove('hidden');
+              cinemaMode.style.display = 'block';
+          }
+          if(spotifyMode) spotifyMode.classList.add('hidden');
+          if(ytFrameWrap) {
+              ytFrameWrap.style.position = '';
+              ytFrameWrap.style.width    = '100%';
+              ytFrameWrap.style.height   = '';
+              ytFrameWrap.style.opacity  = '1';
+              ytFrameWrap.style.pointerEvents = 'auto';
+              ytFrameWrap.style.display  = 'block';
+          }
+          setTrackInfo(item.title, '▶ YouTube Video');
           if (isYtReady && ytPlayer) {
               ytPlayer.loadVideoById(item.ytId);
               setupMediaSession(item);
           } else {
-              setTimeout(() => renderMedia(item), 500);
+              setTimeout(() => renderMedia(item), 600);
           }
-      } 
-      // Local/Cloud File Playback via Native Audio
-      else if (item.type === 'stream') {
+          }
+
+      // ── audio_yt: server-side extraction → native audio (background ✅) ──
+      } else if (item.type === 'audio_yt') {
+          activeType = 'audio_yt';
+          // Show audio visualizer, hide video iframe
+          if(cinemaMode) cinemaMode.classList.add('hidden');
+          if(spotifyMode) spotifyMode.classList.remove('hidden');
+          if(ytFrameWrap) {
+              ytFrameWrap.style.position    = 'absolute';
+              ytFrameWrap.style.width       = '1px';
+              ytFrameWrap.style.height      = '1px';
+              ytFrameWrap.style.opacity     = '0';
+              ytFrameWrap.style.pointerEvents = 'none';
+          }
+          setTrackInfo(item.title, '🎵 Extracting audio…');
+          showToast('⏳ Fetching audio stream…');
+          fetch('/api/audio?id=' + item.ytId)
+              .then(r => r.json())
+              .then(data => {
+                  if (!data.url) throw new Error(data.error || 'No URL');
+                  nativeAudio.src  = data.url;
+                  nativeAudio.loop = false;
+                  nativeAudio.load();
+                  return nativeAudio.play();
+              })
+              .then(() => {
+                  isPlaying = true; updatePlayBtn();
+                  setTrackInfo(item.title, '🎵 Playing');
+                  setupMediaSession(item);
+                  if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item });
+              })
+              .catch(err => {
+                  showToast('❌ ' + (err.message || 'Extraction failed'));
+                  setTrackInfo(item.title, '❌ Failed');
+              });
+
+      // ── stream: local file / direct URL ─────────────────────
+      } else if (item.type === 'stream') {
           activeType = 'stream';
-          setTrackInfo(item.title, 'Local/Cloud Media');
-          nativeAudio.src = item.url; 
-          nativeAudio.loop = false; // Streaming ke liye loop hatana zaroori hai
+          if(cinemaMode) cinemaMode.classList.add('hidden');
+          if(spotifyMode) spotifyMode.classList.remove('hidden');
+          if(ytFrameWrap) ytFrameWrap.style.display = 'none';
+          setTrackInfo(item.title, '☁️ Playing');
+          nativeAudio.src  = item.url; 
+          nativeAudio.loop = false;
           nativeAudio.play().then(() => { 
               isPlaying = true; updatePlayBtn(); setupMediaSession(item);
-          }).catch(() => showToast("Tap play to start"));
+          }).catch(() => showToast("Tap ▶ to play"));
       }
   }
 
   /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
-      if (activeType === 'stream') { 
+      if (activeType === 'stream' || activeType === 'audio_yt') { 
           if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); 
-      } 
-      else if (activeType === 'youtube' && ytPlayer) { 
-          if (isPlaying) {
-              ytPlayer.pauseVideo();
-              nativeAudio.pause(); // Pause Silent Hack too
-          } else {
-              ytPlayer.playVideo();
-              nativeAudio.play().catch(()=>{}); // Resume Silent Hack
-          }
+      } else if (activeType === 'youtube' && ytPlayer) { 
+          if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
       }
   }));
 
@@ -383,24 +430,28 @@
 
   // Native Audio Event Listeners (For direct streams)
   nativeAudio.addEventListener('play',  () => { 
-      if(activeType === 'stream') {
+      if(activeType === 'stream' || activeType === 'audio_yt') {
           isPlaying = true; updatePlayBtn(); 
           if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
       }
   });
   nativeAudio.addEventListener('pause', () => { 
-      if(activeType === 'stream') {
+      if(activeType === 'stream' || activeType === 'audio_yt') {
           isPlaying = false; updatePlayBtn(); 
           if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
       }
   });
   nativeAudio.addEventListener('seeked', () => { 
-      if (activeType === 'stream' && synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
+      if ((activeType === 'stream' || activeType === 'audio_yt') && synced && !isRemoteAction) 
+          broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
   });
   nativeAudio.addEventListener('ended', () => {
-      if(activeType === 'stream') playNext();
+      if(activeType === 'stream' || activeType === 'audio_yt') playNext();
+  });
+  nativeAudio.addEventListener('error', () => {
+      if(activeType === 'audio_yt') { showToast('Audio error — skipping'); setTimeout(playNext, 1000); }
   });
 
   /* ── 💥 MEDIA SESSION API (THE LOCK SCREEN HACK) 💥 ── */
@@ -414,19 +465,12 @@
           });
 
           navigator.mediaSession.setActionHandler('play', () => { 
-              if (activeType === 'youtube' && ytPlayer) {
-                  ytPlayer.playVideo(); 
-                  nativeAudio.play().catch(()=>{}); 
-              }
-              else if (activeType === 'stream') nativeAudio.play();
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo();
+              else nativeAudio.play().catch(()=>{});
           });
-          
           navigator.mediaSession.setActionHandler('pause', () => { 
-              if (activeType === 'youtube' && ytPlayer) {
-                  ytPlayer.pauseVideo(); 
-                  nativeAudio.pause();
-              }
-              else if (activeType === 'stream') nativeAudio.pause();
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo();
+              else nativeAudio.pause();
           });
           
           navigator.mediaSession.setActionHandler('previoustrack', () => { playPrev(); });
@@ -479,16 +523,16 @@
       }
 
       if (activeType === 'youtube' && ytPlayer && isYtReady) {
-          if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
+          if (data.action === 'play')  { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
           if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
-          if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
-      } else if (activeType === 'stream') {
+          if (data.action === 'seek')  { ytPlayer.seekTo(data.time, true); }
+      } else if (activeType === 'stream' || activeType === 'audio_yt') {
           if (data.action === 'play') { 
-              if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time; 
+              if(Math.abs(nativeAudio.currentTime - data.time) > 1.5) nativeAudio.currentTime = data.time; 
               nativeAudio.play().catch(()=>{}); 
           }
           if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
-          if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
+          if (data.action === 'seek')  { nativeAudio.currentTime = data.time; }
       }
   };
 
