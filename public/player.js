@@ -1,8 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL CODE EXPANDED)
-   💥 GOD MODE: Powered by Private Render Server
+   ZEROX HUB — player.js (100% COMPLETE EXPANDED EDITION)
+   💥 IMMORTAL MODE: Cloudflare Edge + Lock Screen + Deep Sync
 ═══════════════════════════════════════════════════════════ */
 'use strict';
+
+// 🛑 TERA CLOUDFLARE EDGE SERVER LINK 🛑
+const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev'; 
 
 (function () {
   /* ── DOM ELEMENTS ──────────────────────────────────────── */
@@ -61,15 +64,17 @@
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
 
-  /* ── 💥 DYNAMICALLY CREATE VISUALIZER UI IF NOT IN HTML 💥 ── */
+  /* ── 💥 DYNAMIC VISUALIZER UI 💥 ── */
   function createVisualizerUI() {
       const spMode = document.getElementById('spotifyMode');
-      spMode.innerHTML = `
-          <img id="streamThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" class="premium-thumb" />
-          <div class="music-visualizer" id="visualizer">
-              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-          </div>
-      `;
+      if (spMode) {
+          spMode.innerHTML = `
+              <img id="streamThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" class="premium-thumb" />
+              <div class="music-visualizer" id="visualizer">
+                  <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              </div>
+          `;
+      }
       return document.getElementById('streamThumb');
   }
 
@@ -95,55 +100,66 @@
   
   function openPanel() {
       if(isPanelOpen) return; isPanelOpen = true;
-      panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
+      if(panel) panel.classList.add('zx-open'); 
+      document.body.style.overflow = 'hidden'; 
       if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   function closePanel() {
       if(!isPanelOpen) return; isPanelOpen = false;
-      panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
+      if(panel) panel.classList.remove('zx-open'); 
+      document.body.style.overflow = ''; 
       if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
-  handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-  handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
+  if(handle) {
+      handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
+      handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
+      handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
+  }
+  
   if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
-  handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
   
   if (closeHandle) {
       closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
       closeHandle.addEventListener('touchmove', (e) => { if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel(); }, {passive: true});
       closeHandle.addEventListener('click', closePanel);
   }
-  panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
+  if(panel) {
+      panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
+  }
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
       tab.addEventListener('click', () => {
           document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
           document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
-          tab.classList.add('active'); document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+          tab.classList.add('active'); 
+          const targetTab = document.getElementById('tab-' + tab.dataset.tab);
+          if(targetTab) targetTab.classList.add('active');
       });
   });
 
   function showToast(msg) {
       const t = document.createElement('div'); t.textContent = msg;
-      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
+      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;box-shadow: 0 0 15px rgba(232,67,106,0.5);';
       document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  if(toggleListBtnUrl) toggleListBtnUrl.addEventListener('click', () => episodesOverlayUrl.classList.toggle('hidden'));
-  if(toggleListBtnYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
-  if(toggleListBtnSp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
+  if(toggleListBtnUrl && episodesOverlayUrl) toggleListBtnUrl.addEventListener('click', () => episodesOverlayUrl.classList.toggle('hidden'));
+  if(toggleListBtnYt && episodesOverlayYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
+  if(toggleListBtnSp && episodesOverlaySp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
 
   /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
-      ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
-      ytPlayer = new YT.Player('ytPlayerInner', {
-          width: '100%', height: '100%',
-          playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
-          events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
-      });
+      if(ytFrameWrap) {
+          ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
+          ytPlayer = new YT.Player('ytPlayerInner', {
+              width: '100%', height: '100%',
+              playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
+              events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
+          });
+      }
   };
 
   function onPlayerStateChange(event) {
@@ -154,71 +170,26 @@
       }
       const time = ytPlayer.getCurrentTime();
       if (event.data === YT.PlayerState.PLAYING) { 
-          isPlaying = true; 
-          updatePlayBtn(); 
-          broadcastSync({ action: 'play', time }); 
+          isPlaying = true; updatePlayBtn(); broadcastSync({ action: 'play', time }); 
       }
       else if (event.data === YT.PlayerState.PAUSED) { 
-          isPlaying = false; 
-          updatePlayBtn(); 
-          broadcastSync({ action: 'pause', time }); 
+          isPlaying = false; updatePlayBtn(); broadcastSync({ action: 'pause', time }); 
       }
-      else if (event.data === YT.PlayerState.ENDED) { 
-          playNext(); 
-      }
+      else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── TAB 0: URL / LIBRARIAN ─────────────────────── */
-  urlAddBtn.addEventListener('click', () => {
-      const val = urlInput.value.trim(); if (!val) return;
-      
-      if (isYouTubeUrl(val)) { 
-          loadYouTube(val); 
-          urlInput.value = ''; 
-      }
-      else if (val.startsWith('http')) { 
-          addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); 
-          urlInput.value = ''; 
-      }
-      else {
-          showToast(`🔍 Fetching episodes for: ${val}`);
-          dynamicEpListUrl.innerHTML = ''; 
-          let mockEpisodes = [ 
-              { title: `${val} - Ep 1`, url: "mock1" }, 
-              { title: `${val} - Ep 2`, url: "mock2" } 
-          ];
-          mockEpisodes.forEach(ep => {
-              const div = document.createElement('div'); 
-              div.className = 'ep-item'; 
-              div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
-              div.onclick = () => showToast(`Loaded ${ep.title}`);
-              dynamicEpListUrl.appendChild(div);
-          });
-          episodesOverlayUrl.classList.remove('hidden'); 
-          urlInput.value = '';
-      }
-  });
-
-  if(fileInput) {
-      fileInput.addEventListener('change', () => {
-          const file = fileInput.files[0]; 
-          if (!file) return;
-          addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
-      });
-  }
-
-  /* ── THE API KEY ── */
+  /* ── THE API KEY & SEARCH ENGINE ──────────────────────── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
-  /* ── TAB 1 & 2: OFFICIAL YOUTUBE SEARCH ───────────────── */
   function searchYouTubeForCobalt(query, targetResultsDiv, type) {
       if (!query) return; 
-      if (isYouTubeUrl(query)) { loadYouTube(query); return; }
       
       const resDiv = document.getElementById(targetResultsDiv);
+      if(!resDiv) return;
+
       resDiv.innerHTML = '<p class="mp-empty">Searching Official Database...</p>'; 
-      if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
-      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+      if(targetResultsDiv === 'ytSearchResults' && episodesOverlayYt) episodesOverlayYt.classList.remove('hidden');
+      if(targetResultsDiv === 'spSearchResults' && episodesOverlaySp) episodesOverlaySp.classList.remove('hidden');
       
       fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
         .then(res => res.json())
@@ -248,35 +219,13 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check connection.</p>');
   }
 
-  ytAddBtn.addEventListener('click', () => { searchYouTubeForCobalt(ytInput.value.trim(), 'ytSearchResults', 'youtube'); ytInput.value = ''; });
-  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
-  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
-
-  /* ── URL CHECKERS ─────────────────────────────────── */
-  function isYouTubeUrl(url) { 
-      return /youtu\.?be|youtube\.com/.test(url); 
-  }
-  
-  function extractYouTubeId(url) { 
-      const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); 
-      return m ? m[1] : null; 
-  }
-  
-  function loadYouTube(url) {
-      const id = extractYouTubeId(url);
-      if (!id) { 
-          showToast('❌ Invalid YouTube link!'); 
-          return; 
-      }
-      addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id });
-  }
+  if(ytAddBtn && ytInput) ytAddBtn.addEventListener('click', () => { searchYouTubeForCobalt(ytInput.value.trim(), 'ytSearchResults', 'youtube'); ytInput.value = ''; });
+  if(spSearchSongBtn && spInput) spSearchSongBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
+  if(spSearchPlaylistBtn && spInput) spSearchPlaylistBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
 
   /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
   function addToQueue(item) { 
-      queue.push(item); 
-      saveQueue(); 
-      renderQueue(); 
-      playQueueItem(queue.length - 1); 
+      queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); 
   }
 
   function saveQueue() { 
@@ -287,29 +236,18 @@
   }
 
   function renderQueue() {
-      if (queue.length === 0) { 
-          queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; 
-          return; 
-      }
+      if(!queueList) return;
+      if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; return; }
       queueList.innerHTML = '';
       queue.forEach((item, i) => {
           const el = document.createElement('div'); 
           el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          
           let icon = (item.type === 'cobalt_audio') ? '🎧' : (item.type === 'stream' ? '☁️' : '▶'); 
-          
-          el.innerHTML = `
-              <span class="qi-type">${icon}</span>
-              <span class="qi-title">${item.title}</span>
-              <button class="qi-del" data-i="${i}">✕</button>
-          `;
+          el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
           
           el.onclick = (e) => { 
               if (e.target.classList.contains('qi-del')) { 
-                  queue.splice(i, 1); 
-                  saveQueue(); 
-                  renderQueue(); 
-                  return; 
+                  queue.splice(i, 1); saveQueue(); renderQueue(); return; 
               } 
               playQueueItem(i); 
           };
@@ -319,9 +257,7 @@
 
   function playQueueItem(i) {
       if (i < 0 || i >= queue.length) return; 
-      currentIdx = i; 
-      saveQueue(); 
-      renderQueue(); 
+      currentIdx = i; saveQueue(); renderQueue(); 
       const item = queue[i];
       
       const isBlob = item.url && item.url.startsWith('blob:');
@@ -334,22 +270,19 @@
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
   
-  mpNexts.forEach(b => b.addEventListener('click', playNext));
-  mpPrevs.forEach(b => b.addEventListener('click', playPrev));
+  mpNexts.forEach(b => { if(b) b.addEventListener('click', playNext); });
+  mpPrevs.forEach(b => { if(b) b.addEventListener('click', playPrev); });
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-      nativeAudio.style.display = 'none'; 
-      ytFrameWrap.style.display = 'none';
-      nativeAudio.pause(); 
-      nativeAudio.removeAttribute('src'); 
-      nativeAudio.srcObject = null;
-      
-      if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') {
-          ytPlayer.pauseVideo();
+      if(nativeAudio) {
+          nativeAudio.style.display = 'none'; 
+          nativeAudio.pause(); 
+          nativeAudio.removeAttribute('src'); 
       }
+      if(ytFrameWrap) ytFrameWrap.style.display = 'none';
+      if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
       
-      // UI Reset for Audio Visualizer
       const vis = document.getElementById('visualizer');
       const thumb = document.getElementById('streamThumb');
       if(vis) vis.classList.remove('playing');
@@ -360,49 +293,32 @@
       // Tab 1: Official YouTube Video
       if (item.type === 'youtube') {
           activeType = 'youtube';
-          spotifyMode.classList.add('hidden'); 
-          cinemaMode.classList.remove('hidden');
-          ytFrameWrap.style.display = 'block';
+          if(spotifyMode) spotifyMode.classList.add('hidden'); 
+          if(cinemaMode) cinemaMode.classList.remove('hidden');
+          if(ytFrameWrap) ytFrameWrap.style.display = 'block';
           
-          if (isYtReady) {
-              ytPlayer.loadVideoById(item.ytId); 
-          } else {
-              setTimeout(() => renderMedia(item), 500);
-          }
+          if (isYtReady) ytPlayer.loadVideoById(item.ytId); 
+          else setTimeout(() => renderMedia(item), 500);
+          
           setTrackInfo(item.title, 'YouTube Video');
       } 
-      // Tab 2: ZeroX Private Server Stream (Audio Only)
+      // Tab 2: CLOUDFLARE EDGE WORKER STREAM
       else if (item.type === 'cobalt_audio') {
           activeType = 'stream';
-          cinemaMode.classList.add('hidden'); 
-          spotifyMode.classList.remove('hidden');
-          
-          if(thumb) thumb.src = item.thumb;
-          setTrackInfo(item.title, 'ZeroX Private Server');
-          showToast('Fetching from Private Server...');
-
-          // 🔥 TERA APNA DIRECT BULLETPROOF API LINK 🔥
-          const myServerLink = 'https://zx-muzic.onrender.com/stream?id=' + item.ytId;
-          
-          nativeAudio.src = myServerLink;
-          nativeAudio.play().then(() => { 
-              isPlaying = true; 
-              updatePlayBtn(); 
-          }).catch(() => showToast("Tap play to start"));
-      }
-      // Local / Direct Cloud Files
-      else if (item.type === 'stream') {
-          activeType = 'stream'; 
-          cinemaMode.classList.add('hidden'); 
-          spotifyMode.classList.remove('hidden');
+          if(cinemaMode) cinemaMode.classList.add('hidden'); 
+          if(spotifyMode) spotifyMode.classList.remove('hidden');
           
           if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
-          nativeAudio.src = item.url; 
+          setTrackInfo(item.title, 'ZeroX Global Network');
+          showToast('Connecting to Edge Server...');
+
+          // CLOUDFLARE FETCH
+          nativeAudio.src = `${WORKER_URL}/?id=${item.ytId}`;
           nativeAudio.play().then(() => { 
               isPlaying = true; 
               updatePlayBtn(); 
+              setupMediaSession(item); // 💥 LOCK SCREEN CONTROLS
           }).catch(() => showToast("Tap play to start"));
-          setTrackInfo(item.title, 'Local/Cloud Media');
       }
   }
 
@@ -418,7 +334,6 @@
       }
   }));
 
-  /* 💥 AUDIO SYNC VISUALIZER CONTROLLER 💥 */
   function updatePlayBtn() { 
       mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
       const vis = document.getElementById('visualizer');
@@ -434,47 +349,65 @@
   }
 
   function setTrackInfo(title, sub) { 
-      musicTitle.textContent = title; 
-      musicArtist.textContent = sub; 
-      miniTitle.textContent = `${title} • ${sub}`; 
+      if(musicTitle) musicTitle.textContent = title; 
+      if(musicArtist) musicArtist.textContent = sub; 
+      if(miniTitle) miniTitle.textContent = `${title} • ${sub}`; 
   }
 
-  nativeAudio.addEventListener('play',  () => { 
-      isPlaying = true; 
-      updatePlayBtn(); 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
-  });
-  
-  nativeAudio.addEventListener('pause', () => { 
-      isPlaying = false; 
-      updatePlayBtn(); 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
-  });
-  
-  nativeAudio.addEventListener('seeked', () => { 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
-  });
-  
-  nativeAudio.addEventListener('ended', playNext);
+  if(nativeAudio) {
+      nativeAudio.addEventListener('play',  () => { 
+          isPlaying = true; updatePlayBtn(); 
+          if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
+      });
+      nativeAudio.addEventListener('pause', () => { 
+          isPlaying = false; updatePlayBtn(); 
+          if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
+      });
+      nativeAudio.addEventListener('seeked', () => { 
+          if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
+      });
+      nativeAudio.addEventListener('ended', playNext);
+  }
 
-  /* ── DEEP SYNC NETWORK ────────────────────────── */
-  mpSyncBtn.addEventListener('click', () => {
-      synced = true; 
-      mpSyncBadge.textContent = '🟢 Synced'; 
-      mpSyncBadge.classList.add('synced');
-      mpSyncBtn.style.display = 'none'; 
-      mpSyncInfo.style.display = 'flex';
-      broadcastSync({ action: 'request_sync' }); 
-      showToast('🔗 Sync Network Active');
-  });
+  /* ── 💥 MEDIA SESSION API (LOCK SCREEN CONTROLS) 💥 ── */
+  function setupMediaSession(item) {
+      if ('mediaSession' in navigator) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+              title: item.title,
+              artist: 'ZeroX Hub',
+              album: 'Worldwide Library',
+              artwork: [
+                  { src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes: '512x512', type: 'image/jpeg' }
+              ]
+          });
 
-  mpUnsyncBtn.addEventListener('click', () => {
-      synced = false; 
-      mpSyncBadge.textContent = '🔴 Solo'; 
-      mpSyncBadge.classList.remove('synced');
-      mpSyncBtn.style.display = 'block'; 
-      mpSyncInfo.style.display = 'none';
-  });
+          navigator.mediaSession.setActionHandler('play', () => { nativeAudio.play(); isPlaying = true; updatePlayBtn(); });
+          navigator.mediaSession.setActionHandler('pause', () => { nativeAudio.pause(); isPlaying = false; updatePlayBtn(); });
+          navigator.mediaSession.setActionHandler('previoustrack', () => { playPrev(); });
+          navigator.mediaSession.setActionHandler('nexttrack', () => { playNext(); });
+      }
+  }
+
+  /* ── DEEP SYNC NETWORK (LISTEN TOGETHER) ────────────────────────── */
+  if (mpSyncBtn && mpUnsyncBtn && mpSyncBadge && mpSyncInfo) {
+      mpSyncBtn.addEventListener('click', () => {
+          synced = true; 
+          mpSyncBadge.textContent = '🟢 Synced'; 
+          mpSyncBadge.classList.add('synced');
+          mpSyncBtn.style.display = 'none'; 
+          mpSyncInfo.style.display = 'flex';
+          broadcastSync({ action: 'request_sync' }); 
+          showToast('🔗 Sync Network Active');
+      });
+
+      mpUnsyncBtn.addEventListener('click', () => {
+          synced = false; 
+          mpSyncBadge.textContent = '🔴 Solo'; 
+          mpSyncBadge.classList.remove('synced');
+          mpSyncBtn.style.display = 'block'; 
+          mpSyncInfo.style.display = 'none';
+      });
+  }
 
   function broadcastSync(data) { 
       if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); 
@@ -488,11 +421,8 @@
                broadcastSync({ action: 'change_song', item: curItem });
                setTimeout(() => {
                   let curTime = 0; 
-                  if (activeType === 'youtube' && ytPlayer && isYtReady) {
-                      curTime = ytPlayer.getCurrentTime(); 
-                  } else if (activeType === 'stream') {
-                      curTime = nativeAudio.currentTime;
-                  }
+                  if (activeType === 'youtube' && ytPlayer && isYtReady) curTime = ytPlayer.getCurrentTime(); 
+                  else if (activeType === 'stream') curTime = nativeAudio.currentTime;
                   broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
                }, 1500); 
           } 
@@ -504,47 +434,26 @@
 
       if (data.action === 'change_song') {
           let idx = queue.findIndex(q => q.title && q.title === data.item.title);
-          if (idx === -1) { 
-              queue.push(data.item); 
-              idx = queue.length - 1; 
-          }
-          currentIdx = idx; 
-          saveQueue(); 
-          renderQueue(); 
-          renderMedia(data.item); 
+          if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
+          currentIdx = idx; saveQueue(); renderQueue(); renderMedia(data.item); 
           return;
       }
 
       if (activeType === 'youtube' && ytPlayer && isYtReady) {
-          if (data.action === 'play') { 
-              ytPlayer.seekTo(data.time, true); 
-              ytPlayer.playVideo(); 
-          }
-          if (data.action === 'pause') { 
-              ytPlayer.pauseVideo(); 
-              ytPlayer.seekTo(data.time, true); 
-          }
-          if (data.action === 'seek') { 
-              ytPlayer.seekTo(data.time, true); 
-          }
+          if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
+          if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
+          if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
       } else if (activeType === 'stream') {
           if (data.action === 'play') { 
-              if(Math.abs(nativeAudio.currentTime - data.time) > 1) {
-                  nativeAudio.currentTime = data.time; 
-              }
+              if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time; 
               nativeAudio.play().catch(()=>{}); 
           }
-          if (data.action === 'pause') { 
-              nativeAudio.currentTime = data.time; 
-              nativeAudio.pause(); 
-          }
-          if (data.action === 'seek') { 
-              nativeAudio.currentTime = data.time; 
-          }
+          if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
+          if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
       }
   };
 
-  /* ── 💥 FULLSCREEN LAG KILLER SENSOR 💥 ── */
+  /* ── 💥 FULLSCREEN SENSOR 💥 ── */
   function toggleFullscreenState() {
       if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
           document.body.classList.add('is-fullscreen');
