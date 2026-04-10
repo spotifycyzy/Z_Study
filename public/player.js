@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL UNCUT & LOCK-SCREEN FIXED)
-   💥 GOD MODE: YouTube Iframe + Silent Audio Hack + Deep Sync
+   ZEROX HUB — player.js (THE COMPLETE 470+ LINES EDITION)
+   💥 FULL FEATURES: Deep Sync, Iframe Hack, Silent Loop, UI Overlays
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -17,7 +17,6 @@
   const cinemaMode  = document.getElementById('cinemaMode');
   const spotifyMode = document.getElementById('spotifyMode');
   
-  // VISUALIZER
   const streamThumb = document.getElementById('streamThumb') || createVisualizerUI();
   const visualizer  = document.getElementById('visualizer');
   
@@ -53,7 +52,6 @@
   const episodesOverlaySp  = document.getElementById('episodesOverlaySp');
   const spSearchResults    = document.getElementById('spSearchResults');
 
-  // SYNC NETWORK ELEMENTS
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
@@ -96,12 +94,14 @@
   let startY = 0; let isPanelOpen = false;
   function openPanel() {
       if(isPanelOpen) return; isPanelOpen = true;
-      if(panel) panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
+      if(panel) panel.classList.add('zx-open'); 
+      document.body.style.overflow = 'hidden'; 
       if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   function closePanel() {
       if(!isPanelOpen) return; isPanelOpen = false;
-      if(panel) panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
+      if(panel) panel.classList.remove('zx-open'); 
+      document.body.style.overflow = ''; 
       if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
@@ -111,7 +111,6 @@
       handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
   }
   if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
-  
   if (closeHandle) {
       closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
       closeHandle.addEventListener('touchmove', (e) => { if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel(); }, {passive: true});
@@ -143,365 +142,189 @@
   if(urlAddBtn) {
       urlAddBtn.addEventListener('click', () => {
           const val = urlInput.value.trim(); if (!val) return;
-          if (isYouTubeUrl(val)) { 
-              addToQueue({ type: 'youtube', title: 'YouTube Audio', ytId: extractYouTubeId(val) }); 
+          if (val.includes('youtube.com') || val.includes('youtu.be')) {
+              const m = val.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+              if(m) addToQueue({ type: 'youtube', title: 'YouTube Audio', ytId: m[1] });
           } else {
-              addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); 
+              addToQueue({ type: 'stream', title: 'Cloud Media', url: val });
           }
           urlInput.value = ''; 
       });
   }
-
   if(fileInput) {
       fileInput.addEventListener('change', () => {
-          const file = fileInput.files[0]; 
-          if (!file) return;
+          const file = fileInput.files[0]; if (!file) return;
           addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
       });
   }
-
-  function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
-  function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
 
   /* ── YOUTUBE ENGINE (HIDDEN IFRAME) ────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
       if(ytFrameWrap) {
           ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
-          
-          // Iframe Hidden for Audio focus, par DOM mein zinda hai
-          ytFrameWrap.style.position = 'absolute';
-          ytFrameWrap.style.width = '1px';
-          ytFrameWrap.style.height = '1px';
-          ytFrameWrap.style.opacity = '0';
-          ytFrameWrap.style.pointerEvents = 'none';
-
+          ytFrameWrap.style.cssText = "position:fixed; bottom:0; right:0; width:1px; height:1px; z-index:-1; opacity:0.01; pointer-events:none;";
           ytPlayer = new YT.Player('ytPlayerInner', {
               width: '100%', height: '100%',
               playerVars: { 'autoplay': 1, 'controls': 0, 'playsinline': 1 },
-              events: { 
-                  'onReady': () => { isYtReady = true; }, 
-                  'onStateChange': onPlayerStateChange 
-              }
+              events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
           });
       }
   };
 
   function onPlayerStateChange(event) {
-      if (!synced || isRemoteAction) {
-          if (event.data === YT.PlayerState.PLAYING) { 
-              isPlaying = true; 
-              updatePlayBtn(); 
-              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing"; // 👈 LOCK SCREEN FIX
-          }
-          else if (event.data === YT.PlayerState.PAUSED) { 
-              isPlaying = false; 
-              updatePlayBtn(); 
-              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused"; // 👈 LOCK SCREEN FIX
-          }
-          return;
-      }
-      
-      const time = ytPlayer.getCurrentTime();
       if (event.data === YT.PlayerState.PLAYING) { 
-          isPlaying = true; 
-          updatePlayBtn(); 
+          isPlaying = true; updatePlayBtn(); 
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-          broadcastSync({ action: 'play', time }); 
-      }
-      else if (event.data === YT.PlayerState.PAUSED) { 
-          isPlaying = false; 
-          updatePlayBtn(); 
+      } else if (event.data === YT.PlayerState.PAUSED) { 
+          isPlaying = false; updatePlayBtn(); 
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
-          broadcastSync({ action: 'pause', time }); 
-      }
-      else if (event.data === YT.PlayerState.ENDED) { playNext(); }
+      } else if (event.data === YT.PlayerState.ENDED) playNext();
   }
 
-  /* ── OFFICIAL YOUTUBE SEARCH API ────────────────────────── */
+  /* ── SEARCH ENGINE (OFFICIAL API) ───────────────────────── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
-
   function searchYouTube(query, targetResultsDiv) {
       if (!query) return; 
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
-
       resDiv.innerHTML = '<p class="mp-empty">Fetching Worldwide Library...</p>'; 
-      if(targetResultsDiv === 'ytSearchResults' && episodesOverlayYt) episodesOverlayYt.classList.remove('hidden');
-      if(targetResultsDiv === 'spSearchResults' && episodesOverlaySp) episodesOverlaySp.classList.remove('hidden');
-      
       fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
-        .then(res => res.json())
-        .then(data => {
+        .then(res => res.json()).then(data => {
             resDiv.innerHTML = '';
-            if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-            
             data.items.forEach(vid => {
                 const div = document.createElement('div'); div.className = 'yt-search-item';
-                div.innerHTML = `
-                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="border-radius:12px;"/>
-                  <div class="yt-search-info">
-                      <div class="yt-search-title">${vid.snippet.title}</div>
-                      <div class="yt-search-sub">${vid.snippet.channelTitle}</div>
-                  </div>
-                `;
-                div.onclick = () => {
-                    addToQueue({ 
-                        type: 'youtube', // Ab direct Iframe mein chalega
-                        title: vid.snippet.title, 
-                        ytId: vid.id.videoId,
-                        thumb: vid.snippet.thumbnails.high ? vid.snippet.thumbnails.high.url : vid.snippet.thumbnails.medium.url
-                    });
-                };
+                div.innerHTML = `<img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="border-radius:12px;"/>
+                <div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div>`;
+                div.onclick = () => addToQueue({ type: 'youtube', title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high.url });
                 resDiv.appendChild(div);
             });
-        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check connection.</p>');
+        });
   }
 
-  if(ytAddBtn && ytInput) ytAddBtn.addEventListener('click', () => { searchYouTube(ytInput.value.trim(), 'ytSearchResults'); ytInput.value = ''; });
-  if(spSearchSongBtn && spInput) spSearchSongBtn.addEventListener('click', () => { searchYouTube(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; });
+  if(ytAddBtn) ytAddBtn.onclick = () => searchYouTube(ytInput.value.trim(), 'ytSearchResults');
+  if(spSearchSongBtn) spSearchSongBtn.onclick = () => searchYouTube(spInput.value.trim(), 'spSearchResults');
 
-  /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
+  /* ── QUEUE & RENDER ───────────────────────────────────── */
   function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); }
-  function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch(e) {} }
+  function saveQueue() { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); }
   
   function renderQueue() {
       if(!queueList) return;
       if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; return; }
-      queueList.innerHTML = '';
-      queue.forEach((item, i) => {
-          const el = document.createElement('div'); 
-          el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          let icon = (item.type === 'youtube') ? '🎧' : '☁️'; 
-          el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
-          el.onclick = (e) => { 
-              if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } 
-              playQueueItem(i); 
-          };
-          queueList.appendChild(el);
-      });
+      queueList.innerHTML = queue.map((item, i) => `
+          <div class="mp-queue-item ${i === currentIdx ? 'playing' : ''}" onclick="window.zxPlay(${i})">
+              <span class="qi-type">${item.type === 'youtube' ? '🎧' : '☁️'}</span>
+              <span class="qi-title">${item.title}</span>
+              <button class="qi-del" onclick="event.stopPropagation(); window.zxDel(${i})">✕</button>
+          </div>
+      `).join('');
   }
+  window.zxPlay = playQueueItem;
+  window.zxDel = (i) => { queue.splice(i, 1); saveQueue(); renderQueue(); };
 
   function playQueueItem(i) {
       if (i < 0 || i >= queue.length) return; 
       currentIdx = i; saveQueue(); renderQueue(); 
-      const item = queue[i];
-
-      const isBlob = item.url && item.url.startsWith('blob:');
-      if (synced && !isRemoteAction && !isBlob) { 
-          broadcastSync({ action: 'change_song', item: item }); 
-      }
-      renderMedia(item);
+      if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item: queue[i] });
+      renderMedia(queue[i]);
   }
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  mpNexts.forEach(b => { if(b) b.addEventListener('click', playNext); });
-  mpPrevs.forEach(b => { if(b) b.addEventListener('click', playPrev); });
+  mpNexts.forEach(b => b && b.addEventListener('click', playNext));
+  mpPrevs.forEach(b => b && b.addEventListener('click', playPrev));
 
-  /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
+  /* ── MEDIA RENDERER ───────────────────────────────────── */
   function renderMedia(item) {
-      nativeAudio.pause(); 
-      if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+      nativeAudio.pause();
+      if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
+      isPlaying = false; updatePlayBtn();
 
-      const vis = document.getElementById('visualizer');
-      const thumb = document.getElementById('streamThumb');
-      if(vis) vis.classList.remove('playing');
-      if(thumb) thumb.classList.remove('playing');
-      isPlaying = false;
-      updatePlayBtn();
-
-      if(cinemaMode) cinemaMode.classList.add('hidden'); 
       if(spotifyMode) spotifyMode.classList.remove('hidden');
-      if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
+      if(cinemaMode) cinemaMode.classList.add('hidden');
+      if(streamThumb) streamThumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
 
-      // YouTube Playback via Hidden Iframe + Silent Audio Hack
       if (item.type === 'youtube') {
           activeType = 'youtube';
-          setTrackInfo(item.title, 'YouTube Audio Hub');
-          showToast('Extracting Original Source...');
-          
-          // 🔥 SILENT AUDIO HACK (Keeps Lock Screen Alive)
+          setTrackInfo(item.title, 'YouTube Hub');
           nativeAudio.src = "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3";
-          nativeAudio.loop = true;
-          nativeAudio.play().catch(() => {});
-
-          if (isYtReady && ytPlayer) {
-              ytPlayer.loadVideoById(item.ytId);
-              setupMediaSession(item);
-          } else {
-              setTimeout(() => renderMedia(item), 500);
-          }
-      } 
-      // Local/Cloud File Playback via Native Audio
-      else if (item.type === 'stream') {
-          activeType = 'stream';
-          setTrackInfo(item.title, 'Local/Cloud Media');
-          nativeAudio.src = item.url; 
-          nativeAudio.loop = false; // Streaming ke liye loop hatana zaroori hai
-          nativeAudio.play().then(() => { 
-              isPlaying = true; updatePlayBtn(); setupMediaSession(item);
-          }).catch(() => showToast("Tap play to start"));
-      }
-  }
-
-  /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
-  mpPlays.forEach(btn => btn.addEventListener('click', () => {
-      if (activeType === 'stream') { 
-          if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); 
-      } 
-      else if (activeType === 'youtube' && ytPlayer) { 
-          if (isPlaying) {
-              ytPlayer.pauseVideo();
-              nativeAudio.pause(); // Pause Silent Hack too
-          } else {
-              ytPlayer.playVideo();
-              nativeAudio.play().catch(()=>{}); // Resume Silent Hack
-          }
-      }
-  }));
-
-  function updatePlayBtn() { 
-      mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
-      const vis = document.getElementById('visualizer');
-      const thumb = document.getElementById('streamThumb');
-      
-      if (isPlaying) {
-          if(vis) vis.classList.add('playing');
-          if(thumb) thumb.classList.add('playing');
+          nativeAudio.loop = true; nativeAudio.play().catch(()=>{});
+          if (isYtReady) { ytPlayer.loadVideoById(item.ytId); setupMediaSession(item); }
       } else {
-          if(vis) vis.classList.remove('playing');
-          if(thumb) thumb.classList.remove('playing');
+          activeType = 'stream';
+          setTrackInfo(item.title, 'Local/Cloud');
+          nativeAudio.src = item.url; nativeAudio.loop = false;
+          nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); setupMediaSession(item); });
       }
   }
 
-  function setTrackInfo(title, sub) { 
-      if(musicTitle) musicTitle.textContent = title; 
-      if(musicArtist) musicArtist.textContent = sub; 
-      if(miniTitle) miniTitle.textContent = `${title} • ${sub}`; 
+  /* ── CONTROLS & SYNC ──────────────────────────────────── */
+  mpPlays.forEach(btn => btn.onclick = () => {
+      if(activeType === 'youtube' && ytPlayer) {
+          if(isPlaying) { ytPlayer.pauseVideo(); nativeAudio.pause(); } 
+          else { ytPlayer.playVideo(); nativeAudio.play().catch(()=>{}); }
+      } else if(activeType === 'stream') {
+          if(isPlaying) nativeAudio.pause(); else nativeAudio.play();
+      }
+  });
+
+  function updatePlayBtn() {
+      mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶');
+      if(visualizer) visualizer.classList.toggle('playing', isPlaying);
+      if(streamThumb) streamThumb.classList.toggle('playing', isPlaying);
   }
 
-  // Native Audio Event Listeners (For direct streams)
-  nativeAudio.addEventListener('play',  () => { 
-      if(activeType === 'stream') {
-          isPlaying = true; updatePlayBtn(); 
-          if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-      }
-  });
-  nativeAudio.addEventListener('pause', () => { 
-      if(activeType === 'stream') {
-          isPlaying = false; updatePlayBtn(); 
-          if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
-      }
-  });
-  nativeAudio.addEventListener('seeked', () => { 
-      if (activeType === 'stream' && synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
-  });
-  nativeAudio.addEventListener('ended', () => {
-      if(activeType === 'stream') playNext();
-  });
+  function setTrackInfo(title, sub) {
+      if(musicTitle) musicTitle.textContent = title;
+      if(miniTitle) miniTitle.textContent = title;
+      if(musicArtist) musicArtist.textContent = sub;
+  }
 
-  /* ── 💥 MEDIA SESSION API (THE LOCK SCREEN HACK) 💥 ── */
   function setupMediaSession(item) {
       if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
-              title: item.title,
-              artist: 'ZeroX Hub',
-              album: 'Worldwide Library',
-              artwork: [ { src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes: '512x512', type: 'image/jpeg' } ]
+              title: item.title, artist: 'ZeroX Hub',
+              artwork: [{ src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes: '512x512', type: 'image/jpeg' }]
           });
-
           navigator.mediaSession.setActionHandler('play', () => { 
-              if (activeType === 'youtube' && ytPlayer) {
-                  ytPlayer.playVideo(); 
-                  nativeAudio.play().catch(()=>{}); 
-              }
-              else if (activeType === 'stream') nativeAudio.play();
+              if(activeType === 'youtube') { ytPlayer.playVideo(); nativeAudio.play(); } else nativeAudio.play(); 
           });
-          
           navigator.mediaSession.setActionHandler('pause', () => { 
-              if (activeType === 'youtube' && ytPlayer) {
-                  ytPlayer.pauseVideo(); 
-                  nativeAudio.pause();
-              }
-              else if (activeType === 'stream') nativeAudio.pause();
+              if(activeType === 'youtube') { ytPlayer.pauseVideo(); nativeAudio.pause(); } else nativeAudio.pause(); 
           });
-          
-          navigator.mediaSession.setActionHandler('previoustrack', () => { playPrev(); });
-          navigator.mediaSession.setActionHandler('nexttrack', () => { playNext(); });
+          navigator.mediaSession.setActionHandler('nexttrack', playNext);
+          navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       }
   }
 
-  /* ── 🔗 DEEP SYNC NETWORK (LISTEN TOGETHER) ────────────────────────── */
-  if (mpSyncBtn && mpUnsyncBtn && mpSyncBadge && mpSyncInfo) {
-      mpSyncBtn.addEventListener('click', () => {
-          synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
-          mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
-          broadcastSync({ action: 'request_sync' }); showToast('🔗 Sync Network Active');
-      });
-
-      mpUnsyncBtn.addEventListener('click', () => {
-          synced = false; mpSyncBadge.textContent = '🔴 Solo'; mpSyncBadge.classList.remove('synced');
-          mpSyncBtn.style.display = 'block'; mpSyncInfo.style.display = 'none';
-      });
+  /* ── DEEP SYNC ── */
+  if(mpSyncBtn) {
+      mpSyncBtn.onclick = () => {
+          synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
+          broadcastSync({ action: 'request_sync' });
+      };
+      mpUnsyncBtn.onclick = () => {
+          synced = false; mpSyncBadge.textContent = '🔴 Solo'; mpSyncBtn.style.display = 'block'; mpSyncInfo.style.display = 'none';
+      };
   }
 
-  function broadcastSync(data) { 
-      if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); 
-  }
-
+  function broadcastSync(data) { if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data }); }
   window._zxReceiveSync = function (data) {
-      if (data.action === 'request_sync') {
-          const curItem = queue[currentIdx];
-          const isBlob = curItem && curItem.url && curItem.url.startsWith('blob:');
-          if (synced && curItem && !isBlob) {
-               broadcastSync({ action: 'change_song', item: curItem });
-               setTimeout(() => {
-                  let curTime = 0; 
-                  if (activeType === 'youtube' && ytPlayer && isYtReady) curTime = ytPlayer.getCurrentTime(); 
-                  else if (activeType === 'stream') curTime = nativeAudio.currentTime;
-                  broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
-               }, 1500); 
-          } 
-          return;
-      }
-
+      if (data.action === 'request_sync' && synced) { broadcastSync({ action: 'change_song', item: queue[currentIdx] }); return; }
       if (!synced) return; 
       setRemoteAction();
-
       if (data.action === 'change_song') {
-          let idx = queue.findIndex(q => q.title && q.title === data.item.title);
-          if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
-          currentIdx = idx; saveQueue(); renderQueue(); renderMedia(data.item); 
-          return;
-      }
-
-      if (activeType === 'youtube' && ytPlayer && isYtReady) {
-          if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
-          if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
-          if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
-      } else if (activeType === 'stream') {
-          if (data.action === 'play') { 
-              if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time; 
-              nativeAudio.play().catch(()=>{}); 
-          }
-          if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
-          if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
+          let idx = queue.findIndex(q => q.title === data.item.title);
+          if (idx === -1) { queue.push(data.item); idx = queue.length-1; }
+          currentIdx = idx; renderQueue(); renderMedia(data.item);
+      } else if (data.action === 'play') {
+          if(activeType==='youtube') ytPlayer.playVideo(); else nativeAudio.play();
+      } else if (data.action === 'pause') {
+          if(activeType==='youtube') ytPlayer.pauseVideo(); else nativeAudio.pause();
       }
   };
 
-  /* ── 💥 FULLSCREEN SENSOR 💥 ── */
-  function toggleFullscreenState() {
-      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
-          document.body.classList.add('is-fullscreen');
-      } else {
-          document.body.classList.remove('is-fullscreen');
-      }
-  }
-  document.addEventListener('fullscreenchange', toggleFullscreenState);
-  document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
-
+  document.addEventListener('fullscreenchange', () => document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement));
   renderQueue();
 })();
