@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL UNCUT EDITION)
-   💥 GOD MODE: Official YouTube Iframe + Lock Screen + Deep Sync
+   ZEROX HUB — player.js (100% FULL UNCUT & LOCK-SCREEN FIXED)
+   💥 GOD MODE: YouTube Iframe + Silent Audio Hack + Deep Sync
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -189,16 +189,31 @@
 
   function onPlayerStateChange(event) {
       if (!synced || isRemoteAction) {
-          if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); }
-          if (event.data === YT.PlayerState.PAUSED)  { isPlaying = false; updatePlayBtn(); }
+          if (event.data === YT.PlayerState.PLAYING) { 
+              isPlaying = true; 
+              updatePlayBtn(); 
+              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing"; // 👈 LOCK SCREEN FIX
+          }
+          else if (event.data === YT.PlayerState.PAUSED) { 
+              isPlaying = false; 
+              updatePlayBtn(); 
+              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused"; // 👈 LOCK SCREEN FIX
+          }
           return;
       }
+      
       const time = ytPlayer.getCurrentTime();
       if (event.data === YT.PlayerState.PLAYING) { 
-          isPlaying = true; updatePlayBtn(); broadcastSync({ action: 'play', time }); 
+          isPlaying = true; 
+          updatePlayBtn(); 
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+          broadcastSync({ action: 'play', time }); 
       }
       else if (event.data === YT.PlayerState.PAUSED) { 
-          isPlaying = false; updatePlayBtn(); broadcastSync({ action: 'pause', time }); 
+          isPlaying = false; 
+          updatePlayBtn(); 
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
+          broadcastSync({ action: 'pause', time }); 
       }
       else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
@@ -300,11 +315,17 @@
       if(spotifyMode) spotifyMode.classList.remove('hidden');
       if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
 
-      // YouTube Playback via Hidden Iframe
+      // YouTube Playback via Hidden Iframe + Silent Audio Hack
       if (item.type === 'youtube') {
           activeType = 'youtube';
           setTrackInfo(item.title, 'YouTube Audio Hub');
           showToast('Extracting Original Source...');
+          
+          // 🔥 SILENT AUDIO HACK (Keeps Lock Screen Alive)
+          nativeAudio.src = "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3";
+          nativeAudio.loop = true;
+          nativeAudio.play().catch(() => {});
+
           if (isYtReady && ytPlayer) {
               ytPlayer.loadVideoById(item.ytId);
               setupMediaSession(item);
@@ -317,6 +338,7 @@
           activeType = 'stream';
           setTrackInfo(item.title, 'Local/Cloud Media');
           nativeAudio.src = item.url; 
+          nativeAudio.loop = false; // Streaming ke liye loop hatana zaroori hai
           nativeAudio.play().then(() => { 
               isPlaying = true; updatePlayBtn(); setupMediaSession(item);
           }).catch(() => showToast("Tap play to start"));
@@ -329,7 +351,13 @@
           if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); 
       } 
       else if (activeType === 'youtube' && ytPlayer) { 
-          if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); 
+          if (isPlaying) {
+              ytPlayer.pauseVideo();
+              nativeAudio.pause(); // Pause Silent Hack too
+          } else {
+              ytPlayer.playVideo();
+              nativeAudio.play().catch(()=>{}); // Resume Silent Hack
+          }
       }
   }));
 
@@ -353,18 +381,27 @@
       if(miniTitle) miniTitle.textContent = `${title} • ${sub}`; 
   }
 
+  // Native Audio Event Listeners (For direct streams)
   nativeAudio.addEventListener('play',  () => { 
-      isPlaying = true; updatePlayBtn(); 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
+      if(activeType === 'stream') {
+          isPlaying = true; updatePlayBtn(); 
+          if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime });
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+      }
   });
   nativeAudio.addEventListener('pause', () => { 
-      isPlaying = false; updatePlayBtn(); 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
+      if(activeType === 'stream') {
+          isPlaying = false; updatePlayBtn(); 
+          if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
+      }
   });
   nativeAudio.addEventListener('seeked', () => { 
-      if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
+      if (activeType === 'stream' && synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
   });
-  nativeAudio.addEventListener('ended', playNext);
+  nativeAudio.addEventListener('ended', () => {
+      if(activeType === 'stream') playNext();
+  });
 
   /* ── 💥 MEDIA SESSION API (THE LOCK SCREEN HACK) 💥 ── */
   function setupMediaSession(item) {
@@ -377,12 +414,18 @@
           });
 
           navigator.mediaSession.setActionHandler('play', () => { 
-              if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo(); 
+              if (activeType === 'youtube' && ytPlayer) {
+                  ytPlayer.playVideo(); 
+                  nativeAudio.play().catch(()=>{}); 
+              }
               else if (activeType === 'stream') nativeAudio.play();
           });
           
           navigator.mediaSession.setActionHandler('pause', () => { 
-              if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo(); 
+              if (activeType === 'youtube' && ytPlayer) {
+                  ytPlayer.pauseVideo(); 
+                  nativeAudio.pause();
+              }
               else if (activeType === 'stream') nativeAudio.pause();
           });
           
