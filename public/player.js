@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
    💥 MAJOR FIX: Fullscreen Lag Killer & M-Zix Multi-Mirror Engine
+   🔥 NEW: RapidAPI YouTube-to-MP3 Integrated for Music Tab
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -61,7 +62,7 @@
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
-  let activeType      = 'none'; 
+  let activeType      = 'none'; // 'youtube', 'stream', 'youtube_audio'
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
@@ -157,6 +158,23 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
+  /* ── RAPID API MP3 FETCHER ──────────────────────────────── */
+  async function fetchRapidApiAudio(ytId) {
+      const url = `https://youtube-mp36.p.rapidapi.com/dl?id=${ytId}`;
+      const options = {
+          method: 'GET',
+          headers: {
+              'x-rapidapi-key': '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be',
+              'x-rapidapi-host': 'youtube-mp36.p.rapidapi.com'
+          }
+      };
+      try {
+          const response = await fetch(url, options);
+          const result = await response.json();
+          return result.link || result.url || result.downloadUrl || result.download;
+      } catch (error) { return null; }
+  }
+
   /* ── TAB 0: URL / LIBRARIAN ─────────────────────── */
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
@@ -184,7 +202,7 @@
   /* ── THE API KEY ── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
-  /* ── TAB 1: OFFICIAL YOUTUBE SEARCH ───────────────── */
+  /* ── TAB 1: OFFICIAL YOUTUBE SEARCH (CINEMA MODE) ────────── */
   ytAddBtn.addEventListener('click', () => { 
     const val = ytInput.value.trim(); if (!val) return; 
     if (isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
@@ -204,23 +222,24 @@
               <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/>
               <div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div>
             `;
+            // Adds as 'youtube' for Cinema Mode Iframe
             div.onclick = () => addToQueue({ type: 'youtube', title: vid.snippet.title, ytId: vid.id.videoId });
             ytSearchResults.appendChild(div);
         });
       }).catch(() => ytSearchResults.innerHTML = '<p class="mp-empty">Error searching YouTube. Check API Key quota.</p>');
     ytInput.value = ''; 
   });
+  
   if(ytInput) ytInput.addEventListener('keydown', e => { if(e.key==='Enter') ytAddBtn.click(); });
   if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
   if(urlInput) urlInput.addEventListener('keydown', e => { if(e.key==='Enter') urlAddBtn.click(); });
 
-  /* ── 💥 TAB 2: M-ZIX ENGINE (JIOSAAVN DIRECT API) 💥 ── */
+  /* ── 💥 TAB 2: M-ZIX ENGINE & API AUDIO FALLBACK 💥 ── */
   async function searchMzixGlobal(query) {
       if(!query) return;
       spSearchResults.innerHTML = '<p class="mp-empty">🔍 Searching Global Music...</p>';
       episodesOverlaySp.classList.remove('hidden');
 
-      // JioSaavn mirrors — huge Bollywood + international library
       const SAAVN_APIS = [
           `https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=20`,
           `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodeURIComponent(query)}`,
@@ -248,7 +267,6 @@
                   
                   let audioLink = '';
                   if(song.downloadUrl && Array.isArray(song.downloadUrl)) {
-                      // Prefer highest quality
                       audioLink = song.downloadUrl.find(d=>d.quality==='320kbps')?.url 
                                || song.downloadUrl.slice(-1)[0]?.url 
                                || song.downloadUrl[0]?.url || '';
@@ -285,8 +303,8 @@
       }
 
       if(!success) {
-          // Fallback: search YouTube for music
-          spSearchResults.innerHTML = '<p class="mp-empty">JioSaavn unavailable. Falling back to YouTube Music...</p>';
+          // Fallback: search YouTube for music, but play via RapidAPI MP3!
+          spSearchResults.innerHTML = '<p class="mp-empty">JioSaavn unavailable. Pulling MP3 from YouTube...</p>';
           setTimeout(() => {
               fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query+' audio')}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`)
                 .then(r=>r.json()).then(data=>{
@@ -295,7 +313,8 @@
                   data.items.forEach(vid=>{
                       const div=document.createElement('div'); div.className='yt-search-item';
                       div.innerHTML=`<img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="border-radius:50%;"/><div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
-                      div.onclick=()=>addToQueue({type:'youtube', title:vid.snippet.title, ytId:vid.id.videoId, thumb:vid.snippet.thumbnails.high?.url||vid.snippet.thumbnails.medium.url, isMzix:true});
+                      // 🔥 MAGICAL SWITCH: 'youtube_audio' tells player to fetch MP3 instead of showing video
+                      div.onclick=()=>addToQueue({type:'youtube_audio', title:vid.snippet.title, ytId:vid.id.videoId, thumb:vid.snippet.thumbnails.high?.url||vid.snippet.thumbnails.medium.url});
                       spSearchResults.appendChild(div);
                   });
               }).catch(()=>{ spSearchResults.innerHTML='<p class="mp-empty">All sources failed. Check internet.</p>'; });
@@ -326,7 +345,7 @@
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div'); el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = item.isMzix ? '🎧' : (item.type === 'stream' ? '☁️' : '▶'); 
+      let icon = (item.isMzix || item.type === 'youtube_audio') ? '🎧' : (item.type === 'stream' ? '☁️' : '🎬'); 
       el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
@@ -350,55 +369,93 @@
     nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
     if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+    isPlaying = false; updatePlayBtn();
     
+    // 🎬 MODE 1: CINEMA (IFRAME)
     if (item.type === 'youtube') {
       activeType = 'youtube';
       spotifyMode.classList.add('hidden'); cinemaMode.classList.remove('hidden');
       ytFrameWrap.style.display = 'block';
       if (isYtReady) ytPlayer.loadVideoById(item.ytId); else setTimeout(() => renderMedia(item), 500);
-      setTrackInfo(item.title, 'YouTube Video');
+      setTrackInfo(item.title, 'YouTube Cinema Mode');
+      setupMediaSession(item);
     } 
+    // 🎧 MODE 2: YOUTUBE MP3 AUDIO (RAPID API)
+    else if (item.type === 'youtube_audio') {
+      activeType = 'youtube_audio';
+      cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
+      ensureVisualizer(item);
+      
+      setTrackInfo(item.title, 'Extracting Background Audio...');
+      showToast('Fetching MP3 from server...');
+
+      fetchRapidApiAudio(item.ytId).then(mp3Link => {
+          if(mp3Link) {
+              setTrackInfo(item.title, 'ZeroX Audio API');
+              setupMediaSession(item);
+              nativeAudio.src = mp3Link;
+              nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
+          } else {
+              setTrackInfo(item.title, 'Audio Fetch Failed');
+              showToast('API Error: Could not extract MP3.');
+          }
+      });
+    }
+    // ☁️ MODE 3: M-ZIX / CLOUD STREAM
     else if (item.type === 'stream') {
       activeType = 'stream'; 
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
-      // Ensure visualizer bars exist
-      if(!document.querySelector('.music-visualizer')) {
-          const viz = document.createElement('div'); viz.className='music-visualizer'; viz.id='visualizer';
-          viz.innerHTML='<div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>';
-          vinylRecord.parentNode.insertBefore(viz, vinylRecord.nextSibling);
-      }
-      // Update vinyl art
-      vinylRecord.style.backgroundImage = `url('${item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg'}')`;
-      vinylRecord.style.backgroundSize = 'cover';
-      vinylRecord.style.backgroundPosition = 'center';
-      // Setup media session for lock screen
-      if('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = new MediaMetadata({
-              title: item.title,
-              artist: item.isMzix ? 'ZeroX Global' : 'ZeroX Hub',
-              artwork: [{ src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes:'512x512', type:'image/jpeg' }]
-          });
-          navigator.mediaSession.setActionHandler('play',  () => nativeAudio.play());
-          navigator.mediaSession.setActionHandler('pause', () => nativeAudio.pause());
-          navigator.mediaSession.setActionHandler('previoustrack', playPrev);
-          navigator.mediaSession.setActionHandler('nexttrack',     playNext);
-      }
+      ensureVisualizer(item);
+      setupMediaSession(item);
+      
       nativeAudio.src = item.url; 
       nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
       setTrackInfo(item.title, item.isMzix ? '🎵 Global Stream' : '☁️ Audio');
     }
   }
 
+  function ensureVisualizer(item) {
+      if(!document.querySelector('.music-visualizer')) {
+          const viz = document.createElement('div'); viz.className='music-visualizer'; viz.id='visualizer';
+          viz.innerHTML='<div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>';
+          vinylRecord.parentNode.insertBefore(viz, vinylRecord.nextSibling);
+      }
+      vinylRecord.style.backgroundImage = `url('${item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg'}')`;
+      vinylRecord.style.backgroundSize = 'cover';
+      vinylRecord.style.backgroundPosition = 'center';
+  }
+
+  function setupMediaSession(item) {
+      if('mediaSession' in navigator) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+              title: item.title,
+              artist: item.isMzix ? 'ZeroX Global' : 'ZeroX Hub',
+              artwork: [{ src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes:'512x512', type:'image/jpeg' }]
+          });
+          navigator.mediaSession.setActionHandler('play',  () => {
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo(); else nativeAudio.play();
+          });
+          navigator.mediaSession.setActionHandler('pause', () => {
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo(); else nativeAudio.pause();
+          });
+          navigator.mediaSession.setActionHandler('previoustrack', playPrev);
+          navigator.mediaSession.setActionHandler('nexttrack',     playNext);
+      }
+  }
+
   /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
-    if (activeType === 'stream') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
-    else if (activeType === 'youtube' && ytPlayer) { if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); }
+    if (activeType === 'stream' || activeType === 'youtube_audio') { 
+        if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); 
+    } else if (activeType === 'youtube' && ytPlayer) { 
+        if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); 
+    }
   }));
 
   function updatePlayBtn() { 
     mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
     const vis = document.getElementById('visualizer') || document.querySelector('.music-visualizer');
-    if (isPlaying && activeType === 'stream') {
+    if (isPlaying && (activeType === 'stream' || activeType === 'youtube_audio')) {
       vinylRecord.classList.add('playing');
       if(vis) vis.classList.add('playing');
     } else {
@@ -436,7 +493,7 @@
            setTimeout(() => {
               let curTime = 0; 
               if (activeType === 'youtube' && ytPlayer && isYtReady) curTime = ytPlayer.getCurrentTime(); 
-              else if (activeType === 'stream') curTime = nativeAudio.currentTime;
+              else if (activeType === 'stream' || activeType === 'youtube_audio') curTime = nativeAudio.currentTime;
               broadcastSync({ action: isPlaying ? 'play' : 'pause', time: curTime });
            }, 1500); 
       } return;
@@ -454,7 +511,7 @@
       if (data.action === 'play') { ytPlayer.seekTo(data.time, true); ytPlayer.playVideo(); }
       if (data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.time, true); }
       if (data.action === 'seek') { ytPlayer.seekTo(data.time, true); }
-    } else if (activeType === 'stream') {
+    } else if (activeType === 'stream' || activeType === 'youtube_audio') {
       if (data.action === 'play') { if(Math.abs(nativeAudio.currentTime - data.time) > 1) nativeAudio.currentTime = data.time; nativeAudio.play().catch(()=>{}); }
       if (data.action === 'pause') { nativeAudio.currentTime = data.time; nativeAudio.pause(); }
       if (data.action === 'seek') { nativeAudio.currentTime = data.time; }
