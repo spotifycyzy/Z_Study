@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   💥 MAJOR FIX: Fullscreen Lag Killer & Smooth UI
-   🔥 NEW: Cinema Mode (Iframe) & Music Mode (RapidAPI MP3)
-   🗑️ REMOVED: Unstable JioSaavn/M-Zix Mirrors
+   💥 MAJOR FIX: "API Quota Saver" for Deep Sync Network
+   🔥 1 API Call for Unlimited Synced Users!
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -63,7 +62,7 @@
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
-  let activeType      = 'none'; // 'youtube', 'stream', 'youtube_audio'
+  let activeType      = 'none'; 
   let isPlaying       = false;
   let ytPlayer        = null; 
   let isYtReady       = false;
@@ -77,43 +76,28 @@
   }
 
   /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
-  let startY = 0;
-  let isPanelOpen = false;
-  
+  let startY = 0; let isPanelOpen = false;
   function openPanel() {
-    if(isPanelOpen) return;
-    isPanelOpen = true;
-    panel.classList.add('zx-open');
-    document.body.style.overflow = 'hidden'; 
+    if(isPanelOpen) return; isPanelOpen = true;
+    panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
     if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   function closePanel() {
-    if(!isPanelOpen) return;
-    isPanelOpen = false;
-    panel.classList.remove('zx-open');
-    document.body.style.overflow = ''; 
+    if(!isPanelOpen) return; isPanelOpen = false;
+    panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
     if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
   handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-  handle.addEventListener('touchmove', (e) => {
-    if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel();
-  }, {passive: true});
-
+  handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
   if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
-  handle.addEventListener('click', (e) => {
-    if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; 
-    isPanelOpen ? closePanel() : openPanel();
-  });
+  handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
   if (closeHandle) {
     closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
     closeHandle.addEventListener('touchmove', (e) => { if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel(); }, {passive: true});
     closeHandle.addEventListener('click', closePanel);
   }
-
-  panel.addEventListener('touchmove', (e) => {
-    if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); }
-  }, { passive: false });
+  panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
   document.querySelectorAll('.mp-tab').forEach(tab => {
@@ -176,7 +160,6 @@
       } catch (error) { return null; }
   }
 
-  /* ── YOUTUBE API KEY ── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
   /* ── UNIVERSAL SEARCH FUNCTION ─────────────────────────── */
@@ -205,8 +188,8 @@
                   </div>
                   <span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>
                 `;
-                // Assigns 'youtube' (Cinema) OR 'youtube_audio' (MP3 Music) based on the tab used
                 div.onclick = () => {
+                    // Start fresh without a cachedUrl
                     addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
                     showToast('🎵 Added to queue!');
                 };
@@ -215,11 +198,9 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check API quota.</p>');
   }
 
-  /* ── TAB BINDINGS ─────────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
       const val = ytInput.value.trim(); if(isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
-      searchYouTube(val, 'ytSearchResults', 'youtube'); 
-      ytInput.value = ''; 
+      searchYouTube(val, 'ytSearchResults', 'youtube'); ytInput.value = ''; 
   };
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'youtube_audio'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'youtube_audio'); spInput.value = ''; };
@@ -232,18 +213,6 @@
     const val = urlInput.value.trim(); if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; }
     else if (val.startsWith('http')) { addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); urlInput.value = ''; }
-    else {
-        showToast(`🔍 Fetching episodes for: ${val}`);
-        dynamicEpListUrl.innerHTML = ''; 
-        let mockEpisodes = [ { title: `${val} - Ep 1`, url: "mock1" }, { title: `${val} - Ep 2`, url: "mock2" } ];
-        mockEpisodes.forEach(ep => {
-            const div = document.createElement('div');
-            div.className = 'ep-item'; div.innerHTML = `<span>${ep.title}</span> <span class="ep-play-icon">▶</span>`;
-            div.onclick = () => showToast(`Loaded ${ep.title}`);
-            dynamicEpListUrl.appendChild(div);
-        });
-        episodesOverlayUrl.classList.remove('hidden'); urlInput.value = '';
-    }
   });
 
   if(fileInput) fileInput.addEventListener('change', () => {
@@ -251,13 +220,10 @@
     addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
   });
 
-  /* ── URL CHECKERS ─────────────────────────────────── */
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
-  
   function loadYouTube(url) {
-    const id = extractYouTubeId(url);
-    if (!id) { showToast('❌ Invalid YouTube link!'); return; }
+    const id = extractYouTubeId(url); if (!id) { showToast('❌ Invalid YouTube link!'); return; }
     addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id });
   }
 
@@ -280,7 +246,13 @@
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return; currentIdx = i; saveQueue(); renderQueue(); const item = queue[i];
     const isBlob = item.url && item.url.startsWith('blob:');
-    if (synced && !isRemoteAction && !isBlob) { broadcastSync({ action: 'change_song', item: item }); }
+    
+    // 🛑 API SAVER: Do NOT broadcast immediately if it's youtube_audio (wait for API fetch first)
+    if (synced && !isRemoteAction && !isBlob) { 
+        if (item.type !== 'youtube_audio' || item.cachedUrl) {
+            broadcastSync({ action: 'change_song', item: item }); 
+        }
+    }
     renderMedia(item);
   }
 
@@ -311,20 +283,36 @@
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
       ensureVisualizer(item);
       
-      setTrackInfo(item.title, 'Extracting Background Audio...');
-      showToast('Fetching MP3 from server...');
+      // 🤑 API QUOTA SAVER LOGIC
+      if (item.cachedUrl) {
+          // If another user fetched it and shared it, skip the API call!
+          setTrackInfo(item.title, '🔗 Shared Sync Stream');
+          setupMediaSession(item);
+          nativeAudio.src = item.cachedUrl;
+          nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
+      } else {
+          setTrackInfo(item.title, 'Extracting Background Audio...');
+          showToast('Fetching MP3 from server...');
 
-      fetchRapidApiAudio(item.ytId).then(mp3Link => {
-          if(mp3Link) {
-              setTrackInfo(item.title, 'ZeroX Audio API');
-              setupMediaSession(item);
-              nativeAudio.src = mp3Link;
-              nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
-          } else {
-              setTrackInfo(item.title, 'Audio Fetch Failed');
-              showToast('API Error: Could not extract MP3.');
-          }
-      });
+          fetchRapidApiAudio(item.ytId).then(mp3Link => {
+              if(mp3Link) {
+                  item.cachedUrl = mp3Link; // Save link to avoid re-fetching
+                  
+                  // 🔥 Broadcast the direct link to ALL friends in the room
+                  if (synced && !isRemoteAction) {
+                      broadcastSync({ action: 'change_song', item: item });
+                  }
+
+                  setTrackInfo(item.title, 'ZeroX Audio API');
+                  setupMediaSession(item);
+                  nativeAudio.src = mp3Link;
+                  nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
+              } else {
+                  setTrackInfo(item.title, 'Audio Fetch Failed');
+                  showToast('API Error: Could not extract MP3.');
+              }
+          });
+      }
     }
     // ☁️ MODE 3: CLOUD STREAM
     else if (item.type === 'stream') {
@@ -353,16 +341,11 @@
   function setupMediaSession(item) {
       if('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
-              title: item.title,
-              artist: 'ZeroX Hub',
+              title: item.title, artist: 'ZeroX Hub',
               artwork: [{ src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes:'512x512', type:'image/jpeg' }]
           });
-          navigator.mediaSession.setActionHandler('play',  () => {
-              if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo(); else nativeAudio.play();
-          });
-          navigator.mediaSession.setActionHandler('pause', () => {
-              if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo(); else nativeAudio.pause();
-          });
+          navigator.mediaSession.setActionHandler('play',  () => { if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo(); else nativeAudio.play(); });
+          navigator.mediaSession.setActionHandler('pause', () => { if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo(); else nativeAudio.pause(); });
           navigator.mediaSession.setActionHandler('previoustrack', playPrev);
           navigator.mediaSession.setActionHandler('nexttrack',     playNext);
       }
@@ -381,11 +364,9 @@
     mpPlays.forEach(btn => btn.textContent = isPlaying ? '⏸' : '▶'); 
     const vis = document.getElementById('visualizer') || document.querySelector('.music-visualizer');
     if (isPlaying && (activeType === 'stream' || activeType === 'youtube_audio')) {
-      vinylRecord.classList.add('playing');
-      if(vis) vis.classList.add('playing');
+      vinylRecord.classList.add('playing'); if(vis) vis.classList.add('playing');
     } else {
-      vinylRecord.classList.remove('playing');
-      if(vis) vis.classList.remove('playing');
+      vinylRecord.classList.remove('playing'); if(vis) vis.classList.remove('playing');
     }
   }
   function setTrackInfo(title, sub) { musicTitle.textContent = title; musicArtist.textContent = sub; miniTitle.textContent = `${title} • ${sub}`; }
@@ -428,8 +409,14 @@
 
     if (data.action === 'change_song') {
       let idx = queue.findIndex(q => q.title && q.title === data.item.title);
-      if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
-      currentIdx = idx; saveQueue(); renderQueue(); renderMedia(data.item); return;
+      if (idx === -1) { 
+          queue.push(data.item); 
+          idx = queue.length - 1; 
+      } else {
+          // 🛑 UPDATE EXISTING ITEM WITH NEW CACHED URL FROM HOST!
+          queue[idx] = data.item; 
+      }
+      currentIdx = idx; saveQueue(); renderQueue(); renderMedia(queue[idx]); return;
     }
 
     if (activeType === 'youtube' && ytPlayer && isYtReady) {
