@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE)
-   💥 MAJOR FIX: Fullscreen Lag Killer & M-Zix Multi-Mirror Engine
-   🔥 NEW: RapidAPI YouTube-to-MP3 Integrated for Music Tab
+   💥 MAJOR FIX: Fullscreen Lag Killer & Smooth UI
+   🔥 NEW: Cinema Mode (Iframe) & Music Mode (RapidAPI MP3)
+   🗑️ REMOVED: Unstable JioSaavn/M-Zix Mirrors
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -175,7 +176,58 @@
       } catch (error) { return null; }
   }
 
-  /* ── TAB 0: URL / LIBRARIAN ─────────────────────── */
+  /* ── YOUTUBE API KEY ── */
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
+
+  /* ── UNIVERSAL SEARCH FUNCTION ─────────────────────────── */
+  function searchYouTube(query, targetResultsDiv, mediaType) {
+      if (!query) return;
+      const resDiv = document.getElementById(targetResultsDiv);
+      if(!resDiv) return;
+      
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
+      if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
+      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
+        .then(res => res.json())
+        .then(data => {
+            resDiv.innerHTML = '';
+            if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+
+            data.items.forEach(vid => {
+                const div = document.createElement('div'); div.className = 'yt-search-item';
+                div.innerHTML = `
+                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/>
+                  <div class="yt-search-info">
+                    <div class="yt-search-title">${vid.snippet.title}</div>
+                    <div class="yt-search-sub">${vid.snippet.channelTitle}</div>
+                  </div>
+                  <span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>
+                `;
+                // Assigns 'youtube' (Cinema) OR 'youtube_audio' (MP3 Music) based on the tab used
+                div.onclick = () => {
+                    addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
+                    showToast('🎵 Added to queue!');
+                };
+                resDiv.appendChild(div);
+            });
+        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check API quota.</p>');
+  }
+
+  /* ── TAB BINDINGS ─────────────────────── */
+  if(ytAddBtn) ytAddBtn.onclick = () => { 
+      const val = ytInput.value.trim(); if(isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
+      searchYouTube(val, 'ytSearchResults', 'youtube'); 
+      ytInput.value = ''; 
+  };
+  if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'youtube_audio'); spInput.value = ''; };
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchYouTube(spInput.value.trim(), 'spSearchResults', 'youtube_audio'); spInput.value = ''; };
+
+  if(ytInput) ytInput.addEventListener('keydown', e => { if(e.key==='Enter') ytAddBtn.click(); });
+  if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
+  if(urlInput) urlInput.addEventListener('keydown', e => { if(e.key==='Enter') urlAddBtn.click(); });
+
   urlAddBtn.addEventListener('click', () => {
     const val = urlInput.value.trim(); if (!val) return;
     if (isYouTubeUrl(val)) { loadYouTube(val); urlInput.value = ''; }
@@ -199,133 +251,6 @@
     addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
   });
 
-  /* ── THE API KEY ── */
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
-
-  /* ── TAB 1: OFFICIAL YOUTUBE SEARCH (CINEMA MODE) ────────── */
-  ytAddBtn.addEventListener('click', () => { 
-    const val = ytInput.value.trim(); if (!val) return; 
-    if (isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
-    
-    ytSearchResults.innerHTML = '<p class="mp-empty">Searching Official YouTube...</p>';
-    episodesOverlayYt.classList.remove('hidden'); 
-    
-    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(val)}&type=video&key=${YOUTUBE_API_KEY}`)
-      .then(res => res.json())
-      .then(data => {
-        ytSearchResults.innerHTML = '';
-        if(!data.items || data.items.length === 0) { ytSearchResults.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-        
-        data.items.forEach(vid => {
-            const div = document.createElement('div'); div.className = 'yt-search-item';
-            div.innerHTML = `
-              <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/>
-              <div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div>
-            `;
-            // Adds as 'youtube' for Cinema Mode Iframe
-            div.onclick = () => addToQueue({ type: 'youtube', title: vid.snippet.title, ytId: vid.id.videoId });
-            ytSearchResults.appendChild(div);
-        });
-      }).catch(() => ytSearchResults.innerHTML = '<p class="mp-empty">Error searching YouTube. Check API Key quota.</p>');
-    ytInput.value = ''; 
-  });
-  
-  if(ytInput) ytInput.addEventListener('keydown', e => { if(e.key==='Enter') ytAddBtn.click(); });
-  if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
-  if(urlInput) urlInput.addEventListener('keydown', e => { if(e.key==='Enter') urlAddBtn.click(); });
-
-  /* ── 💥 TAB 2: M-ZIX ENGINE & API AUDIO FALLBACK 💥 ── */
-  async function searchMzixGlobal(query) {
-      if(!query) return;
-      spSearchResults.innerHTML = '<p class="mp-empty">🔍 Searching Global Music...</p>';
-      episodesOverlaySp.classList.remove('hidden');
-
-      const SAAVN_APIS = [
-          `https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=20`,
-          `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodeURIComponent(query)}`,
-          `https://saavn.me/search/songs?query=${encodeURIComponent(query)}`
-      ];
-
-      let success = false;
-
-      for (let apiUrl of SAAVN_APIS) {
-          try {
-              let res = await fetch(apiUrl, { signal: AbortSignal.timeout(6000) });
-              if(!res.ok) continue;
-              let json = await res.json();
-              
-              let items = json?.data?.results || json?.data || json?.results;
-              if(!items || items.length === 0) continue;
-
-              spSearchResults.innerHTML = '';
-              let rendered = 0;
-              items.forEach(song => {
-                  let thumb = '';
-                  if(song.image && Array.isArray(song.image)) {
-                      thumb = song.image.find(i=>i.quality==='500x500')?.url || song.image.slice(-1)[0]?.url || '';
-                  }
-                  
-                  let audioLink = '';
-                  if(song.downloadUrl && Array.isArray(song.downloadUrl)) {
-                      audioLink = song.downloadUrl.find(d=>d.quality==='320kbps')?.url 
-                               || song.downloadUrl.slice(-1)[0]?.url 
-                               || song.downloadUrl[0]?.url || '';
-                  }
-                  
-                  let artistName = 'Unknown Artist';
-                  if(song.artists?.primary?.[0]) artistName = song.artists.primary.map(a=>a.name).join(', ');
-                  else if(song.primaryArtists) artistName = song.primaryArtists;
-
-                  if(!audioLink) return;
-                  rendered++;
-
-                  const div = document.createElement('div');
-                  div.className = 'yt-search-item';
-                  div.innerHTML = `
-                    <img src="${thumb||'https://i.imgur.com/8Q5FqWj.jpeg'}" class="yt-search-thumb" style="border-radius:50%; width:46px; height:46px;"/>
-                    <div class="yt-search-info">
-                      <div class="yt-search-title">${song.name||song.title||'Unknown'}</div>
-                      <div class="yt-search-sub">${artistName}</div>
-                    </div>
-                    <span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>
-                  `;
-                  div.onclick = () => {
-                      addToQueue({ type: 'stream', title: song.name||song.title||'Track', url: audioLink, thumb, isMzix: true });
-                      showToast('🎵 Added to queue!');
-                  };
-                  spSearchResults.appendChild(div);
-              });
-
-              if(rendered === 0) { spSearchResults.innerHTML = '<p class="mp-empty">No playable tracks found. Try another query.</p>'; }
-              success = true;
-              break;
-          } catch(e) { console.log('Mirror failed:', e.message); }
-      }
-
-      if(!success) {
-          // Fallback: search YouTube for music, but play via RapidAPI MP3!
-          spSearchResults.innerHTML = '<p class="mp-empty">JioSaavn unavailable. Pulling MP3 from YouTube...</p>';
-          setTimeout(() => {
-              fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query+' audio')}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`)
-                .then(r=>r.json()).then(data=>{
-                  if(!data.items?.length){ spSearchResults.innerHTML='<p class="mp-empty">No results. Check connection.</p>'; return; }
-                  spSearchResults.innerHTML='';
-                  data.items.forEach(vid=>{
-                      const div=document.createElement('div'); div.className='yt-search-item';
-                      div.innerHTML=`<img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="border-radius:50%;"/><div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
-                      // 🔥 MAGICAL SWITCH: 'youtube_audio' tells player to fetch MP3 instead of showing video
-                      div.onclick=()=>addToQueue({type:'youtube_audio', title:vid.snippet.title, ytId:vid.id.videoId, thumb:vid.snippet.thumbnails.high?.url||vid.snippet.thumbnails.medium.url});
-                      spSearchResults.appendChild(div);
-                  });
-              }).catch(()=>{ spSearchResults.innerHTML='<p class="mp-empty">All sources failed. Check internet.</p>'; });
-          }, 300);
-      }
-      spInput.value = '';
-  }
-
-  if(spSearchSongBtn) spSearchSongBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
-  if(spSearchPlaylistBtn) spSearchPlaylistBtn.addEventListener('click', () => searchMzixGlobal(spInput.value));
-
   /* ── URL CHECKERS ─────────────────────────────────── */
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
@@ -345,7 +270,7 @@
     queueList.innerHTML = '';
     queue.forEach((item, i) => {
       const el = document.createElement('div'); el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-      let icon = (item.isMzix || item.type === 'youtube_audio') ? '🎧' : (item.type === 'stream' ? '☁️' : '🎬'); 
+      let icon = item.type === 'youtube_audio' ? '🎧' : (item.type === 'stream' ? '☁️' : '🎬'); 
       el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
       el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } playQueueItem(i); };
       queueList.appendChild(el);
@@ -401,7 +326,7 @@
           }
       });
     }
-    // ☁️ MODE 3: M-ZIX / CLOUD STREAM
+    // ☁️ MODE 3: CLOUD STREAM
     else if (item.type === 'stream') {
       activeType = 'stream'; 
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
@@ -410,7 +335,7 @@
       
       nativeAudio.src = item.url; 
       nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
-      setTrackInfo(item.title, item.isMzix ? '🎵 Global Stream' : '☁️ Audio');
+      setTrackInfo(item.title, '☁️ Cloud Audio');
     }
   }
 
@@ -429,7 +354,7 @@
       if('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
               title: item.title,
-              artist: item.isMzix ? 'ZeroX Global' : 'ZeroX Hub',
+              artist: 'ZeroX Hub',
               artwork: [{ src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes:'512x512', type:'image/jpeg' }]
           });
           navigator.mediaSession.setActionHandler('play',  () => {
