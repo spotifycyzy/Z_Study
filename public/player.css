@@ -95,18 +95,13 @@
 
 /* ── 2. THE STEALTH PANEL ── */
 #zxPanel {
-  position: fixed; top: 52px; left: 0; width: 100%; height: auto; max-height: 78vh; 
+  position: fixed; top: 52px; left: 0; width: 100%; height: auto; max-height: 75vh; 
   background: #0d0008; z-index: 99999; color: #fff; display: flex; flex-direction: column;
-  transform: translateY(calc(-100% - 60px)); 
-  transition: transform 0.42s cubic-bezier(0.25, 1, 0.5, 1);
+  transform: translateY(calc(-100% - 52px)); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); 
-  border-bottom: 1px solid rgba(232,67,106,0.3);
-  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 40px rgba(232,67,106,0.1); border-bottom: 1px solid rgba(232, 67, 106, 0.3);
 }
-/* zx-closed = explicitly hidden (handles HTML class) */
-#zxPanel.zx-closed { transform: translateY(calc(-100% - 60px)); }
-#zxPanel.zx-open   { transform: translateY(0) !important; }
+#zxPanel.zx-open { transform: translateY(0); }
 #closeHandle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; flex-shrink: 0; }
 .close-bar-line { width: 50px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; }
 
@@ -148,99 +143,32 @@ iframe:fullscreen { border-radius: 0 !important; width: 100vw !important; height
 .premium-thumb.playing { transform: scale(1.06); box-shadow: 0 15px 35px rgba(0,0,0,0.9), 0 0 30px rgba(232, 67, 106, 0.5); }
 
 /* The Dynamic Audio Bars */
-/* ══════════════════════════════════════════════════════
-   VINYL RECORD — spinning disc with album art + glow
-══════════════════════════════════════════════════════ */
-.vinyl-record {
-  width: 160px; height: 160px;
-  border-radius: 50%;
-  background: #111 center/cover no-repeat url('https://i.imgur.com/8Q5FqWj.jpeg');
-  position: relative;
-  box-shadow: 
-    0 0 0 4px #1a0010,
-    0 0 0 8px rgba(232,67,106,0.3),
-    0 0 30px rgba(232,67,106,0.25),
-    0 8px 32px rgba(0,0,0,0.8);
-  margin-bottom: 16px;
-  flex-shrink: 0;
-  transition: box-shadow 0.4s ease;
-}
-/* Vinyl grooves overlay */
-.vinyl-record::before {
-  content: '';
-  position: absolute; inset: 0; border-radius: 50%;
-  background: repeating-radial-gradient(
-    circle at center,
-    transparent 0px, transparent 6px,
-    rgba(0,0,0,0.15) 6px, rgba(0,0,0,0.15) 7px
-  );
-  z-index: 1;
-}
-/* Center hole */
-.vinyl-record::after {
-  content: '';
-  position: absolute; top:50%; left:50%;
-  transform: translate(-50%,-50%);
-  width: 18px; height: 18px; border-radius: 50%;
-  background: radial-gradient(circle, #2a0018 60%, #E8436A 100%);
-  box-shadow: 0 0 6px rgba(232,67,106,0.6);
-  z-index: 2;
-}
-/* Playing state — spin + stronger glow */
-.vinyl-record.playing {
-  animation: vinylSpin 3s linear infinite;
-  box-shadow:
-    0 0 0 4px #1a0010,
-    0 0 0 8px rgba(232,67,106,0.5),
-    0 0 40px rgba(232,67,106,0.5),
-    0 0 70px rgba(194,0,95,0.3),
-    0 8px 32px rgba(0,0,0,0.8);
-}
-@keyframes vinylSpin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* ── AUDIO BARS (shown below vinyl while playing) ── */
 .music-visualizer {
-  display: flex; align-items: flex-end; justify-content: center; gap: 4px;
-  height: 36px; width: 120px; margin: 4px auto 0;
+  display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 40px; width: 100%;
 }
 .bar {
-  width: 6px;
-  background: linear-gradient(to top, #C2005F, #E8436A, #FFB5C8);
-  border-radius: 3px; transform-origin: bottom; will-change: transform;
-  animation: bounceBar 1.1s ease-in-out infinite alternate;
-  box-shadow: 0 0 4px rgba(232,67,106,0.5);
+  width: 8px; background: linear-gradient(to top, #C2005F, #E8436A, #FFB5C8);
+  border-radius: 4px; transform-origin: bottom; will-change: transform;
+  animation: bounceBar 1.2s ease-in-out infinite alternate;
 }
-.music-visualizer:not(.playing) .bar { 
-  animation-play-state: paused; 
-  transform: scaleY(0.12) !important; 
-  transition: transform 0.4s ease; 
-  opacity: 0.4;
-}
-.music-visualizer.playing .bar { animation-play-state: running; opacity: 1; }
+.music-visualizer:not(.playing) .bar { animation-play-state: paused; transform: scaleY(0.15) !important; transition: transform 0.3s ease; }
+.music-visualizer.playing .bar { animation-play-state: running; }
 
-.bar:nth-child(1) { animation-duration: 0.65s; animation-delay: 0.05s; }
-.bar:nth-child(2) { animation-duration: 0.85s; animation-delay: 0.35s; }
-.bar:nth-child(3) { animation-duration: 0.55s; animation-delay: 0.00s; }
-.bar:nth-child(4) { animation-duration: 0.75s; animation-delay: 0.25s; }
-.bar:nth-child(5) { animation-duration: 0.95s; animation-delay: 0.15s; }
+/* Staggering the bars for realistic beat effect */
+.bar:nth-child(1) { animation-duration: 0.7s; animation-delay: 0.1s; }
+.bar:nth-child(2) { animation-duration: 0.9s; animation-delay: 0.4s; }
+.bar:nth-child(3) { animation-duration: 0.6s; animation-delay: 0.0s; }
+.bar:nth-child(4) { animation-duration: 0.8s; animation-delay: 0.3s; }
+.bar:nth-child(5) { animation-duration: 1.0s; animation-delay: 0.2s; }
 
 @keyframes bounceBar {
-  0%   { transform: scaleY(0.12); }
+  0%   { transform: scaleY(0.15); }
   100% { transform: scaleY(1); }
 }
 
 .music-info { text-align: center; margin-top: 10px; }
-.music-info h2 { 
-  font-size: 16px; font-weight: 700; 
-  background: linear-gradient(90deg, #fff, #FFB5C8); 
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 240px; margin: 0 auto;
-}
-.music-info p { color: #aaa; font-size: 12px; margin-top: 3px; }
+.music-info h2 { font-size: 18px; font-weight: 700; background: linear-gradient(90deg, #fff, #FFB5C8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.music-info p { color: #aaa; font-size: 13px; margin-top: 4px; }
 .hidden { display: none !important; }
 
 /* Tabs */
