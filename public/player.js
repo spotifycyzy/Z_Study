@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL CODE EXPANDED)
-   💥 FIXED FOR REAL: Safe String Concatenation for Cobalt URL
+   💥 GOD MODE: Powered by Private Render Server
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -210,7 +210,7 @@
   /* ── THE API KEY ── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
-  /* ── TAB 1 & 2: OFFICIAL YOUTUBE SEARCH FOR COBALT ───────────────── */
+  /* ── TAB 1 & 2: OFFICIAL YOUTUBE SEARCH ───────────────── */
   function searchYouTubeForCobalt(query, targetResultsDiv, type) {
       if (!query) return; 
       if (isYouTubeUrl(query)) { loadYouTube(query); return; }
@@ -337,40 +337,6 @@
   mpNexts.forEach(b => b.addEventListener('click', playNext));
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
 
-  /* ── 💥 THE COBALT API ENGINE (🔥 100% FIXED URL USING STRING CONCATENATION 🔥) 💥 ── */
-  async function fetchCobaltAudio(ytId) {
-      const COBALT_INSTANCES = [
-          'https://api.cobalt.tools/api/json',
-          'https://co.wuk.sh/api/json',
-          'https://cobalt.qewertyy.dev/api/json'
-      ];
-      
-      // Explicitly building the clean Official YouTube URL for Cobalt to parse
-      const targetUrl = 'https://www.youtube.com/watch?v=' + ytId;
-
-      for(let url of COBALT_INSTANCES) {
-          try {
-              let res = await fetch(url, {
-                  method: 'POST',
-                  headers: { 
-                      'Accept': 'application/json', 
-                      'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify({ 
-                      url: targetUrl, 
-                      isAudioOnly: true,
-                      aFormat: "mp3"
-                  })
-              });
-              let data = await res.json();
-              if(data && data.url) return data.url;
-          } catch(e) { 
-              console.log("Cobalt mirror failed, trying next..."); 
-          }
-      }
-      throw new Error("All extractors failed");
-  }
-
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
       nativeAudio.style.display = 'none'; 
@@ -405,23 +371,24 @@
           }
           setTrackInfo(item.title, 'YouTube Video');
       } 
-      // Tab 2: Cobalt Global Audio Stream (Pure Audio)
+      // Tab 2: ZeroX Private Server Stream (Audio Only)
       else if (item.type === 'cobalt_audio') {
           activeType = 'stream';
           cinemaMode.classList.add('hidden'); 
           spotifyMode.classList.remove('hidden');
           
           if(thumb) thumb.src = item.thumb;
-          setTrackInfo(item.title, 'Global Stream');
-          showToast('Extracting HD Audio...');
+          setTrackInfo(item.title, 'ZeroX Private Server');
+          showToast('Fetching from Private Server...');
 
-          fetchCobaltAudio(item.ytId).then(audioUrl => {
-              nativeAudio.src = audioUrl;
-              nativeAudio.play().then(() => { 
-                  isPlaying = true; 
-                  updatePlayBtn(); 
-              }).catch(() => showToast("Tap play to start"));
-          }).catch(() => showToast('Extraction error. Try another song.'));
+          // 🔥 TERA APNA DIRECT BULLETPROOF API LINK 🔥
+          const myServerLink = 'https://zx-muzic.onrender.com/stream?id=' + item.ytId;
+          
+          nativeAudio.src = myServerLink;
+          nativeAudio.play().then(() => { 
+              isPlaying = true; 
+              updatePlayBtn(); 
+          }).catch(() => showToast("Tap play to start"));
       }
       // Local / Direct Cloud Files
       else if (item.type === 'stream') {
