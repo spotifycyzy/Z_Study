@@ -1,11 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% COMPLETE EXPANDED EDITION)
-   💥 IMMORTAL MODE: Cloudflare Edge + Lock Screen + Deep Sync
+   ZEROX HUB — player.js (100% FULL UNCUT EDITION)
+   💥 GOD MODE: Official YouTube Iframe + Lock Screen + Deep Sync
 ═══════════════════════════════════════════════════════════ */
 'use strict';
-
-// 🛑 TERA CLOUDFLARE EDGE SERVER LINK 🛑
-const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev'; 
 
 (function () {
   /* ── DOM ELEMENTS ──────────────────────────────────────── */
@@ -14,13 +11,13 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
   const closeHandle = document.getElementById('closeHandle');
   const panelToggleBtn = document.getElementById('panelToggleBtn'); 
   
-  const nativeAudio = document.getElementById('nativeAudio');
+  const nativeAudio = document.getElementById('nativeAudio') || document.createElement('audio');
   const ytFrameWrap = document.getElementById('ytFrameWrap');
   
   const cinemaMode  = document.getElementById('cinemaMode');
   const spotifyMode = document.getElementById('spotifyMode');
   
-  // AUDIO VISUALIZER ELEMENTS
+  // VISUALIZER
   const streamThumb = document.getElementById('streamThumb') || createVisualizerUI();
   const visualizer  = document.getElementById('visualizer');
   
@@ -56,6 +53,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
   const episodesOverlaySp  = document.getElementById('episodesOverlaySp');
   const spSearchResults    = document.getElementById('spSearchResults');
 
+  // SYNC NETWORK ELEMENTS
   const mpSyncBadge = document.getElementById('mpSyncBadge');
   const mpSyncBtn   = document.getElementById('mpSyncBtn');
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
@@ -64,10 +62,9 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
 
-  /* ── 💥 DYNAMIC VISUALIZER UI 💥 ── */
   function createVisualizerUI() {
       const spMode = document.getElementById('spotifyMode');
-      if (spMode) {
+      if(spMode) {
           spMode.innerHTML = `
               <img id="streamThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" class="premium-thumb" />
               <div class="music-visualizer" id="visualizer">
@@ -95,19 +92,16 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2000); 
   }
 
-  /* ── 📱 FLAWLESS OPEN/CLOSE ENGINE ─────────────────────── */
+  /* ── 📱 PANEL ENGINE ─────────────────────── */
   let startY = 0; let isPanelOpen = false;
-  
   function openPanel() {
       if(isPanelOpen) return; isPanelOpen = true;
-      if(panel) panel.classList.add('zx-open'); 
-      document.body.style.overflow = 'hidden'; 
+      if(panel) panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; 
       if(panelToggleBtn) panelToggleBtn.classList.add('active');
   }
   function closePanel() {
       if(!isPanelOpen) return; isPanelOpen = false;
-      if(panel) panel.classList.remove('zx-open'); 
-      document.body.style.overflow = ''; 
+      if(panel) panel.classList.remove('zx-open'); document.body.style.overflow = ''; 
       if(panelToggleBtn) panelToggleBtn.classList.remove('active');
   }
 
@@ -116,16 +110,12 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
       handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
   }
-  
   if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
   
   if (closeHandle) {
       closeHandle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
       closeHandle.addEventListener('touchmove', (e) => { if(isPanelOpen && (startY - e.touches[0].clientY) > 15) closePanel(); }, {passive: true});
       closeHandle.addEventListener('click', closePanel);
-  }
-  if(panel) {
-      panel.addEventListener('touchmove', (e) => { if (isPanelOpen && !e.target.closest('.music-panel-inner')) { e.preventDefault(); } }, { passive: false });
   }
 
   /* ── TABS LOGIC ────────────────────────────────────────── */
@@ -141,7 +131,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
 
   function showToast(msg) {
       const t = document.createElement('div'); t.textContent = msg;
-      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;box-shadow: 0 0 15px rgba(232,67,106,0.5);';
+      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(232,67,106,0.95);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards;';
       document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
@@ -149,15 +139,50 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
   if(toggleListBtnYt && episodesOverlayYt) toggleListBtnYt.addEventListener('click', () => episodesOverlayYt.classList.toggle('hidden'));
   if(toggleListBtnSp && episodesOverlaySp) toggleListBtnSp.addEventListener('click', () => episodesOverlaySp.classList.toggle('hidden'));
 
-  /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
+  /* ── TAB 0: URL / LIBRARIAN ─────────────────────── */
+  if(urlAddBtn) {
+      urlAddBtn.addEventListener('click', () => {
+          const val = urlInput.value.trim(); if (!val) return;
+          if (isYouTubeUrl(val)) { 
+              addToQueue({ type: 'youtube', title: 'YouTube Audio', ytId: extractYouTubeId(val) }); 
+          } else {
+              addToQueue({ type: 'stream', title: 'Cloud Media', url: val }); 
+          }
+          urlInput.value = ''; 
+      });
+  }
+
+  if(fileInput) {
+      fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0]; 
+          if (!file) return;
+          addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
+      });
+  }
+
+  function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
+  function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
+
+  /* ── YOUTUBE ENGINE (HIDDEN IFRAME) ────────────────────── */
   const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function() {
       if(ytFrameWrap) {
           ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
+          
+          // Iframe Hidden for Audio focus, par DOM mein zinda hai
+          ytFrameWrap.style.position = 'absolute';
+          ytFrameWrap.style.width = '1px';
+          ytFrameWrap.style.height = '1px';
+          ytFrameWrap.style.opacity = '0';
+          ytFrameWrap.style.pointerEvents = 'none';
+
           ytPlayer = new YT.Player('ytPlayerInner', {
               width: '100%', height: '100%',
-              playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1, 'rel': 0 },
-              events: { 'onReady': () => { isYtReady = true; }, 'onStateChange': onPlayerStateChange }
+              playerVars: { 'autoplay': 1, 'controls': 0, 'playsinline': 1 },
+              events: { 
+                  'onReady': () => { isYtReady = true; }, 
+                  'onStateChange': onPlayerStateChange 
+              }
           });
       }
   };
@@ -178,20 +203,19 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── THE API KEY & SEARCH ENGINE ──────────────────────── */
+  /* ── OFFICIAL YOUTUBE SEARCH API ────────────────────────── */
   const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
-  function searchYouTubeForCobalt(query, targetResultsDiv, type) {
+  function searchYouTube(query, targetResultsDiv) {
       if (!query) return; 
-      
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">Searching Official Database...</p>'; 
+      resDiv.innerHTML = '<p class="mp-empty">Fetching Worldwide Library...</p>'; 
       if(targetResultsDiv === 'ytSearchResults' && episodesOverlayYt) episodesOverlayYt.classList.remove('hidden');
       if(targetResultsDiv === 'spSearchResults' && episodesOverlaySp) episodesOverlaySp.classList.remove('hidden');
       
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
         .then(res => res.json())
         .then(data => {
             resDiv.innerHTML = '';
@@ -200,7 +224,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
             data.items.forEach(vid => {
                 const div = document.createElement('div'); div.className = 'yt-search-item';
                 div.innerHTML = `
-                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="${type === 'cobalt_audio' ? 'border-radius:12px;' : ''}"/>
+                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb" style="border-radius:12px;"/>
                   <div class="yt-search-info">
                       <div class="yt-search-title">${vid.snippet.title}</div>
                       <div class="yt-search-sub">${vid.snippet.channelTitle}</div>
@@ -208,7 +232,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
                 `;
                 div.onclick = () => {
                     addToQueue({ 
-                        type: type, 
+                        type: 'youtube', // Ab direct Iframe mein chalega
                         title: vid.snippet.title, 
                         ytId: vid.id.videoId,
                         thumb: vid.snippet.thumbnails.high ? vid.snippet.thumbnails.high.url : vid.snippet.thumbnails.medium.url
@@ -219,22 +243,13 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check connection.</p>');
   }
 
-  if(ytAddBtn && ytInput) ytAddBtn.addEventListener('click', () => { searchYouTubeForCobalt(ytInput.value.trim(), 'ytSearchResults', 'youtube'); ytInput.value = ''; });
-  if(spSearchSongBtn && spInput) spSearchSongBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
-  if(spSearchPlaylistBtn && spInput) spSearchPlaylistBtn.addEventListener('click', () => { searchYouTubeForCobalt(spInput.value.trim(), 'spSearchResults', 'cobalt_audio'); spInput.value = ''; });
+  if(ytAddBtn && ytInput) ytAddBtn.addEventListener('click', () => { searchYouTube(ytInput.value.trim(), 'ytSearchResults'); ytInput.value = ''; });
+  if(spSearchSongBtn && spInput) spSearchSongBtn.addEventListener('click', () => { searchYouTube(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; });
 
   /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
-  function addToQueue(item) { 
-      queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); 
-  }
-
-  function saveQueue() { 
-      try { 
-          localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); 
-          localStorage.setItem('zx_qidx', currentIdx); 
-      } catch(e) {} 
-  }
-
+  function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); }
+  function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch(e) {} }
+  
   function renderQueue() {
       if(!queueList) return;
       if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; return; }
@@ -242,13 +257,10 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       queue.forEach((item, i) => {
           const el = document.createElement('div'); 
           el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          let icon = (item.type === 'cobalt_audio') ? '🎧' : (item.type === 'stream' ? '☁️' : '▶'); 
+          let icon = (item.type === 'youtube') ? '🎧' : '☁️'; 
           el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
-          
           el.onclick = (e) => { 
-              if (e.target.classList.contains('qi-del')) { 
-                  queue.splice(i, 1); saveQueue(); renderQueue(); return; 
-              } 
+              if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); saveQueue(); renderQueue(); return; } 
               playQueueItem(i); 
           };
           queueList.appendChild(el);
@@ -259,7 +271,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       if (i < 0 || i >= queue.length) return; 
       currentIdx = i; saveQueue(); renderQueue(); 
       const item = queue[i];
-      
+
       const isBlob = item.url && item.url.startsWith('blob:');
       if (synced && !isRemoteAction && !isBlob) { 
           broadcastSync({ action: 'change_song', item: item }); 
@@ -269,20 +281,14 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
 
   function playNext() { playQueueItem(currentIdx + 1); }
   function playPrev() { playQueueItem(currentIdx - 1); }
-  
   mpNexts.forEach(b => { if(b) b.addEventListener('click', playNext); });
   mpPrevs.forEach(b => { if(b) b.addEventListener('click', playPrev); });
 
   /* ── 🔥 CONTEXT-AWARE MEDIA RENDERER 🔥 ────────────────── */
   function renderMedia(item) {
-      if(nativeAudio) {
-          nativeAudio.style.display = 'none'; 
-          nativeAudio.pause(); 
-          nativeAudio.removeAttribute('src'); 
-      }
-      if(ytFrameWrap) ytFrameWrap.style.display = 'none';
+      nativeAudio.pause(); 
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
-      
+
       const vis = document.getElementById('visualizer');
       const thumb = document.getElementById('streamThumb');
       if(vis) vis.classList.remove('playing');
@@ -290,34 +296,29 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       isPlaying = false;
       updatePlayBtn();
 
-      // Tab 1: Official YouTube Video
+      if(cinemaMode) cinemaMode.classList.add('hidden'); 
+      if(spotifyMode) spotifyMode.classList.remove('hidden');
+      if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
+
+      // YouTube Playback via Hidden Iframe
       if (item.type === 'youtube') {
           activeType = 'youtube';
-          if(spotifyMode) spotifyMode.classList.add('hidden'); 
-          if(cinemaMode) cinemaMode.classList.remove('hidden');
-          if(ytFrameWrap) ytFrameWrap.style.display = 'block';
-          
-          if (isYtReady) ytPlayer.loadVideoById(item.ytId); 
-          else setTimeout(() => renderMedia(item), 500);
-          
-          setTrackInfo(item.title, 'YouTube Video');
+          setTrackInfo(item.title, 'YouTube Audio Hub');
+          showToast('Extracting Original Source...');
+          if (isYtReady && ytPlayer) {
+              ytPlayer.loadVideoById(item.ytId);
+              setupMediaSession(item);
+          } else {
+              setTimeout(() => renderMedia(item), 500);
+          }
       } 
-      // Tab 2: CLOUDFLARE EDGE WORKER STREAM
-      else if (item.type === 'cobalt_audio') {
+      // Local/Cloud File Playback via Native Audio
+      else if (item.type === 'stream') {
           activeType = 'stream';
-          if(cinemaMode) cinemaMode.classList.add('hidden'); 
-          if(spotifyMode) spotifyMode.classList.remove('hidden');
-          
-          if(thumb) thumb.src = item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg';
-          setTrackInfo(item.title, 'ZeroX Global Network');
-          showToast('Connecting to Edge Server...');
-
-          // CLOUDFLARE FETCH
-          nativeAudio.src = `${WORKER_URL}/?id=${item.ytId}`;
+          setTrackInfo(item.title, 'Local/Cloud Media');
+          nativeAudio.src = item.url; 
           nativeAudio.play().then(() => { 
-              isPlaying = true; 
-              updatePlayBtn(); 
-              setupMediaSession(item); // 💥 LOCK SCREEN CONTROLS
+              isPlaying = true; updatePlayBtn(); setupMediaSession(item);
           }).catch(() => showToast("Tap play to start"));
       }
   }
@@ -325,12 +326,10 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
   /* ── GLOBAL CONTROLLER ─────────────────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream') { 
-          if (isPlaying) nativeAudio.pause(); 
-          else nativeAudio.play().catch(()=>{}); 
+          if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); 
       } 
       else if (activeType === 'youtube' && ytPlayer) { 
-          if (isPlaying) ytPlayer.pauseVideo(); 
-          else ytPlayer.playVideo(); 
+          if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); 
       }
   }));
 
@@ -339,7 +338,7 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       const vis = document.getElementById('visualizer');
       const thumb = document.getElementById('streamThumb');
       
-      if (isPlaying && activeType === 'stream') {
+      if (isPlaying) {
           if(vis) vis.classList.add('playing');
           if(thumb) thumb.classList.add('playing');
       } else {
@@ -354,58 +353,55 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
       if(miniTitle) miniTitle.textContent = `${title} • ${sub}`; 
   }
 
-  if(nativeAudio) {
-      nativeAudio.addEventListener('play',  () => { 
-          isPlaying = true; updatePlayBtn(); 
-          if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
-      });
-      nativeAudio.addEventListener('pause', () => { 
-          isPlaying = false; updatePlayBtn(); 
-          if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
-      });
-      nativeAudio.addEventListener('seeked', () => { 
-          if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
-      });
-      nativeAudio.addEventListener('ended', playNext);
-  }
+  nativeAudio.addEventListener('play',  () => { 
+      isPlaying = true; updatePlayBtn(); 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'play', time: nativeAudio.currentTime }); 
+  });
+  nativeAudio.addEventListener('pause', () => { 
+      isPlaying = false; updatePlayBtn(); 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); 
+  });
+  nativeAudio.addEventListener('seeked', () => { 
+      if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); 
+  });
+  nativeAudio.addEventListener('ended', playNext);
 
-  /* ── 💥 MEDIA SESSION API (LOCK SCREEN CONTROLS) 💥 ── */
+  /* ── 💥 MEDIA SESSION API (THE LOCK SCREEN HACK) 💥 ── */
   function setupMediaSession(item) {
       if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
               title: item.title,
               artist: 'ZeroX Hub',
               album: 'Worldwide Library',
-              artwork: [
-                  { src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes: '512x512', type: 'image/jpeg' }
-              ]
+              artwork: [ { src: item.thumb || 'https://i.imgur.com/8Q5FqWj.jpeg', sizes: '512x512', type: 'image/jpeg' } ]
           });
 
-          navigator.mediaSession.setActionHandler('play', () => { nativeAudio.play(); isPlaying = true; updatePlayBtn(); });
-          navigator.mediaSession.setActionHandler('pause', () => { nativeAudio.pause(); isPlaying = false; updatePlayBtn(); });
+          navigator.mediaSession.setActionHandler('play', () => { 
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.playVideo(); 
+              else if (activeType === 'stream') nativeAudio.play();
+          });
+          
+          navigator.mediaSession.setActionHandler('pause', () => { 
+              if (activeType === 'youtube' && ytPlayer) ytPlayer.pauseVideo(); 
+              else if (activeType === 'stream') nativeAudio.pause();
+          });
+          
           navigator.mediaSession.setActionHandler('previoustrack', () => { playPrev(); });
           navigator.mediaSession.setActionHandler('nexttrack', () => { playNext(); });
       }
   }
 
-  /* ── DEEP SYNC NETWORK (LISTEN TOGETHER) ────────────────────────── */
+  /* ── 🔗 DEEP SYNC NETWORK (LISTEN TOGETHER) ────────────────────────── */
   if (mpSyncBtn && mpUnsyncBtn && mpSyncBadge && mpSyncInfo) {
       mpSyncBtn.addEventListener('click', () => {
-          synced = true; 
-          mpSyncBadge.textContent = '🟢 Synced'; 
-          mpSyncBadge.classList.add('synced');
-          mpSyncBtn.style.display = 'none'; 
-          mpSyncInfo.style.display = 'flex';
-          broadcastSync({ action: 'request_sync' }); 
-          showToast('🔗 Sync Network Active');
+          synced = true; mpSyncBadge.textContent = '🟢 Synced'; mpSyncBadge.classList.add('synced');
+          mpSyncBtn.style.display = 'none'; mpSyncInfo.style.display = 'flex';
+          broadcastSync({ action: 'request_sync' }); showToast('🔗 Sync Network Active');
       });
 
       mpUnsyncBtn.addEventListener('click', () => {
-          synced = false; 
-          mpSyncBadge.textContent = '🔴 Solo'; 
-          mpSyncBadge.classList.remove('synced');
-          mpSyncBtn.style.display = 'block'; 
-          mpSyncInfo.style.display = 'none';
+          synced = false; mpSyncBadge.textContent = '🔴 Solo'; mpSyncBadge.classList.remove('synced');
+          mpSyncBtn.style.display = 'block'; mpSyncInfo.style.display = 'none';
       });
   }
 
@@ -461,7 +457,6 @@ const WORKER_URL = 'https://zerox-proxy.loggy8847.workers.dev';
           document.body.classList.remove('is-fullscreen');
       }
   }
-  
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
