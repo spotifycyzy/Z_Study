@@ -2,13 +2,10 @@
    ZEROX HUB — player.js (100% FULL ORIGINAL CODE + ZEROXIFY)
    🚀 MAJOR UPGRADE: Zeroxify Mode with List UI & Auto-Play
    💎 QUALITY: 295kbps Premium M4A Lock
-   ⚠️ NO FEATURES REMOVED. 100% REPLACEABLE.
+   🔥 FIX: bypassSpotify=true added to kill wrong songs!
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
-// ==========================================
-// 🛠️ MOBILE DEBUGGER (Android Logging)
-// ==========================================
 function logToMobile(message) {
     let consoleBox = document.getElementById('mobile-console');
     if (!consoleBox) {
@@ -71,14 +68,13 @@ function logToMobile(message) {
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
 
-  // Mode Toggle Button
   const modeToggle = document.getElementById('modeToggle');
 
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
 
   /* ── STATE ─────────────────────────────────────────────── */
-  let currentMode     = 'zeroxify'; // Default Mode!
+  let currentMode     = 'zeroxify'; 
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
@@ -182,21 +178,24 @@ function logToMobile(message) {
   
   // 🎧 ENGINE 1: Spotify 81 Streamer (Best Quality M4A)
   async function fetchPremiumAudio(item) {
-      logToMobile(`⚙️ Engine: Fetching Stream for: ${item.title}`);
+      logToMobile(`⚙️ Fetching Audio for: ${item.title}`);
       
-      let queryParam = item.ytId;
-      
-      // 🎯 THE BULLETPROOF FIX: Use Title + Artist for accurate search in Zeroxify Mode
+      let queryParam = '';
+      let bypassStr = '';
+
       if (item.isZeroxify) {
+          // 🔥 THE FIX: Ignore API's broken matching database, force direct YouTube text search
           queryParam = `${item.title} ${item.artist} official audio`;
-          logToMobile(`🔍 Forcing Text Search: ${queryParam}`);
-      } 
-      // If pure YouTube ID (11 chars) in normal mode, format as YouTube link
-      else if (item.ytId && item.ytId.length === 11 && !item.ytId.includes(':')) {
-          queryParam = `https://www.youtube.com/watch?v=$${item.ytId}`;
+          bypassStr = '&bypassSpotify=true';
+          logToMobile(`🔍 Strict ByPass Search: ${queryParam}`);
+      } else {
+          // Standard YT mode: Use exact youtube link
+          queryParam = `https://www.youtube.com/watch?v=${item.ytId}`;
+          logToMobile(`🔗 Exact YT Link: ${queryParam}`);
       }
 
-      const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(queryParam)}&onlyLinks=true&quality=best`;
+      // Final URL with quality lock and bypass toggle
+      const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(queryParam)}&onlyLinks=true&quality=best${bypassStr}`;
       
       try {
           const response = await fetch(url, {
@@ -286,7 +285,7 @@ function logToMobile(message) {
                       type: 'youtube_audio', 
                       title: trackName, 
                       artist: artistName,
-                      ytId: actualId, // Spotify ID
+                      ytId: actualId, // Spotify ID for future recommendations
                       thumb: thumbUrl,
                       isZeroxify: true 
                   });
@@ -350,7 +349,7 @@ function logToMobile(message) {
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { 
       const val = spInput.value.trim(); if(!val) return;
       if (currentMode === 'zeroxify') {
-          searchSpotifyList(val); // Showing List now for accurate selection
+          searchSpotifyList(val); 
       } else {
           searchYouTube(val, 'spSearchResults', 'youtube_audio'); 
       }
@@ -450,7 +449,6 @@ function logToMobile(message) {
       } else {
           setTrackInfo(item.title, 'Extracting Premium Audio...');
           
-          // 🚀 SENDING ENTIRE ITEM TO EXTRACTOR
           fetchPremiumAudio(item).then(mp3Link => {
               if(mp3Link) {
                   item.cachedUrl = mp3Link; 
