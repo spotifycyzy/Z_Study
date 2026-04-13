@@ -1,9 +1,25 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL CODE)
+   ZEROX HUB — player.js (100% FULL CODE - ULTIMATE UPGRADE)
    💥 MAJOR FIX: "API Quota Saver" for Deep Sync Network
    🔥 1 API Call for Unlimited Synced Users!
+   🚀 NEW ENGINES: yt-v3-alternative (Search) & spotify81 (Stream)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
+
+// ==========================================
+// 🛠️ MOBILE DEBUGGER (Android Logging)
+// ==========================================
+function logToMobile(message) {
+    let consoleBox = document.getElementById('mobile-console');
+    if (!consoleBox) {
+        consoleBox = document.createElement('div');
+        consoleBox.id = 'mobile-console';
+        consoleBox.style.cssText = 'position: fixed; bottom: 0; left: 0; width: 100%; height: 120px; background: rgba(0,0,0,0.85); color: #00FF00; overflow-y: scroll; z-index: 999999; font-size: 11px; padding: 10px; font-family: monospace; border-top: 2px solid #00FF00; pointer-events: none;';
+        document.body.appendChild(consoleBox);
+    }
+    consoleBox.innerHTML += `<div>> ${message}</div>`;
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+}
 
 (function () {
   /* ── DOM ELEMENTS ──────────────────────────────────────── */
@@ -143,59 +159,98 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── RAPID API MP3 FETCHER ──────────────────────────────── */
-  async function fetchRapidApiAudio(ytId) {
-      const url = `https://youtube-mp36.p.rapidapi.com/dl?id=${ytId}`;
-      const options = {
-          method: 'GET',
-          headers: {
-              'x-rapidapi-key': '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be',
-              'x-rapidapi-host': 'youtube-mp36.p.rapidapi.com'
-          }
-      };
+
+  /* =========================================================
+     🔥 NEW API ARCHITECTURE (RAPID API)
+     ========================================================= */
+  const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
+  
+  // [DISABLED] Old Official Key
+  // const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
+
+  // 🎧 ENGINE: Spotify 81 API (Best Quality M4A)
+  async function fetchPremiumAudio(ytId) {
+      logToMobile(`⚙️ Engine: Fetching Stream for ID: ${ytId}`);
+      const url = `https://spotify81.p.rapidapi.com/download_track?q=${ytId}&onlyLinks=true`;
+      
       try {
-          const response = await fetch(url, options);
+          const response = await fetch(url, {
+              method: 'GET',
+              headers: {
+                  'x-rapidapi-key': RAPID_API_KEY,
+                  'x-rapidapi-host': 'spotify81.p.rapidapi.com'
+              }
+          });
           const result = await response.json();
-          return result.link || result.url || result.downloadUrl || result.download;
-      } catch (error) { return null; }
+          if (result.url) {
+              logToMobile(`✅ Success! Bitrate: ${result.bitrate || 'Best M4A'}`);
+              return result.url;
+          } else {
+              logToMobile('❌ Engine Error: No URL returned.');
+              return null;
+          }
+      } catch (error) { 
+          logToMobile(`❌ Engine Crash: ${error.message}`);
+          return null; 
+      }
   }
 
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
-
-  /* ── UNIVERSAL SEARCH FUNCTION ─────────────────────────── */
+  // 🔍 FINDER: YT V3 Alternative API
   function searchYouTube(query, targetResultsDiv, mediaType) {
       if (!query) return;
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
       
-      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching Alternative API...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
       if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+      logToMobile(`🔍 Finder: Searching for "${query}"`);
 
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
-        .then(res => res.json())
-        .then(data => {
-            resDiv.innerHTML = '';
-            if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+      const searchUrl = `https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query)}&geo=US&lang=en&type=video`;
 
-            data.items.forEach(vid => {
-                const div = document.createElement('div'); div.className = 'yt-search-item';
-                div.innerHTML = `
-                  <img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/>
-                  <div class="yt-search-info">
-                    <div class="yt-search-title">${vid.snippet.title}</div>
-                    <div class="yt-search-sub">${vid.snippet.channelTitle}</div>
-                  </div>
-                  <span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>
-                `;
-                div.onclick = () => {
-                    // Start fresh without a cachedUrl
-                    addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
-                    showToast('🎵 Added to queue!');
-                };
-                resDiv.appendChild(div);
-            });
-        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check API quota.</p>');
+      fetch(searchUrl, {
+          method: 'GET',
+          headers: {
+              'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com',
+              'x-rapidapi-key': RAPID_API_KEY
+          }
+      })
+      .then(res => res.json())
+      .then(data => {
+          resDiv.innerHTML = '';
+          if(!data.data || data.data.length === 0) { 
+              resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; 
+              logToMobile('⚠️ Finder: No results found.');
+              return; 
+          }
+
+          logToMobile(`✅ Finder: Got ${data.data.length} results`);
+
+          data.data.forEach(vid => {
+              // Extract thumbnail safely
+              let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
+              if (vid.thumbnail && vid.thumbnail.length > 0) thumbUrl = vid.thumbnail[0].url;
+
+              const div = document.createElement('div'); div.className = 'yt-search-item';
+              div.innerHTML = `
+                <img src="${thumbUrl}" class="yt-search-thumb"/>
+                <div class="yt-search-info">
+                  <div class="yt-search-title">${vid.title}</div>
+                  <div class="yt-search-sub">${vid.channelTitle || 'YouTube'}</div>
+                </div>
+                <span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>
+              `;
+              div.onclick = () => {
+                  addToQueue({ type: mediaType, title: vid.title, ytId: vid.videoId, thumb: thumbUrl });
+                  showToast('🎵 Added to queue!');
+                  logToMobile(`➕ Queued: ${vid.title}`);
+              };
+              resDiv.appendChild(div);
+          });
+      }).catch(err => {
+          logToMobile(`❌ Finder Crash: ${err.message}`);
+          resDiv.innerHTML = '<p class="mp-empty">Error searching. Check API quota.</p>';
+      });
   }
 
   if(ytAddBtn) ytAddBtn.onclick = () => { 
@@ -277,7 +332,7 @@
       setTrackInfo(item.title, 'YouTube Cinema Mode');
       setupMediaSession(item);
     } 
-    // 🎧 MODE 2: YOUTUBE MP3 AUDIO (RAPID API)
+    // 🎧 MODE 2: YOUTUBE MP3 AUDIO (NEW SPOTIFY 81 API)
     else if (item.type === 'youtube_audio') {
       activeType = 'youtube_audio';
       cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
@@ -285,31 +340,36 @@
       
       // 🤑 API QUOTA SAVER LOGIC
       if (item.cachedUrl) {
-          // If another user fetched it and shared it, skip the API call!
+          logToMobile(`🔗 Sync/Cache: Skipping API call for ${item.title}`);
           setTrackInfo(item.title, '🔗 Shared Sync Stream');
           setupMediaSession(item);
           nativeAudio.src = item.cachedUrl;
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
       } else {
-          setTrackInfo(item.title, 'Extracting Background Audio...');
-          showToast('Fetching MP3 from server...');
+          setTrackInfo(item.title, 'Extracting Premium Audio...');
+          showToast('Fetching Premium M4A...');
 
-          fetchRapidApiAudio(item.ytId).then(mp3Link => {
+          // NEW API CALL
+          fetchPremiumAudio(item.ytId).then(mp3Link => {
               if(mp3Link) {
-                  item.cachedUrl = mp3Link; // Save link to avoid re-fetching
+                  item.cachedUrl = mp3Link; 
                   
-                  // 🔥 Broadcast the direct link to ALL friends in the room
+                  // 🔥 Broadcast the direct link to ALL friends
                   if (synced && !isRemoteAction) {
                       broadcastSync({ action: 'change_song', item: item });
                   }
 
-                  setTrackInfo(item.title, 'ZeroX Audio API');
+                  setTrackInfo(item.title, 'Spotify Stream API (294kbps)');
                   setupMediaSession(item);
                   nativeAudio.src = mp3Link;
-                  nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
+                  nativeAudio.play().then(() => { 
+                      isPlaying = true; 
+                      updatePlayBtn(); 
+                      logToMobile('🎶 Audio Started Playing!');
+                  }).catch(() => showToast("Tap ▶ to play"));
               } else {
                   setTrackInfo(item.title, 'Audio Fetch Failed');
-                  showToast('API Error: Could not extract MP3.');
+                  showToast('API Error: Could not extract M4A.');
               }
           });
       }
