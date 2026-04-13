@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL CODE)
-   🚀 MAJOR UPGRADE: Zeroxify Auto-Play Engine & Deep Sync
+   ZEROX HUB — player.js (100% FULL ORIGINAL CODE + ZEROXIFY)
+   🚀 MAJOR UPGRADE: Zeroxify Mode with List UI & Auto-Play
    💎 QUALITY: 295kbps Premium M4A Lock
-   🎯 FIX: Title+Artist Search Enforced for 100% Accuracy
+   ⚠️ NO FEATURES REMOVED. 100% REPLACEABLE.
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -78,7 +78,7 @@ function logToMobile(message) {
   nativeAudio.setAttribute('webkit-playsinline', '');
 
   /* ── STATE ─────────────────────────────────────────────── */
-  let currentMode     = 'zeroxify'; // Default Mode
+  let currentMode     = 'zeroxify'; // Default Mode!
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
@@ -186,14 +186,12 @@ function logToMobile(message) {
       
       let queryParam = item.ytId;
       
-      // 🎯 THE BULLETPROOF FIX
-      // Agar gaana Zeroxify se aaya hai, toh ID bhejne ki galti mat karo.
-      // Seedha Gaane ka Naam + Artist ka Naam bhejo, API ekdum correct video dhoondh legi!
+      // 🎯 THE BULLETPROOF FIX: Use Title + Artist for accurate search in Zeroxify Mode
       if (item.isZeroxify) {
           queryParam = `${item.title} ${item.artist} official audio`;
           logToMobile(`🔍 Forcing Text Search: ${queryParam}`);
       } 
-      // Agar pure YouTube ID hai (11 chars) toh YT link bana ke bhejo.
+      // If pure YouTube ID (11 chars) in normal mode, format as YouTube link
       else if (item.ytId && item.ytId.length === 11 && !item.ytId.includes(':')) {
           queryParam = `https://www.youtube.com/watch?v=$${item.ytId}`;
       }
@@ -226,11 +224,15 @@ function logToMobile(message) {
       } catch (error) { return []; }
   }
 
-  // 🚀 ENGINE 3: Zeroxify Direct Play (Search -> Play instantly)
-  async function zeroxifyDirectPlay(query) {
-      showToast("🚀 Initiating Zeroxify Mode...");
+  // 🚀 ENGINE 3: Zeroxify LIST Search (Manual choice -> AutoPlay)
+  async function searchSpotifyList(query) {
+      episodesOverlaySp.classList.remove('hidden');
+      const resDiv = document.getElementById('spSearchResults');
+      if(!resDiv) return;
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching Spotify AI...</p>';
       logToMobile(`🚀 Zeroxify Search: "${query}"`);
-      const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=1`;
+      
+      const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=10`;
       
       try {
           const response = await fetch(url, {
@@ -239,41 +241,63 @@ function logToMobile(message) {
           });
           const result = await response.json();
           
-          const track = result.tracks?.[0]?.data || result.tracks?.items?.[0] || result.tracks?.[0];
-          
-          if (track) {
-              let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
-              if (track.albumOfTrack?.coverArt?.sources?.length > 0) {
-                  thumbUrl = track.albumOfTrack.coverArt.sources[2]?.url || track.albumOfTrack.coverArt.sources[0]?.url;
-              } else if (track.album?.images?.length > 0) {
-                  thumbUrl = track.album.images[0].url;
-              }
+          const tracks = result.tracks?.items || result.tracks || [];
+          resDiv.innerHTML = '';
 
-              let artistName = 'Spotify AI';
-              if (track.artists?.items?.[0]?.profile?.name) {
-                  artistName = track.artists.items[0].profile.name;
-              } else if (track.artists?.[0]?.name) {
-                  artistName = track.artists[0].name;
-              }
-
-              const actualId = track.id || track.uri?.split(':').pop();
-              
-              logToMobile(`🎯 Zeroxify Found: ${track.name || 'Song'}`);
-              
-              addToQueue({ 
-                  type: 'youtube_audio', 
-                  title: track.name || 'Unknown Track', 
-                  artist: artistName,
-                  ytId: actualId, // Used ONLY for recommendations now
-                  thumb: thumbUrl,
-                  isZeroxify: true 
-              });
-              showToast("Playing from Spotify AI");
-          } else {
-              showToast("❌ No song found.");
-              logToMobile("❌ JSON me track nahi mila.");
+          if (tracks.length === 0) {
+              resDiv.innerHTML = '<p class="mp-empty">No results found.</p>';
+              return;
           }
-      } catch (error) { logToMobile(`❌ Zeroxify Search Failed`); showToast("Network Error."); }
+          
+          tracks.forEach(t => {
+              const trackData = t.data || t;
+              
+              // Extract Thumbnail
+              let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
+              if (trackData.albumOfTrack?.coverArt?.sources?.length > 0) {
+                  thumbUrl = trackData.albumOfTrack.coverArt.sources[2]?.url || trackData.albumOfTrack.coverArt.sources[0]?.url;
+              } else if (trackData.album?.images?.length > 0) {
+                  thumbUrl = trackData.album.images[0].url;
+              }
+
+              // Extract Artist
+              let artistName = 'Spotify AI';
+              if (trackData.artists?.items?.[0]?.profile?.name) {
+                  artistName = trackData.artists.items[0].profile.name;
+              } else if (trackData.artists?.[0]?.name) {
+                  artistName = trackData.artists[0].name;
+              }
+
+              // Extract ID
+              const actualId = trackData.id || trackData.uri?.split(':').pop();
+              const trackName = trackData.name || 'Unknown Track';
+
+              const div = document.createElement('div'); div.className = 'yt-search-item';
+              div.innerHTML = `
+                <img src="${thumbUrl}" class="yt-search-thumb"/>
+                <div class="yt-search-info">
+                  <div class="yt-search-title">${trackName}</div>
+                  <div class="yt-search-sub">${artistName}</div>
+                </div>
+                <span style="font-size:18px;padding:0 4px;color:#E8436A">🚀</span>
+              `;
+              div.onclick = () => {
+                  addToQueue({ 
+                      type: 'youtube_audio', 
+                      title: trackName, 
+                      artist: artistName,
+                      ytId: actualId, // Spotify ID
+                      thumb: thumbUrl,
+                      isZeroxify: true 
+                  });
+                  showToast('🎵 Choice Locked! Auto-Play ON.');
+              };
+              resDiv.appendChild(div);
+          });
+      } catch (error) { 
+          logToMobile(`❌ Zeroxify Search Failed`); 
+          resDiv.innerHTML = '<p class="mp-empty">Error searching.</p>';
+      }
   }
 
   // 🔍 ENGINE 4: YT V3 Alternative API (Standard List Mode)
@@ -326,7 +350,7 @@ function logToMobile(message) {
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { 
       const val = spInput.value.trim(); if(!val) return;
       if (currentMode === 'zeroxify') {
-          zeroxifyDirectPlay(val); 
+          searchSpotifyList(val); // Showing List now for accurate selection
       } else {
           searchYouTube(val, 'spSearchResults', 'youtube_audio'); 
       }
@@ -426,7 +450,7 @@ function logToMobile(message) {
       } else {
           setTrackInfo(item.title, 'Extracting Premium Audio...');
           
-          // 🚀 SENDING THE ENTIRE ITEM TO THE DOWNLOAD ENGINE
+          // 🚀 SENDING ENTIRE ITEM TO EXTRACTOR
           fetchPremiumAudio(item).then(mp3Link => {
               if(mp3Link) {
                   item.cachedUrl = mp3Link; 
