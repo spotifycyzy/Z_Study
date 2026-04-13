@@ -2,7 +2,7 @@
    ZEROX HUB — player.js (100% FULL CODE)
    🚀 MAJOR UPGRADE: Zeroxify Auto-Play Engine & Deep Sync
    💎 QUALITY: 295kbps Premium M4A Lock
-   🐛 FIX: Spotify 81 GraphQL JSON Structure Patched
+   🐛 FIX: Spotify ID vs YT ID Routing Patched!
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -71,7 +71,7 @@ function logToMobile(message) {
   const mpSyncInfo  = document.getElementById('mpSyncInfo');
   const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
 
-  // NAYA: Mode Toggle Button (HTML me `<button id="modeToggle">` hona chahiye)
+  // Mode Toggle Button
   const modeToggle = document.getElementById('modeToggle');
 
   nativeAudio.setAttribute('playsinline', '');
@@ -181,11 +181,16 @@ function logToMobile(message) {
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   
   // 🎧 ENGINE 1: Spotify 81 Streamer (Best Quality M4A)
-  async function fetchPremiumAudio(ytId) {
-      logToMobile(`⚙️ Engine: Fetching Stream for ID: ${ytId}`);
+  async function fetchPremiumAudio(id) {
+      logToMobile(`⚙️ Engine: Fetching Stream for ID: ${id}`);
       
-      let queryParam = ytId;
-      if (ytId.length === 11) queryParam = `https://www.youtube.com/watch?v=${ytId}`;
+      let queryParam = id;
+      
+      // FIX: Agar ID exactly 11 characters ki hai (YouTube ID), toh hi usko YT link banao.
+      // Warna (Zeroxify mode me), yeh ek Spotify ID hai, toh usko direct bhejo!
+      if (id && id.length === 11 && !id.includes(':')) {
+          queryParam = `https://www.youtube.com/watch?v=${id}`;
+      }
 
       const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(queryParam)}&onlyLinks=true&quality=best`;
       
@@ -248,7 +253,7 @@ function logToMobile(message) {
                   artistName = track.artists[0].name;
               }
 
-              // Safely extract ID
+              // Safely extract ID (This is the pure Spotify ID)
               const actualId = track.id || track.uri?.split(':').pop();
               
               logToMobile(`🎯 Zeroxify Found: ${track.name || 'Song'}`);
@@ -257,7 +262,7 @@ function logToMobile(message) {
                   type: 'youtube_audio', 
                   title: track.name || 'Unknown Track', 
                   artist: artistName,
-                  ytId: actualId,
+                  ytId: actualId, // Passing pure Spotify ID
                   thumb: thumbUrl,
                   isZeroxify: true 
               });
@@ -289,7 +294,7 @@ function logToMobile(message) {
           data.data.forEach(vid => {
               let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
               if (vid.thumbnail && vid.thumbnail.length > 0) thumbUrl = vid.thumbnail[0].url;
-              const actualVideoId = vid.videoId || vid.id;
+              const actualVideoId = vid.videoId || vid.id; // Passing YT ID
 
               const div = document.createElement('div'); div.className = 'yt-search-item';
               div.innerHTML = `
@@ -449,7 +454,7 @@ function logToMobile(message) {
     }
   }
 
-  // 🤖 THE ZEROXIFY AUTO-FEEDER LOGIC (Bulletproof JSON handler added)
+  // 🤖 THE ZEROXIFY AUTO-FEEDER LOGIC
   function handleZeroxifyFeeder(item) {
       if (!item.isZeroxify) return;
       
@@ -458,7 +463,6 @@ function logToMobile(message) {
           fetchSpotifyRecs(item.ytId).then(recs => {
               if (recs && recs.length > 0) {
                   recs.forEach(t => {
-                      // Handle nested data if Recommendation API also uses GraphQL structure
                       const trackData = t.data || t;
                       const actualId = trackData.id || trackData.uri?.split(':').pop();
                       
