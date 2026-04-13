@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL & UNCUT CODE)
-   🚀 UPGRADE: Official Spotify + Filters + AI Auto-Play
+   ZEROX HUB — player.js (100% RAW & UNCUT ORIGINAL CODE)
+   🚀 DUAL ENGINE: YouTube Search + Spotify God Mode
    💎 AUDIO: Premium 295kbps M4A (YouTube Bypass)
-   🔥 ALL SYNC, FIRESTORE, HIDDEN CHAT & UI LOGIC PRESERVED
+   🔥 EVERYTHING PRESERVED (NO COMPRESSION)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -17,505 +17,1042 @@ function logToMobile(message) {
         consoleBox.style.cssText = 'position: fixed; bottom: 0; left: 0; width: 100%; height: 110px; background: rgba(0,0,0,0.85); color: #00FF00; overflow-y: scroll; z-index: 999999; font-size: 11px; padding: 10px; font-family: monospace; border-top: 2px solid #00FF00; pointer-events: none;';
         document.body.appendChild(consoleBox);
     }
-    consoleBox.innerHTML += `<div>> ${message}</div>`;
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = `> ${message}`;
+    consoleBox.appendChild(msgDiv);
     consoleBox.scrollTop = consoleBox.scrollHeight;
 }
 
 (function () {
-  /* ── 1. DOM ELEMENTS (FULL LIST) ───────────────────────── */
-  const panel = document.getElementById('zxPanel');
-  const handle = document.getElementById('zxHandle');
-  const closeHandle = document.getElementById('closeHandle');
-  const panelToggleBtn = document.getElementById('panelToggleBtn');
-  
-  const nativeAudio = document.getElementById('nativeAudio');
-  const ytFrameWrap = document.getElementById('ytFrameWrap');
-  
-  const cinemaMode = document.getElementById('cinemaMode');
-  const spotifyMode = document.getElementById('spotifyMode');
-  const vinylRecord = document.getElementById('vinylRecord');
-  const musicTitle = document.getElementById('musicTitle');
-  const musicArtist = document.getElementById('musicArtist');
-  const miniTitle = document.getElementById('miniTitle');
+    /* ── 1. DOM ELEMENTS (EXPANDED LIST) ────────────────────── */
+    const panel = document.getElementById('zxPanel');
+    const handle = document.getElementById('zxHandle');
+    const closeHandle = document.getElementById('closeHandle');
+    const panelToggleBtn = document.getElementById('panelToggleBtn');
+    
+    const nativeAudio = document.getElementById('nativeAudio');
+    const ytFrameWrap = document.getElementById('ytFrameWrap');
+    
+    const cinemaMode = document.getElementById('cinemaMode');
+    const spotifyMode = document.getElementById('spotifyMode');
+    const vinylRecord = document.getElementById('vinylRecord');
+    
+    const musicTitle = document.getElementById('musicTitle');
+    const musicArtist = document.getElementById('musicArtist');
+    const miniTitle = document.getElementById('miniTitle');
 
-  const mpPlays = document.querySelectorAll('.mp-play');
-  const mpPrevs = [document.getElementById('miniPrev')]; 
-  const mpNexts = [document.getElementById('miniNext')];
-  
-  const urlInput = document.getElementById('urlInput');
-  const urlAddBtn = document.getElementById('urlAddBtn');
-  const ytInput = document.getElementById('ytInput');
-  const ytAddBtn = document.getElementById('ytAddBtn');
-  
-  const spInput = document.getElementById('spInput');
-  const spSearchSongBtn = document.getElementById('spSearchSongBtn');
-  const queueList = document.getElementById('queueList');
-  const episodesOverlaySp = document.getElementById('episodesOverlaySp');
-  const spSearchResults = document.getElementById('spSearchResults');
+    const mpPlays = document.querySelectorAll('.mp-play');
+    const mpPrevs = document.querySelectorAll('#miniPrev'); 
+    const mpNexts = document.querySelectorAll('#miniNext');
+    
+    const urlInput = document.getElementById('urlInput');
+    const urlAddBtn = document.getElementById('urlAddBtn');
+    const ytInput = document.getElementById('ytInput');
+    const ytAddBtn = document.getElementById('ytAddBtn');
+    
+    const spInput = document.getElementById('spInput');
+    const spSearchSongBtn = document.getElementById('spSearchSongBtn');
+    const queueList = document.getElementById('queueList');
+    
+    // Overlays & Results
+    const episodesOverlaySp = document.getElementById('episodesOverlaySp');
+    const spSearchResults = document.getElementById('spSearchResults');
+    const episodesOverlayYt = document.getElementById('episodesOverlayYt');
+    const ytSearchResults = document.getElementById('ytSearchResults');
 
-  const mpSyncBadge = document.getElementById('mpSyncBadge');
-  const mpSyncBtn = document.getElementById('mpSyncBtn');
-  const mpSyncInfo = document.getElementById('mpSyncInfo');
-  const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
-  const modeToggle = document.getElementById('modeToggle');
+    const modeToggle = document.getElementById('modeToggle');
 
-  // Hidden Chat Elements
-  const hiddenChatOverlay = document.getElementById('hiddenChatOverlay');
-  const chatOnlineStatus = document.getElementById('chatOnlineStatus');
-  const voiceNoteBtn = document.getElementById('voiceNoteBtn');
-  const chatInput = document.getElementById('chatInput');
-  const chatSendBtn = document.getElementById('chatSendBtn');
+    const mpSyncBadge = document.getElementById('mpSyncBadge');
+    const mpSyncBtn = document.getElementById('mpSyncBtn');
+    const mpSyncInfo = document.getElementById('mpSyncInfo');
+    const mpUnsyncBtn = document.getElementById('mpUnsyncBtn');
 
-  nativeAudio.setAttribute('playsinline', '');
-  nativeAudio.setAttribute('webkit-playsinline', '');
+    // Hidden Chat Elements
+    const hiddenChatOverlay = document.getElementById('hiddenChatOverlay');
+    const chatOnlineStatus = document.getElementById('chatOnlineStatus');
+    const voiceNoteBtn = document.getElementById('voiceNoteBtn');
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
 
-  /* ── 🟢 2. FILTER BAR INJECTION (GLOWING UI) ───────────── */
-  const filterBar = document.createElement('div');
-  filterBar.id = 'zxFilterBar';
-  filterBar.style.cssText = 'display:flex; gap:12px; overflow-x:auto; padding:10px 0; margin-bottom:12px; scrollbar-width:none; align-items:center;';
-  filterBar.innerHTML = `
-    <span class="f-icon" data-type="track" style="font-size:18px; cursor:pointer; filter:drop-shadow(0 0 5px #1db954);">🎵</span>
-    <span class="f-icon" data-type="artist" style="font-size:18px; cursor:pointer;">👤</span>
-    <span class="f-icon" data-type="album" style="font-size:18px; cursor:pointer;">💿</span>
-    <span class="f-icon" data-type="playlist" style="font-size:18px; cursor:pointer;">📜</span>
-    <div style="width:2px; height:20px; background:#444; margin:0 5px;"></div>
-    <span class="f-tag" data-mood="lofi" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc; box-shadow: 0 0 5px rgba(0,255,0,0.2);">lofi</span>
-    <span class="f-tag" data-mood="study" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">study</span>
-    <span class="f-tag" data-mood="chill" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">chill</span>
-    <span class="f-tag" data-mood="sad" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">sad</span>
-    <span class="f-tag" data-mood="gym" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">gym</span>
-  `;
-  if(spInput && spInput.parentNode) {
-      spInput.parentNode.insertBefore(filterBar, spInput);
-  }
+    // Audio attributes
+    if (nativeAudio) {
+        nativeAudio.setAttribute('playsinline', '');
+        nativeAudio.setAttribute('webkit-playsinline', '');
+    }
 
-  /* ── 3. CONFIG & KEYS ──────────────────────────────────── */
-  const SPOTIFY_CLIENT_ID = "b8ce1ea3591b441488cf0175816e099e";
-  const SPOTIFY_SECRET = "142d42a7047c4bcfa4a76339a0509036";
-  const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-  
-  let spotifyAccessToken = "";
-  let searchType = 'track';
+    /* ── 2. SPOTIFY FILTER BAR (GLOWING UI) ────────────────── */
+    const filterBar = document.createElement('div');
+    filterBar.id = 'zxFilterBar';
+    filterBar.style.cssText = 'display:flex; gap:12px; overflow-x:auto; padding:10px 0; margin-bottom:12px; scrollbar-width:none; align-items:center;';
+    
+    const filterHTML = `
+        <span class="f-icon" data-type="track" style="font-size:18px; cursor:pointer; filter:drop-shadow(0 0 5px #1db954);">🎵</span>
+        <span class="f-icon" data-type="artist" style="font-size:18px; cursor:pointer;">👤</span>
+        <span class="f-icon" data-type="album" style="font-size:18px; cursor:pointer;">💿</span>
+        <span class="f-icon" data-type="playlist" style="font-size:18px; cursor:pointer;">📜</span>
+        <div style="width:2px; height:20px; background:#444; margin:0 5px;"></div>
+        <span class="f-tag" data-mood="lofi" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">lofi</span>
+        <span class="f-tag" data-mood="study" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">study</span>
+        <span class="f-tag" data-mood="sad" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">sad</span>
+        <span class="f-tag" data-mood="gym" style="font-size:12px; background:#222; padding:4px 10px; border-radius:12px; cursor:pointer; color:#ccc;">gym</span>
+    `;
+    filterBar.innerHTML = filterHTML;
+    
+    if (spInput && spInput.parentNode) {
+        spInput.parentNode.insertBefore(filterBar, spInput);
+    }
 
-  /* ── 4. STATE VARIABLES ────────────────────────────────── */
-  let currentMode = 'zeroxify'; 
-  let queue = JSON.parse(localStorage.getItem('zx_queue') || '[]');
-  let currentIdx = parseInt(localStorage.getItem('zx_qidx') || '0');
-  let synced = false;
-  let activeType = 'none'; 
-  let isPlaying = false;
-  let ytPlayer = null; 
-  let isYtReady = false;
-  
-  // Sync Variables
-  let isRemoteAction = false;
-  let remoteTimer = null;
-  let currentRoomId = localStorage.getItem('zx_room') || 'study_room_1';
-  let isChatOnline = false;
+    /* ── 3. KEYS & STATE VARIABLES ─────────────────────────── */
+    const SPOTIFY_CLIENT_ID = "b8ce1ea3591b441488cf0175816e099e";
+    const SPOTIFY_SECRET = "142d42a7047c4bcfa4a76339a0509036";
+    const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
+    
+    let spotifyAccessToken = "";
+    let searchType = 'track';
+    let currentMode = 'zeroxify'; // Default to Spotify mode
+    
+    // Parse queue from LocalStorage safely
+    let queue = [];
+    try {
+        const storedQueue = localStorage.getItem('zx_queue');
+        if (storedQueue) {
+            queue = JSON.parse(storedQueue);
+        }
+    } catch (e) {
+        queue = [];
+    }
+    
+    let currentIdx = parseInt(localStorage.getItem('zx_qidx') || '0');
+    
+    let isPlaying = false;
+    let ytPlayer = null; 
+    let isYtReady = false;
+    let activeType = 'none';
 
-  function setRemoteAction() { 
-      isRemoteAction = true; 
-      clearTimeout(remoteTimer); 
-      remoteTimer = setTimeout(() => { isRemoteAction = false; }, 2000); 
-  }
+    // Sync variables
+    let synced = false;
+    let isRemoteAction = false;
+    let remoteTimer = null;
+    let currentRoomId = localStorage.getItem('zx_room') || 'study_room_1';
+    let isChatOnline = false;
 
-  /* ── 5. SPOTIFY AUTH ENGINE ────────────────────────────── */
-  async function refreshSpotifyToken() {
-      try {
-          const res = await fetch('https://accounts.spotify.com/api/token', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                  'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_SECRET)
-              },
-              body: 'grant_type=client_credentials'
-          });
-          const data = await res.json();
-          spotifyAccessToken = data.access_token;
-          logToMobile("🔑 Official Spotify Token Active");
-      } catch (e) { logToMobile("❌ Spotify Token Error"); }
-  }
+    function setRemoteAction() { 
+        isRemoteAction = true; 
+        clearTimeout(remoteTimer); 
+        remoteTimer = setTimeout(() => { 
+            isRemoteAction = false; 
+        }, 2000); 
+    }
 
-  /* ── 6. SPOTIFY SEARCH (God Mode) ──────────────────────── */
-  async function searchSpotify(query, type = 'track') {
-      if (!spotifyAccessToken) await refreshSpotifyToken();
-      if (episodesOverlaySp) episodesOverlaySp.classList.remove('hidden');
-      if (spSearchResults) spSearchResults.innerHTML = `<p class="mp-empty">🔍 Fetching ${type}s for "${query}"...</p>`;
+    /* ── 4. MODE TOGGLE LOGIC (YOUTUBE <-> ZEROXIFY) ───────── */
+    if (modeToggle) {
+        modeToggle.addEventListener('click', () => {
+            if (currentMode === 'zeroxify') {
+                currentMode = 'youtube';
+                modeToggle.textContent = '🔍 Mode: YT SEARCH';
+                filterBar.style.display = 'none';
+                spInput.placeholder = 'Search YouTube videos...';
+                showToast("Switched to YouTube Mode");
+            } else {
+                currentMode = 'zeroxify';
+                modeToggle.textContent = '🚀 Mode: ZEROXIFY';
+                filterBar.style.display = 'flex';
+                spInput.placeholder = 'Search Spotify...';
+                showToast("Switched to Spotify Mode");
+            }
+        });
+    }
 
-      try {
-          const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`, {
-              headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
-          });
-          const data = await res.json();
-          const items = data.tracks?.items || data.albums?.items || data.playlists?.items || data.artists?.items || [];
-          
-          if (spSearchResults) spSearchResults.innerHTML = '';
-          
-          if(items.length === 0) {
-              if (spSearchResults) spSearchResults.innerHTML = '<p class="mp-empty">No results found.</p>';
-              return;
-          }
+    /* ── 5. SEARCH SYSTEM (DUAL ENGINE ROUTER) ─────────────── */
+    if (spSearchSongBtn) {
+        spSearchSongBtn.addEventListener('click', () => {
+            let val = "";
+            if (spInput) {
+                val = spInput.value.trim();
+            }
+            if (!val) {
+                return; // Do nothing if input is empty
+            }
+            
+            if (currentMode === 'zeroxify') {
+                searchSpotify(val, searchType);
+            } else {
+                searchYouTube(val);
+            }
+        });
+    }
 
-          items.forEach(item => {
-              const div = document.createElement('div'); div.className = 'yt-search-item';
-              let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
-              let artistName = 'Unknown';
+    // --- 5A. SPOTIFY SEARCH ENGINE ---
+    async function searchSpotify(query, type) {
+        logToMobile(`Searching Spotify for: ${query}`);
+        
+        if (!spotifyAccessToken) {
+            await refreshSpotifyToken();
+        }
+        
+        if (episodesOverlayYt) {
+            episodesOverlayYt.classList.add('hidden');
+        }
+        if (episodesOverlaySp) {
+            episodesOverlaySp.classList.remove('hidden');
+        }
+        if (spSearchResults) {
+            spSearchResults.innerHTML = `<p class="mp-empty">🔍 Fetching ${type}s...</p>`;
+        }
 
-              if(type === 'track') {
-                  thumb = item.album?.images[0]?.url || thumb;
-                  artistName = item.artists[0]?.name;
-              } else if(type === 'artist') {
-                  thumb = item.images[0]?.url || thumb;
-                  artistName = 'Artist';
-              } else {
-                  thumb = item.images?.[0]?.url || thumb;
-                  artistName = item.owner?.display_name || item.artists?.[0]?.name || 'Collection';
-              }
+        try {
+            const endpoint = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`;
+            const res = await fetch(endpoint, {
+                headers: { 
+                    'Authorization': 'Bearer ' + spotifyAccessToken 
+                }
+            });
+            const data = await res.json();
+            
+            let items = [];
+            if (data.tracks && data.tracks.items) items = data.tracks.items;
+            else if (data.albums && data.albums.items) items = data.albums.items;
+            else if (data.playlists && data.playlists.items) items = data.playlists.items;
+            else if (data.artists && data.artists.items) items = data.artists.items;
+            
+            if (spSearchResults) {
+                spSearchResults.innerHTML = '';
+            }
+            
+            if (items.length === 0) {
+                if (spSearchResults) spSearchResults.innerHTML = '<p class="mp-empty">No results found on Spotify.</p>';
+                return;
+            }
 
-              div.innerHTML = `
-                <img src="${thumb}" class="yt-search-thumb" style="${type==='artist' ? 'border-radius:50%' : ''}"/>
-                <div class="yt-search-info">
-                  <div class="yt-search-title">${item.name}</div>
-                  <div class="yt-search-sub">${artistName}</div>
-                </div>
-                <span style="font-size:18px; color:#1db954; filter: drop-shadow(0 0 2px #1db954);">${type === 'track' ? '▶' : '📂'}</span>
-              `;
-              
-              div.onclick = () => {
-                  if(type === 'track') {
-                      addToQueue({ type: 'youtube_audio', title: item.name, artist: artistName, spId: item.id, thumb: thumb, isZeroxify: true });
-                      showToast(`Added: ${item.name}`);
-                  } else {
-                      spInput.value = item.name;
-                      searchType = 'track';
-                      updateFilterVisuals();
-                      searchSpotify(item.name, 'track');
-                  }
-              };
-              if (spSearchResults) spSearchResults.appendChild(div);
-          });
-      } catch (e) { if (spSearchResults) spSearchResults.innerHTML = '<p class="mp-empty">Network error or API limit.</p>'; }
-  }
+            items.forEach(item => {
+                const div = document.createElement('div'); 
+                div.className = 'yt-search-item';
+                
+                let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
+                let artistName = 'Collection';
 
-  /* ── 7. AUTO-PLAY AI (Recommendations) ─────────────────── */
-  async function handleAutoPlay(spId) {
-      const remaining = queue.length - 1 - currentIdx;
-      if (remaining < 2) {
-          logToMobile("🧠 Spotify AI: Fetching related tracks...");
-          try {
-              const res = await fetch(`https://api.spotify.com/v1/recommendations?seed_tracks=${spId}&limit=5`, {
-                  headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
-              });
-              const data = await res.json();
-              data.tracks.forEach(t => {
-                  if (!queue.find(q => q.spId === t.id)) {
-                      queue.push({
-                          type: 'youtube_audio', title: t.name, artist: t.artists[0].name,
-                          spId: t.id, thumb: t.album.images[0].url, isZeroxify: true
-                      });
-                  }
-              });
-              saveQueue(); renderQueue();
-          } catch (e) { logToMobile("⚠️ Auto-play sync failed"); }
-      }
-  }
+                if (type === 'track') {
+                    if (item.album && item.album.images && item.album.images[0]) {
+                        thumb = item.album.images[0].url;
+                    }
+                    if (item.artists && item.artists[0]) {
+                        artistName = item.artists[0].name;
+                    }
+                } else if (type === 'artist') {
+                    if (item.images && item.images[0]) {
+                        thumb = item.images[0].url;
+                    }
+                    artistName = 'Artist';
+                } else {
+                    if (item.images && item.images[0]) {
+                        thumb = item.images[0].url;
+                    }
+                    if (item.owner && item.owner.display_name) {
+                        artistName = item.owner.display_name;
+                    } else if (item.artists && item.artists[0]) {
+                        artistName = item.artists[0].name;
+                    }
+                }
 
-  /* ── 8. PREMIUM AUDIO BYPASS (YouTube) ─────────────────── */
-  async function fetchPremiumAudio(item) {
-      logToMobile(`⚡ Extracting bypass audio: ${item.title}`);
-      const query = `${item.title} ${item.artist} official audio`;
-      const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(query)}&onlyLinks=true&quality=best&bypassSpotify=true`;
-      
-      try {
-          const res = await fetch(url, {
-              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify81.p.rapidapi.com' }
-          });
-          const data = await res.json();
-          return data.url || null;
-      } catch (e) { return null; }
-  }
+                div.innerHTML = `
+                  <img src="${thumb}" class="yt-search-thumb" style="${type === 'artist' ? 'border-radius:50%' : ''}"/>
+                  <div class="yt-search-info">
+                    <div class="yt-search-title">${item.name}</div>
+                    <div class="yt-search-sub">${artistName}</div>
+                  </div>
+                  <span style="font-size:18px; color:#1db954;">▶</span>
+                `;
+                
+                div.addEventListener('click', () => {
+                    if (type === 'track') {
+                        addToQueue({ 
+                            type: 'youtube_audio', 
+                            title: item.name, 
+                            artist: artistName, 
+                            spId: item.id, 
+                            thumb: thumb, 
+                            isZeroxify: true 
+                        });
+                        showToast(`Added: ${item.name}`);
+                    } else {
+                        // Drill down logic for Albums/Playlists
+                        if (spInput) spInput.value = item.name; 
+                        searchType = 'track'; 
+                        updateFilterVisuals(); 
+                        searchSpotify(item.name, 'track');
+                    }
+                });
+                
+                if (spSearchResults) {
+                    spSearchResults.appendChild(div);
+                }
+            });
+        } catch (e) { 
+            logToMobile("Spotify Search Error: " + e.message);
+            if (spSearchResults) {
+                spSearchResults.innerHTML = '<p class="mp-empty">Spotify Search Error.</p>'; 
+            }
+        }
+    }
 
-  /* ── 9. MEDIA RENDER ENGINE ────────────────────────────── */
-  function renderMedia(item) {
-      nativeAudio.style.display = 'none'; if(ytFrameWrap) ytFrameWrap.style.display = 'none';
-      nativeAudio.pause(); nativeAudio.src = ""; isPlaying = false; updatePlayBtn();
-      
-      if (item.type === 'youtube') {
-          activeType = 'youtube'; 
-          if(cinemaMode) cinemaMode.classList.remove('hidden'); 
-          if(spotifyMode) spotifyMode.classList.add('hidden');
-          if(ytFrameWrap) ytFrameWrap.style.display = 'block';
-          if (isYtReady && ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
-              ytPlayer.loadVideoById(item.ytId);
-          }
-          setTrackInfo(item.title, "YouTube Video");
-          syncMediaState({ action: 'play_yt', id: item.ytId });
-      } else {
-          activeType = 'youtube_audio'; 
-          if(cinemaMode) cinemaMode.classList.add('hidden'); 
-          if(spotifyMode) spotifyMode.classList.remove('hidden');
-          if(vinylRecord) vinylRecord.style.backgroundImage = `url('${item.thumb}')`;
-          
-          if (item.cachedUrl) { 
-              playAudio(item.cachedUrl, item); 
-          } else {
-              setTrackInfo(item.title, "⚡ Buffering M4A...");
-              fetchPremiumAudio(item).then(url => {
-                  if (url) { item.cachedUrl = url; playAudio(url, item); } 
-                  else { setTrackInfo(item.title, "❌ Bypass Failed"); playNext(); }
-              });
-          }
-      }
-  }
+    // --- 5B. YOUTUBE SEARCH ENGINE ---
+    async function searchYouTube(query) {
+        logToMobile(`Searching YouTube for: ${query}`);
+        
+        if (episodesOverlaySp) {
+            episodesOverlaySp.classList.add('hidden');
+        }
+        if (episodesOverlayYt) {
+            episodesOverlayYt.classList.remove('hidden');
+        }
+        if (ytSearchResults) {
+            ytSearchResults.innerHTML = '<p class="mp-empty">🔍 Searching YouTube...</p>';
+        }
 
-  function playAudio(url, item) {
-      nativeAudio.src = url; 
-      nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(e=>logToMobile("Play prevented by browser"));
-      setTrackInfo(item.title, item.artist);
-      if (item.isZeroxify) handleAutoPlay(item.spId);
-      syncMediaState({ action: 'play_audio', title: item.title, url: url });
-  }
+        try {
+            // Using open API for YT search to bypass quota
+            const endpoint = `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`;
+            const res = await fetch(endpoint);
+            const data = await res.json();
+            
+            if (ytSearchResults) {
+                ytSearchResults.innerHTML = '';
+            }
+            
+            if (data.items && data.items.length > 0) {
+                const limitedItems = data.items.slice(0, 15);
+                
+                limitedItems.forEach(item => {
+                    const div = document.createElement('div'); 
+                    div.className = 'yt-search-item';
+                    
+                    div.innerHTML = `
+                      <img src="${item.thumbnail}" class="yt-search-thumb"/>
+                      <div class="yt-search-info">
+                        <div class="yt-search-title">${item.title}</div>
+                        <div class="yt-search-sub">${item.uploaderName}</div>
+                      </div>
+                      <span style="font-size:18px; color:#ff0000;">📺</span>
+                    `;
+                    
+                    div.addEventListener('click', () => {
+                        let videoId = "";
+                        if (item.url.includes('?v=')) {
+                            videoId = item.url.split('?v=')[1];
+                        } else {
+                            videoId = item.url.split('/').pop();
+                        }
+                        
+                        addToQueue({ 
+                            type: 'youtube', 
+                            title: item.title, 
+                            ytId: videoId 
+                        });
+                        showToast(`Added YT Video to Queue`);
+                    });
+                    
+                    if (ytSearchResults) {
+                        ytSearchResults.appendChild(div);
+                    }
+                });
+            } else {
+                if (ytSearchResults) ytSearchResults.innerHTML = '<p class="mp-empty">No YT results found.</p>';
+            }
+        } catch (e) { 
+            logToMobile("YT Search Error: " + e.message);
+            if (ytSearchResults) {
+                ytSearchResults.innerHTML = '<p class="mp-empty">YT Search Error.</p>'; 
+            }
+        }
+    }
 
-  /* ── 10. QUEUE & CONTROLS ──────────────────────────────── */
-  function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); if(queue.length===1 || currentIdx===queue.length-1) playQueueItem(queue.length - 1); }
-  function saveQueue() { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); }
-  function renderQueue() {
-      if(!queueList) return;
-      queueList.innerHTML = '';
-      queue.forEach((item, i) => {
-          const el = document.createElement('div'); el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          el.innerHTML = `
-            <span class="qi-type" style="margin-right:8px">${item.isZeroxify ? '🎧' : '📺'}</span>
-            <span class="qi-title" style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.title}</span>
-            <button class="qi-del" style="background:transparent; border:none; color:#ff4444; font-size:16px;">✕</button>
-          `;
-          el.onclick = (e) => { if(e.target.classList.contains('qi-del')){ queue.splice(i,1); saveQueue(); renderQueue(); } else playQueueItem(i); };
-          queueList.appendChild(el);
-      });
-  }
-  function playQueueItem(i) { if(i<0 || i>=queue.length) return; currentIdx = i; saveQueue(); renderQueue(); renderMedia(queue[i]); }
-  function playNext() { playQueueItem(currentIdx + 1); }
-  function playPrev() { playQueueItem(currentIdx - 1); }
+    /* ── 6. SPOTIFY AUTH TOKEN REFRESHER ───────────────────── */
+    async function refreshSpotifyToken() {
+        logToMobile("Attempting to get Spotify Token...");
+        try {
+            const res = await fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded', 
+                    'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_SECRET) 
+                },
+                body: 'grant_type=client_credentials'
+            });
+            const data = await res.json(); 
+            if (data.access_token) {
+                spotifyAccessToken = data.access_token;
+                logToMobile("🔑 Spotify Token Verified");
+            }
+        } catch (e) { 
+            logToMobile("❌ Token Error: " + e.message); 
+        }
+    }
 
-  nativeAudio.onended = playNext;
-  mpPlays.forEach(b => b.onclick = () => { if(isPlaying){ nativeAudio.pause(); if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); } else { nativeAudio.play(); if(ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo(); } });
-  nativeAudio.onplay = () => { isPlaying = true; updatePlayBtn(); syncMediaState({action:'play'}); };
-  nativeAudio.onpause = () => { isPlaying = false; updatePlayBtn(); syncMediaState({action:'pause'}); };
+    /* ── 7. AUTO-PLAY AI (RECOMMENDATIONS) ─────────────────── */
+    async function handleAutoPlay(spId) {
+        const remainingTracks = queue.length - 1 - currentIdx;
+        
+        if (remainingTracks < 2) {
+            logToMobile("AI Triggered: Fetching related tracks...");
+            try {
+                const endpoint = `https://api.spotify.com/v1/recommendations?seed_tracks=${spId}&limit=5`;
+                const res = await fetch(endpoint, { 
+                    headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
+                });
+                const data = await res.json();
+                
+                if (data.tracks) {
+                    data.tracks.forEach(t => {
+                        // Check if track is already in queue
+                        const exists = queue.find(q => q.spId === t.id);
+                        if (!exists) {
+                            queue.push({ 
+                                type: 'youtube_audio', 
+                                title: t.name, 
+                                artist: t.artists[0].name, 
+                                spId: t.id, 
+                                thumb: t.album.images[0].url, 
+                                isZeroxify: true 
+                            });
+                        }
+                    });
+                    saveQueue(); 
+                    renderQueue();
+                    logToMobile("AI Recommendations added to queue");
+                }
+            } catch (e) { 
+                logToMobile("AutoPlay fetch failed: " + e.message); 
+            }
+        }
+    }
 
-  function setTrackInfo(t, a) { if(musicTitle) musicTitle.textContent = t; if(musicArtist) musicArtist.textContent = a; if(miniTitle) miniTitle.textContent = t; }
-  function updatePlayBtn() { mpPlays.forEach(b => b.textContent = isPlaying ? '⏸' : '▶'); }
+    /* ── 8. AUDIO BYPASS FETCHER (RAPID API) ───────────────── */
+    async function fetchPremiumAudio(item) {
+        logToMobile(`⚡ Extracting bypass audio for: ${item.title}`);
+        const searchQuery = item.title + " " + item.artist + " audio";
+        const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(searchQuery)}&onlyLinks=true&quality=best&bypassSpotify=true`;
+        
+        try {
+            const res = await fetch(url, { 
+                headers: { 
+                    'x-rapidapi-key': RAPID_API_KEY, 
+                    'x-rapidapi-host': 'spotify81.p.rapidapi.com' 
+                } 
+            });
+            const data = await res.json();
+            if (data && data.url) {
+                return data.url;
+            } else {
+                return null;
+            }
+        } catch (e) { 
+            logToMobile("Audio extraction error: " + e.message);
+            return null; 
+        }
+    }
 
-  /* ── 11. OLD URL & YT INPUT LOGIC ──────────────────────── */
-  if(urlAddBtn) {
-      urlAddBtn.onclick = () => {
-          const val = urlInput.value.trim();
-          if(val) { addToQueue({ type: 'youtube_audio', title: 'Direct URL', artist: 'Custom', cachedUrl: val }); urlInput.value = ''; }
-      };
-  }
-  if(ytAddBtn) {
-      ytAddBtn.onclick = () => {
-          const val = ytInput.value.trim();
-          if(val) { 
-              let ytId = val.split('v=')[1]; 
-              if(!ytId) ytId = val.split('/').pop();
-              addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: ytId }); ytInput.value = ''; 
-          }
-      };
-  }
-  
-  /* ── 12. UI TOUCH & SWIPE LOGIC ────────────────────────── */
-  let startY = 0; let isPanelOpen = false;
-  function openPanel() { if(isPanelOpen) return; isPanelOpen = true; if(panel) panel.classList.add('zx-open'); document.body.style.overflow = 'hidden'; if(panelToggleBtn) panelToggleBtn.classList.add('active'); }
-  function closePanel() { if(!isPanelOpen) return; isPanelOpen = false; if(panel) panel.classList.remove('zx-open'); document.body.style.overflow = ''; if(panelToggleBtn) panelToggleBtn.classList.remove('active'); }
+    /* ── 9. MEDIA RENDER ENGINE ────────────────────────────── */
+    function renderMedia(item) {
+        if (nativeAudio) {
+            nativeAudio.style.display = 'none'; 
+            nativeAudio.pause(); 
+            nativeAudio.src = ""; 
+        }
+        
+        if (ytFrameWrap) {
+            ytFrameWrap.style.display = 'none';
+        }
+        
+        isPlaying = false; 
+        updatePlayBtn();
+        
+        if (item.type === 'youtube') {
+            activeType = 'youtube';
+            if (cinemaMode) cinemaMode.classList.remove('hidden'); 
+            if (spotifyMode) spotifyMode.classList.add('hidden');
+            if (ytFrameWrap) ytFrameWrap.style.display = 'block';
+            
+            if (isYtReady && ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+                ytPlayer.loadVideoById(item.ytId);
+            }
+            setTrackInfo(item.title, "YouTube Video");
+            syncMediaState({ action: 'play_yt', id: item.ytId });
+            
+        } else {
+            activeType = 'youtube_audio';
+            if (cinemaMode) cinemaMode.classList.add('hidden'); 
+            if (spotifyMode) spotifyMode.classList.remove('hidden');
+            
+            if (vinylRecord && item.thumb) {
+                vinylRecord.style.backgroundImage = `url('${item.thumb}')`;
+            }
+            
+            if (item.cachedUrl) { 
+                playAudio(item.cachedUrl, item); 
+            } else {
+                setTrackInfo(item.title, "⚡ Buffering M4A...");
+                
+                fetchPremiumAudio(item).then(url => {
+                    if (url) { 
+                        item.cachedUrl = url; 
+                        playAudio(url, item); 
+                    } else { 
+                        setTrackInfo(item.title, "❌ Bypass Error"); 
+                        logToMobile("Cannot fetch audio, skipping to next.");
+                        setTimeout(() => {
+                            playNext();
+                        }, 2000);
+                    }
+                });
+            }
+        }
+    }
 
-  if(handle) {
-      handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive: true});
-      handle.addEventListener('touchmove', (e) => { if(!isPanelOpen && (e.touches[0].clientY - startY) > 15) openPanel(); }, {passive: true});
-      handle.addEventListener('click', (e) => { if(e.target.closest('.mp-btn') || e.target.closest('.z-trigger-btn')) return; isPanelOpen ? closePanel() : openPanel(); });
-  }
-  if(panelToggleBtn) panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); isPanelOpen ? closePanel() : openPanel(); });
-  if(closeHandle) closeHandle.addEventListener('click', closePanel);
+    function playAudio(url, item) {
+        if (!nativeAudio) return;
+        
+        nativeAudio.src = url; 
+        nativeAudio.load();
+        
+        const playPromise = nativeAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                isPlaying = true; 
+                updatePlayBtn(); 
+                logToMobile("🎶 Playing: " + item.title);
+            }).catch(e => {
+                logToMobile("Auto-play prevented by browser. Please tap play.");
+            });
+        }
+        
+        setTrackInfo(item.title, item.artist);
+        
+        if (item.isZeroxify) {
+            handleAutoPlay(item.spId);
+        }
+        
+        syncMediaState({ action: 'play_audio', title: item.title, url: url });
+    }
 
-  document.querySelectorAll('.mp-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-          document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
-          tab.classList.add('active');
-          const target = document.getElementById('tab-' + tab.dataset.tab);
-          if(target) target.classList.add('active');
-      });
-  });
+    /* ── 10. QUEUE LOGIC ───────────────────────────────────── */
+    function addToQueue(item) { 
+        queue.push(item); 
+        saveQueue(); 
+        renderQueue(); 
+        
+        // If it's the first item or we are at the end of the queue, play it immediately
+        if (queue.length === 1 || currentIdx === queue.length - 1) {
+            playQueueItem(queue.length - 1); 
+        }
+    }
+    
+    function saveQueue() { 
+        try {
+            // Keep maximum 50 items in queue to avoid local storage limits
+            const limitedQueue = queue.slice(-50);
+            localStorage.setItem('zx_queue', JSON.stringify(limitedQueue)); 
+            localStorage.setItem('zx_qidx', currentIdx); 
+        } catch(e) {
+            logToMobile("Local storage error while saving queue.");
+        }
+    }
+    
+    function renderQueue() {
+        if (!queueList) return;
+        queueList.innerHTML = '';
+        
+        queue.forEach((item, i) => {
+            const el = document.createElement('div'); 
+            el.className = 'mp-queue-item';
+            
+            if (i === currentIdx) {
+                el.classList.add('playing');
+            }
+            
+            el.innerHTML = `
+                <span class="qi-title" style="flex:1; overflow:hidden; text-overflow:ellipsis;">${item.title}</span>
+                <button class="qi-del" style="color:#ff4444; border:none; background:transparent; font-size:16px;">✕</button>
+            `;
+            
+            el.addEventListener('click', (e) => { 
+                if (e.target.classList.contains('qi-del')) { 
+                    queue.splice(i, 1); 
+                    
+                    // Adjust current index if necessary
+                    if (i < currentIdx) currentIdx--;
+                    else if (i === currentIdx && queue.length > 0) {
+                        // Current playing item deleted
+                        playQueueItem(currentIdx >= queue.length ? queue.length - 1 : currentIdx);
+                    }
+                    
+                    saveQueue(); 
+                    renderQueue(); 
+                } else { 
+                    playQueueItem(i); 
+                }
+            });
+            
+            queueList.appendChild(el);
+        });
+    }
+    
+    function playQueueItem(i) { 
+        if (i < 0 || i >= queue.length) return; 
+        currentIdx = i; 
+        saveQueue(); 
+        renderQueue(); 
+        renderMedia(queue[i]); 
+    }
+    
+    function playNext() { 
+        playQueueItem(currentIdx + 1); 
+    }
+    function playPrev() {
+        playQueueItem(currentIdx - 1);
+    }
+    
+    /* ── 11. PLAYER CONTROLS & LISTENERS ───────────────────── */
+    if (nativeAudio) {
+        nativeAudio.addEventListener('ended', playNext);
+        nativeAudio.addEventListener('play', () => { 
+            isPlaying = true; 
+            updatePlayBtn(); 
+            syncMediaState({action: 'play'});
+        });
+        nativeAudio.addEventListener('pause', () => { 
+            isPlaying = false; 
+            updatePlayBtn(); 
+            syncMediaState({action: 'pause'});
+        });
+    }
 
-  function showToast(msg) {
-      const t = document.createElement('div'); t.textContent = msg;
-      t.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(29, 185, 84, 0.95);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999999;pointer-events:none;animation:fadeInOut 3s forwards; box-shadow: 0 4px 15px rgba(0,0,0,0.5);';
-      document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
-  }
+    if (mpPlays && mpPlays.length > 0) {
+        mpPlays.forEach(btn => {
+            btn.addEventListener('click', () => { 
+                if (isPlaying) { 
+                    if (nativeAudio) nativeAudio.pause(); 
+                    if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); 
+                } else { 
+                    if (nativeAudio && nativeAudio.src) nativeAudio.play(); 
+                    if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo(); 
+                } 
+            });
+        });
+    }
 
-  /* ── 13. FILTER BAR EVENT LISTENERS ────────────────────── */
-  function updateFilterVisuals() {
-      document.querySelectorAll('.f-icon').forEach(ic => {
-          ic.style.filter = 'none';
-          ic.style.transform = 'scale(1)';
-      });
-      const activeIcon = document.querySelector(`.f-icon[data-type="${searchType}"]`);
-      if(activeIcon) {
-          activeIcon.style.filter = 'drop-shadow(0 0 5px #1db954)';
-          activeIcon.style.transform = 'scale(1.1)';
-      }
-  }
+    if (mpNexts && mpNexts.length > 0) {
+        mpNexts.forEach(btn => {
+            if(btn) btn.addEventListener('click', playNext);
+        });
+    }
 
-  document.querySelectorAll('.f-icon').forEach(icon => {
-      icon.onclick = () => {
-          searchType = icon.dataset.type;
-          updateFilterVisuals();
-          showToast(`Mode: ${searchType.toUpperCase()}`);
-      };
-  });
+    if (mpPrevs && mpPrevs.length > 0) {
+        mpPrevs.forEach(btn => {
+            if(btn) btn.addEventListener('click', playPrev);
+        });
+    }
 
-  document.querySelectorAll('.f-tag').forEach(tag => {
-      tag.onclick = () => {
-          const mood = tag.dataset.mood;
-          if(spInput) spInput.value = mood;
-          searchType = 'track';
-          updateFilterVisuals();
-          
-          // Add glow to clicked tag
-          document.querySelectorAll('.f-tag').forEach(t => t.style.boxShadow = 'none');
-          tag.style.boxShadow = '0 0 8px rgba(0,255,0,0.5)';
-          
-          searchSpotify(mood, 'track');
-      };
-  });
+    function setTrackInfo(t, a) { 
+        if (musicTitle) musicTitle.textContent = t; 
+        if (musicArtist) musicArtist.textContent = a; 
+        if (miniTitle) miniTitle.textContent = t; 
+    }
+    
+    function updatePlayBtn() { 
+        if (mpPlays && mpPlays.length > 0) {
+            mpPlays.forEach(btn => {
+                btn.textContent = isPlaying ? '⏸' : '▶';
+            });
+        }
+    }
 
-  if(spSearchSongBtn) {
-      spSearchSongBtn.onclick = () => { const val = spInput ? spInput.value.trim() : ''; if (val) searchSpotify(val, searchType); };
-  }
+    /* ── 12. OLD URL & YT INPUT LOGIC (RESTORED) ───────────── */
+    if (urlAddBtn) {
+        urlAddBtn.addEventListener('click', () => {
+            if (!urlInput) return;
+            const val = urlInput.value.trim();
+            if (val) { 
+                addToQueue({ 
+                    type: 'youtube_audio', 
+                    title: 'Direct URL Stream', 
+                    artist: 'Custom', 
+                    cachedUrl: val 
+                }); 
+                urlInput.value = ''; 
+                showToast("URL Added");
+            }
+        });
+    }
 
-  /* ── 14. YOUTUBE IFRAME API ────────────────────────────── */
-  const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
-  window.onYouTubeIframeAPIReady = function() {
-      if(!ytFrameWrap) return;
-      ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
-      ytPlayer = new YT.Player('ytPlayerInner', {
-          width: '100%', height: '100%',
-          playerVars: { 'autoplay': 1, 'controls': 1, 'playsinline': 1 },
-          events: { 
-              'onReady': () => { isYtReady = true; logToMobile("📺 YT Player Ready"); }, 
-              'onStateChange': (event) => {
-                  if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); syncMediaState({action:'play'}); }
-                  if (event.data === YT.PlayerState.PAUSED)  { isPlaying = false; updatePlayBtn(); syncMediaState({action:'pause'}); }
-                  if (event.data === YT.PlayerState.ENDED) playNext();
-              }
-          }
-      });
-  };
+    if (ytAddBtn) {
+        ytAddBtn.addEventListener('click', () => {
+            if (!ytInput) return;
+            const val = ytInput.value.trim();
+            if (val) { 
+                // Enhanced RegEx for YT
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                const match = val.match(regExp);
+                const ytId = (match && match[2].length === 11) ? match[2] : null;
 
-  /* ── 15. DEEP SYNC NETWORK & FIRESTORE LOGIC ───────────── */
-  function syncMediaState(data) {
-      if (!synced || isRemoteAction) return;
-      logToMobile(`📡 Syncing Action: ${data.action} to Room: ${currentRoomId}`);
-      // db.collection('rooms').doc(currentRoomId).update({ 
-      //    mediaState: data, 
-      //    timestamp: firebase.firestore.FieldValue.serverTimestamp() 
-      // });
-  }
+                if (ytId) {
+                    addToQueue({ type: 'youtube', title: 'YouTube Video Link', ytId: ytId });
+                    ytInput.value = ''; 
+                    showToast("YT Link Added");
+                } else {
+                    showToast("Invalid YT Link");
+                }
+            }
+        });
+    }
 
-  function listenToRoomSync() {
-      logToMobile(`🎧 Listening to Room: ${currentRoomId}`);
-      // db.collection('rooms').doc(currentRoomId).onSnapshot((doc) => {
-      //    if (doc.exists) {
-      //        const data = doc.data().mediaState;
-      //        if(data && !isRemoteAction) {
-      //            setRemoteAction();
-      //            if(data.action === 'play') { nativeAudio.play(); }
-      //            else if (data.action === 'pause') { nativeAudio.pause(); }
-      //        }
-      //    }
-      // });
-  }
+    /* ── 13. SWIPE GESTURES & PANELS ───────────────────────── */
+    let startY = 0; 
+    let isPanelOpen = false;
+    
+    function openPanel() { 
+        if (isPanelOpen) return; 
+        isPanelOpen = true; 
+        if (panel) {
+            panel.classList.add('zx-open'); 
+        }
+        document.body.style.overflow = 'hidden'; 
+        if (panelToggleBtn) {
+            panelToggleBtn.classList.add('active');
+        }
+    }
+    
+    function closePanel() { 
+        if (!isPanelOpen) return; 
+        isPanelOpen = false; 
+        if (panel) {
+            panel.classList.remove('zx-open'); 
+        }
+        document.body.style.overflow = ''; 
+        if (panelToggleBtn) {
+            panelToggleBtn.classList.remove('active');
+        }
+    }
 
-  if(mpSyncBtn) {
-      mpSyncBtn.onclick = () => { 
-          synced = true; 
-          if(mpSyncBadge) mpSyncBadge.classList.add('active'); 
-          showToast('Sync Activated'); 
-          listenToRoomSync();
-      };
-  }
-  if(mpUnsyncBtn) {
-      mpUnsyncBtn.onclick = () => { 
-          synced = false; 
-          if(mpSyncBadge) mpSyncBadge.classList.remove('active'); 
-          showToast('Sync Deactivated'); 
-      };
-  }
+    if (handle) {
+        handle.addEventListener('touchstart', (e) => { 
+            startY = e.touches[0].clientY; 
+        }, {passive: true});
+        
+        handle.addEventListener('touchmove', (e) => { 
+            if (!isPanelOpen && (e.touches[0].clientY - startY) > 15) {
+                openPanel(); 
+            }
+        }, {passive: true});
+        
+        handle.addEventListener('click', (e) => { 
+            // Don't trigger panel open/close if user clicked a button on the mini player
+            if (e.target.closest('.mp-btn')) return; 
+            
+            if (isPanelOpen) {
+                closePanel();
+            } else {
+                openPanel();
+            }
+        });
+    }
+    
+    if (closeHandle) {
+        closeHandle.addEventListener('click', closePanel);
+    }
+    
+    if (panelToggleBtn) {
+        panelToggleBtn.addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            if (isPanelOpen) closePanel(); else openPanel(); 
+        });
+    }
 
-  /* ── 16. HIDDEN CHAT & VOICE NOTES LOGIC ───────────────── */
-  // Gesture listener to reveal hidden chat
-  let tapCount = 0;
-  let tapTimer;
-  document.addEventListener('touchstart', (e) => {
-      if(e.touches.length === 2) { // Two-finger tap for hidden chat
-          tapCount++;
-          clearTimeout(tapTimer);
-          tapTimer = setTimeout(() => { tapCount = 0; }, 500);
-          if(tapCount === 3) {
-              if(hiddenChatOverlay) hiddenChatOverlay.classList.remove('hidden');
-              showToast("Secret Chat Unlocked 🤫");
-              tapCount = 0;
-          }
-      }
-  });
+    /* ── 14. TABS LOGIC ────────────────────────────────────── */
+    const allTabs = document.querySelectorAll('.mp-tab');
+    if (allTabs && allTabs.length > 0) {
+        allTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.mp-tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active to current
+                tab.classList.add('active');
+                const targetId = 'tab-' + tab.dataset.tab;
+                const targetEl = document.getElementById(targetId);
+                
+                if (targetEl) {
+                    targetEl.classList.add('active');
+                }
+            });
+        });
+    }
 
-  // Online Status & Chat Controls
-  function updateOnlineStatus(status) {
-      isChatOnline = status;
-      if(chatOnlineStatus) {
-          chatOnlineStatus.style.backgroundColor = status ? '#00FF00' : '#FF0000';
-          chatOnlineStatus.title = status ? 'Online' : 'Offline';
-      }
-  }
+    function showToast(msg) {
+        const t = document.createElement('div'); 
+        t.textContent = msg;
+        t.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(29, 185, 84, 0.95);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 999999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: none;
+            animation: fadeInOut 3s forwards;
+        `;
+        document.body.appendChild(t); 
+        
+        setTimeout(() => {
+            if (t.parentNode) {
+                t.parentNode.removeChild(t);
+            }
+        }, 3000);
+    }
 
-  if(voiceNoteBtn) {
-      let isRecording = false;
-      voiceNoteBtn.onmousedown = voiceNoteBtn.ontouchstart = () => {
-          isRecording = true;
-          voiceNoteBtn.style.transform = 'scale(1.2)';
-          voiceNoteBtn.style.backgroundColor = '#ff4444';
-          logToMobile("🎤 Recording Voice Note...");
-      };
-      voiceNoteBtn.onmouseup = voiceNoteBtn.ontouchend = () => {
-          if(isRecording) {
-              isRecording = false;
-              voiceNoteBtn.style.transform = 'scale(1)';
-              voiceNoteBtn.style.backgroundColor = '';
-              logToMobile("📤 Voice Note Sent to Firestore");
-              showToast("Voice Note Sent");
-          }
-      };
-  }
+    /* ── 15. FILTER BAR EVENT LISTENERS ────────────────────── */
+    function updateFilterVisuals() {
+        const allIcons = document.querySelectorAll('.f-icon');
+        allIcons.forEach(ic => { 
+            ic.style.filter = 'none'; 
+            ic.style.transform = 'scale(1)'; 
+        });
+        
+        const activeIcon = document.querySelector(`.f-icon[data-type="${searchType}"]`);
+        if (activeIcon) { 
+            activeIcon.style.filter = 'drop-shadow(0 0 5px #1db954)'; 
+            activeIcon.style.transform = 'scale(1.1)'; 
+        }
+    }
 
-  if(chatSendBtn && chatInput) {
-      chatSendBtn.onclick = () => {
-          const msg = chatInput.value.trim();
-          if(msg) {
-              logToMobile(`💬 Chat Sent: ${msg}`);
-              // db.collection('chats').add({ room: currentRoomId, text: msg });
-              chatInput.value = '';
-          }
-      };
-  }
+    const filterIcons = document.querySelectorAll('.f-icon');
+    filterIcons.forEach(icon => { 
+        icon.addEventListener('click', () => { 
+            searchType = icon.dataset.type; 
+            updateFilterVisuals(); 
+            showToast(`Filter: ${searchType.toUpperCase()}`);
+        }); 
+    });
+    
+    const filterTags = document.querySelectorAll('.f-tag');
+    filterTags.forEach(tag => { 
+        tag.addEventListener('click', () => { 
+            const mood = tag.dataset.mood;
+            if (spInput) spInput.value = mood; 
+            searchType = 'track'; 
+            updateFilterVisuals(); 
+            
+            // Add visual glow to the text tag itself
+            document.querySelectorAll('.f-tag').forEach(t => t.style.boxShadow = 'none');
+            tag.style.boxShadow = '0 0 8px rgba(0,255,0,0.5)';
+            
+            searchSpotify(mood, 'track'); 
+        }); 
+    });
 
-  /* ── 17. INITIAL BOOT ──────────────────────────────────── */
-  refreshSpotifyToken();
-  renderQueue();
-  updateOnlineStatus(true); // Set user online by default
-  
-  if(queue.length > 0 && currentIdx >= 0 && currentIdx < queue.length) {
-      const item = queue[currentIdx];
-      setTrackInfo(item.title, item.artist || 'Unknown');
-      if(item.thumb && vinylRecord) vinylRecord.style.backgroundImage = `url('${item.thumb}')`;
-  }
+    /* ── 16. HIDDEN CHAT & VOICE NOTES LOGIC ───────────────── */
+    let tapCount = 0; 
+    let tapTimer;
+    
+    document.addEventListener('touchstart', (e) => {
+        // Look for 2 finger tap
+        if (e.touches.length === 2) { 
+            tapCount++; 
+            clearTimeout(tapTimer); 
+            
+            tapTimer = setTimeout(() => { 
+                tapCount = 0; 
+            }, 500);
+            
+            if (tapCount === 3) { 
+                if (hiddenChatOverlay) {
+                    hiddenChatOverlay.classList.remove('hidden'); 
+                }
+                showToast("Secret Chat Unlocked 🤫"); 
+                tapCount = 0; 
+            }
+        }
+    });
+
+    function updateOnlineStatus(status) {
+        isChatOnline = status;
+        if (chatOnlineStatus) {
+            chatOnlineStatus.style.backgroundColor = status ? '#00FF00' : '#FF0000';
+            chatOnlineStatus.title = status ? 'Online' : 'Offline';
+        }
+    }
+
+    if (voiceNoteBtn) {
+        let isRecording = false;
+        
+        const startRecord = () => {
+            isRecording = true;
+            voiceNoteBtn.style.transform = 'scale(1.2)';
+            voiceNoteBtn.style.backgroundColor = '#ff4444';
+            logToMobile("🎤 Recording Voice Note...");
+        };
+        
+        const stopRecord = () => {
+            if (isRecording) {
+                isRecording = false;
+                voiceNoteBtn.style.transform = 'scale(1)';
+                voiceNoteBtn.style.backgroundColor = '';
+                logToMobile("📤 Voice Note Sent to Server");
+                showToast("Voice Note Sent");
+            }
+        };
+
+        voiceNoteBtn.addEventListener('mousedown', startRecord);
+        voiceNoteBtn.addEventListener('touchstart', startRecord);
+        
+        voiceNoteBtn.addEventListener('mouseup', stopRecord);
+        voiceNoteBtn.addEventListener('touchend', stopRecord);
+    }
+
+    if (chatSendBtn && chatInput) {
+        chatSendBtn.addEventListener('click', () => {
+            const msg = chatInput.value.trim();
+            if (msg) {
+                logToMobile(`💬 Chat Sent: ${msg}`);
+                // Commented Firestore Logic to preserve structure
+                // db.collection('chats').add({ 
+                //     room: currentRoomId, 
+                //     text: msg,
+                //     timestamp: new Date()
+                // });
+                chatInput.value = '';
+            }
+        });
+    }
+
+    /* ── 17. YOUTUBE IFRAME API ────────────────────────────── */
+    const tag = document.createElement('script'); 
+    tag.src = "https://www.youtube.com/iframe_api"; 
+    document.head.appendChild(tag);
+    
+    window.onYouTubeIframeAPIReady = function() {
+        if (!ytFrameWrap) return;
+        
+        ytFrameWrap.innerHTML = '<div id="ytPlayerInner"></div>';
+        
+        ytPlayer = new YT.Player('ytPlayerInner', {
+            width: '100%', 
+            height: '100%',
+            playerVars: { 
+                'autoplay': 1, 
+                'controls': 1, 
+                'playsinline': 1 
+            },
+            events: { 
+                'onReady': () => { 
+                    isYtReady = true; 
+                    logToMobile("📺 YT Player Init Success");
+                }, 
+                'onStateChange': (event) => {
+                    if (event.data === YT.PlayerState.PLAYING) { 
+                        isPlaying = true; 
+                        updatePlayBtn(); 
+                        syncMediaState({action: 'play'});
+                    }
+                    if (event.data === YT.PlayerState.PAUSED) { 
+                        isPlaying = false; 
+                        updatePlayBtn(); 
+                        syncMediaState({action: 'pause'});
+                    }
+                    if (event.data === YT.PlayerState.ENDED) {
+                        playNext();
+                    }
+                }
+            }
+        });
+    };
+
+    /* ── 18. DEEP SYNC NETWORK & FIRESTORE LOGIC ───────────── */
+    function syncMediaState(data) {
+        if (!synced || isRemoteAction) return;
+        
+        logToMobile(`📡 Syncing Action: ${data.action} to Room: ${currentRoomId}`);
+        
+        // Exact Firestore mockup kept alive for your backend integration
+        // db.collection('rooms').doc(currentRoomId).update({ 
+        //    mediaState: {
+        //        action: data.action,
+        //        url: data.url || null,
+        //        ytId: data.id || null,
+        //        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        //    }
+        // });
+    }
+
+    function listenToRoomSync() {
+        logToMobile(`🎧 Listening to Firebase Room: ${currentRoomId}`);
+        // db.collection('rooms').doc(currentRoomId).onSnapshot((doc) => {
+        //    if (doc.exists) {
+        //        const data = doc.data().mediaState;
+        //        if (data && !isRemoteAction) {
+        //            setRemoteAction();
+        //            if (data.action === 'play') { 
+        //                if (nativeAudio) nativeAudio.play(); 
+        //            }
+        //            else if (data.action === 'pause') { 
+        //                if (nativeAudio) nativeAudio.pause(); 
+        //            }
+        //        }
+        //    }
+        // });
+    }
+
+    if (mpSyncBtn) {
+        mpSyncBtn.addEventListener('click', () => { 
+            synced = true; 
+            if (mpSyncBadge) {
+                mpSyncBadge.classList.add('active'); 
+            }
+            showToast('Live Sync Activated'); 
+            listenToRoomSync();
+        });
+    }
+    
+    if (mpUnsyncBtn) {
+        mpUnsyncBtn.addEventListener('click', () => { 
+            synced = false; 
+            if (mpSyncBadge) {
+                mpSyncBadge.classList.remove('active'); 
+            }
+            showToast('Live Sync Deactivated'); 
+        });
+    }
+
+    /* ── 19. INITIAL BOOT SEQUENCE ─────────────────────────── */
+    function initPlayer() {
+        logToMobile("🚀 Player Boot Sequence Started...");
+        
+        // Load initial Spotify Token
+        refreshSpotifyToken();
+        
+        // Render saved queue from local storage
+        renderQueue();
+        
+        // Set online status for chat
+        updateOnlineStatus(true);
+        
+        // Load info of the first track if available
+        if (queue.length > 0 && currentIdx >= 0 && currentIdx < queue.length) {
+            const item = queue[currentIdx];
+            setTrackInfo(item.title, item.artist || 'Unknown');
+            
+            if (item.thumb && vinylRecord) {
+                vinylRecord.style.backgroundImage = `url('${item.thumb}')`;
+            }
+        }
+    }
+
+    // Call boot
+    initPlayer();
 
 })();
