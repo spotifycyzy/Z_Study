@@ -2,7 +2,7 @@
    ZEROX HUB — player.js (100% FULL CODE)
    🚀 MAJOR UPGRADE: Zeroxify Auto-Play Engine & Deep Sync
    💎 QUALITY: 295kbps Premium M4A Lock
-   ⚠️ NO FEATURES REMOVED. FULLY REPLACEABLE.
+   🐛 FIX: Spotify 81 GraphQL JSON Structure Patched
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -97,7 +97,6 @@ function logToMobile(message) {
 
   // 🎛️ MODE TOGGLE LISTENER
   if (modeToggle) {
-      // Button UI initial setup
       modeToggle.textContent = currentMode === 'zeroxify' ? '🚀 Mode: ZEROXIFY' : '🔍 Mode: YT SEARCH';
       modeToggle.addEventListener('click', () => {
           currentMode = currentMode === 'zeroxify' ? 'youtube' : 'zeroxify';
@@ -185,7 +184,6 @@ function logToMobile(message) {
   async function fetchPremiumAudio(ytId) {
       logToMobile(`⚙️ Engine: Fetching Stream for ID: ${ytId}`);
       
-      // Smart Formatting: YT IDs get full link, Spotify IDs go direct.
       let queryParam = ytId;
       if (ytId.length === 11) queryParam = `https://www.youtube.com/watch?v=${ytId}`;
 
@@ -229,25 +227,46 @@ function logToMobile(message) {
               headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify81.p.rapidapi.com' }
           });
           const result = await response.json();
-          const track = result.tracks?.items?.[0];
+          
+          // 🐛 BULLETPROOF JSON EXTRACTION
+          const track = result.tracks?.[0]?.data || result.tracks?.items?.[0] || result.tracks?.[0];
           
           if (track) {
-              const thumbUrl = track.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-              logToMobile(`🎯 Zeroxify Found: ${track.name}`);
+              // Safely extract thumbnail
+              let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
+              if (track.albumOfTrack?.coverArt?.sources?.length > 0) {
+                  thumbUrl = track.albumOfTrack.coverArt.sources[2]?.url || track.albumOfTrack.coverArt.sources[0]?.url;
+              } else if (track.album?.images?.length > 0) {
+                  thumbUrl = track.album.images[0].url;
+              }
+
+              // Safely extract artist
+              let artistName = 'Spotify AI';
+              if (track.artists?.items?.[0]?.profile?.name) {
+                  artistName = track.artists.items[0].profile.name;
+              } else if (track.artists?.[0]?.name) {
+                  artistName = track.artists[0].name;
+              }
+
+              // Safely extract ID
+              const actualId = track.id || track.uri?.split(':').pop();
+              
+              logToMobile(`🎯 Zeroxify Found: ${track.name || 'Song'}`);
               
               addToQueue({ 
                   type: 'youtube_audio', 
-                  title: track.name, 
-                  artist: track.artists?.[0]?.name || 'Spotify',
-                  ytId: track.id, // Spotify ID
+                  title: track.name || 'Unknown Track', 
+                  artist: artistName,
+                  ytId: actualId,
                   thumb: thumbUrl,
-                  isZeroxify: true // 🚩 The magic flag
+                  isZeroxify: true 
               });
               showToast("Playing from Spotify AI");
           } else {
               showToast("❌ No song found.");
+              logToMobile("❌ JSON me track nahi mila.");
           }
-      } catch (error) { logToMobile(`❌ Zeroxify Search Failed`); showToast("Network Error."); }
+      } catch (error) { logToMobile(`❌ Zeroxify Search Failed: ${error.message}`); showToast("Network Error."); }
   }
 
   // 🔍 ENGINE 4: YT V3 Alternative API (Standard List Mode)
@@ -300,9 +319,9 @@ function logToMobile(message) {
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { 
       const val = spInput.value.trim(); if(!val) return;
       if (currentMode === 'zeroxify') {
-          zeroxifyDirectPlay(val); // Direct Play! No List.
+          zeroxifyDirectPlay(val); 
       } else {
-          searchYouTube(val, 'spSearchResults', 'youtube_audio'); // Show List.
+          searchYouTube(val, 'spSearchResults', 'youtube_audio'); 
       }
       spInput.value = ''; 
   };
@@ -396,7 +415,7 @@ function logToMobile(message) {
           setupMediaSession(item);
           nativeAudio.src = item.cachedUrl;
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(()=>{});
-          handleZeroxifyFeeder(item); // Check if we need more recs!
+          handleZeroxifyFeeder(item); 
       } else {
           setTrackInfo(item.title, 'Extracting Premium Audio...');
           fetchPremiumAudio(item.ytId).then(mp3Link => {
@@ -409,7 +428,7 @@ function logToMobile(message) {
                   nativeAudio.src = mp3Link;
                   nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(()=>{});
                   
-                  handleZeroxifyFeeder(item); // The Auto-Feeder Magic
+                  handleZeroxifyFeeder(item); 
               } else {
                   setTrackInfo(item.title, 'Audio Fetch Failed');
                   showToast('API Error: Could not extract M4A.');
@@ -430,31 +449,43 @@ function logToMobile(message) {
     }
   }
 
-  // 🤖 THE ZEROXIFY AUTO-FEEDER LOGIC
+  // 🤖 THE ZEROXIFY AUTO-FEEDER LOGIC (Bulletproof JSON handler added)
   function handleZeroxifyFeeder(item) {
       if (!item.isZeroxify) return;
       
-      // SMART CHECK: Only fetch if there are less than 5 songs ahead in the queue. (Saves API Quota!)
       const songsAhead = queue.length - 1 - currentIdx;
       if (songsAhead < 3) {
           fetchSpotifyRecs(item.ytId).then(recs => {
               if (recs && recs.length > 0) {
                   recs.forEach(t => {
-                      // Prevent duplicates
-                      if (!queue.find(q => q.ytId === t.id)) {
+                      // Handle nested data if Recommendation API also uses GraphQL structure
+                      const trackData = t.data || t;
+                      const actualId = trackData.id || trackData.uri?.split(':').pop();
+                      
+                      if (!actualId) return;
+
+                      if (!queue.find(q => q.ytId === actualId)) {
+                          let tUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
+                          if (trackData.albumOfTrack?.coverArt?.sources?.length > 0) tUrl = trackData.albumOfTrack.coverArt.sources[0].url;
+                          else if (trackData.album?.images?.length > 0) tUrl = trackData.album.images[0].url;
+
+                          let aName = 'Spotify AI';
+                          if (trackData.artists?.items?.[0]?.profile?.name) aName = trackData.artists.items[0].profile.name;
+                          else if (trackData.artists?.[0]?.name) aName = trackData.artists[0].name;
+
                           queue.push({
                               type: 'youtube_audio',
-                              title: t.name,
-                              artist: t.artists?.[0]?.name,
-                              ytId: t.id,
-                              thumb: t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg',
+                              title: trackData.name || 'AI Pick',
+                              artist: aName,
+                              ytId: actualId,
+                              thumb: tUrl,
                               isZeroxify: true
                           });
                       }
                   });
                   saveQueue();
                   renderQueue();
-                  logToMobile(`🤖 Zeroxify: Added ${recs.length} songs to Queue.`);
+                  logToMobile(`🤖 Zeroxify: Added new AI tracks to Queue.`);
               }
           });
       }
@@ -508,7 +539,7 @@ function logToMobile(message) {
   nativeAudio.addEventListener('pause', () => { isPlaying = false; updatePlayBtn(); if (synced && !isRemoteAction) broadcastSync({ action: 'pause', time: nativeAudio.currentTime }); });
   nativeAudio.addEventListener('seeked', () => { if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime }); });
   
-  // 🏁 INFINITE LOOP MAGIC: When song ends, play next (Zeroxify guarantees there is always a next!)
+  // 🏁 INFINITE LOOP MAGIC
   nativeAudio.addEventListener('ended', playNext);
 
   /* ── DEEP SYNC NETWORK ────────────────────────── */
