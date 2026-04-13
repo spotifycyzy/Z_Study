@@ -2,7 +2,7 @@
    ZEROX HUB — player.js (100% FULL CODE)
    🚀 MAJOR UPGRADE: Zeroxify Auto-Play Engine & Deep Sync
    💎 QUALITY: 295kbps Premium M4A Lock
-   🐛 FIX: Spotify ID vs YT ID Routing Patched!
+   🎯 FIX: Title+Artist Search Enforced for 100% Accuracy
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -78,7 +78,7 @@ function logToMobile(message) {
   nativeAudio.setAttribute('webkit-playsinline', '');
 
   /* ── STATE ─────────────────────────────────────────────── */
-  let currentMode     = 'zeroxify'; // Default Mode! ('youtube' ya 'zeroxify')
+  let currentMode     = 'zeroxify'; // Default Mode
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
   let currentIdx      = parseInt(localStorage.getItem('zx_qidx') || '0');
   let synced          = false;
@@ -181,15 +181,21 @@ function logToMobile(message) {
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   
   // 🎧 ENGINE 1: Spotify 81 Streamer (Best Quality M4A)
-  async function fetchPremiumAudio(id) {
-      logToMobile(`⚙️ Engine: Fetching Stream for ID: ${id}`);
+  async function fetchPremiumAudio(item) {
+      logToMobile(`⚙️ Engine: Fetching Stream for: ${item.title}`);
       
-      let queryParam = id;
+      let queryParam = item.ytId;
       
-      // FIX: Agar ID exactly 11 characters ki hai (YouTube ID), toh hi usko YT link banao.
-      // Warna (Zeroxify mode me), yeh ek Spotify ID hai, toh usko direct bhejo!
-      if (id && id.length === 11 && !id.includes(':')) {
-          queryParam = `https://www.youtube.com/watch?v=${id}`;
+      // 🎯 THE BULLETPROOF FIX
+      // Agar gaana Zeroxify se aaya hai, toh ID bhejne ki galti mat karo.
+      // Seedha Gaane ka Naam + Artist ka Naam bhejo, API ekdum correct video dhoondh legi!
+      if (item.isZeroxify) {
+          queryParam = `${item.title} ${item.artist} official audio`;
+          logToMobile(`🔍 Forcing Text Search: ${queryParam}`);
+      } 
+      // Agar pure YouTube ID hai (11 chars) toh YT link bana ke bhejo.
+      else if (item.ytId && item.ytId.length === 11 && !item.ytId.includes(':')) {
+          queryParam = `https://www.youtube.com/watch?v=$${item.ytId}`;
       }
 
       const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(queryParam)}&onlyLinks=true&quality=best`;
@@ -233,11 +239,9 @@ function logToMobile(message) {
           });
           const result = await response.json();
           
-          // 🐛 BULLETPROOF JSON EXTRACTION
           const track = result.tracks?.[0]?.data || result.tracks?.items?.[0] || result.tracks?.[0];
           
           if (track) {
-              // Safely extract thumbnail
               let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
               if (track.albumOfTrack?.coverArt?.sources?.length > 0) {
                   thumbUrl = track.albumOfTrack.coverArt.sources[2]?.url || track.albumOfTrack.coverArt.sources[0]?.url;
@@ -245,7 +249,6 @@ function logToMobile(message) {
                   thumbUrl = track.album.images[0].url;
               }
 
-              // Safely extract artist
               let artistName = 'Spotify AI';
               if (track.artists?.items?.[0]?.profile?.name) {
                   artistName = track.artists.items[0].profile.name;
@@ -253,7 +256,6 @@ function logToMobile(message) {
                   artistName = track.artists[0].name;
               }
 
-              // Safely extract ID (This is the pure Spotify ID)
               const actualId = track.id || track.uri?.split(':').pop();
               
               logToMobile(`🎯 Zeroxify Found: ${track.name || 'Song'}`);
@@ -262,7 +264,7 @@ function logToMobile(message) {
                   type: 'youtube_audio', 
                   title: track.name || 'Unknown Track', 
                   artist: artistName,
-                  ytId: actualId, // Passing pure Spotify ID
+                  ytId: actualId, // Used ONLY for recommendations now
                   thumb: thumbUrl,
                   isZeroxify: true 
               });
@@ -271,7 +273,7 @@ function logToMobile(message) {
               showToast("❌ No song found.");
               logToMobile("❌ JSON me track nahi mila.");
           }
-      } catch (error) { logToMobile(`❌ Zeroxify Search Failed: ${error.message}`); showToast("Network Error."); }
+      } catch (error) { logToMobile(`❌ Zeroxify Search Failed`); showToast("Network Error."); }
   }
 
   // 🔍 ENGINE 4: YT V3 Alternative API (Standard List Mode)
@@ -294,7 +296,7 @@ function logToMobile(message) {
           data.data.forEach(vid => {
               let thumbUrl = 'https://i.imgur.com/8Q5FqWj.jpeg';
               if (vid.thumbnail && vid.thumbnail.length > 0) thumbUrl = vid.thumbnail[0].url;
-              const actualVideoId = vid.videoId || vid.id; // Passing YT ID
+              const actualVideoId = vid.videoId || vid.id;
 
               const div = document.createElement('div'); div.className = 'yt-search-item';
               div.innerHTML = `
@@ -423,7 +425,9 @@ function logToMobile(message) {
           handleZeroxifyFeeder(item); 
       } else {
           setTrackInfo(item.title, 'Extracting Premium Audio...');
-          fetchPremiumAudio(item.ytId).then(mp3Link => {
+          
+          // 🚀 SENDING THE ENTIRE ITEM TO THE DOWNLOAD ENGINE
+          fetchPremiumAudio(item).then(mp3Link => {
               if(mp3Link) {
                   item.cachedUrl = mp3Link; 
                   if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item: item });
