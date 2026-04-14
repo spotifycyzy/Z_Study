@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (BASE 9 - CLEANED & OPTIMIZED)
+   ZEROX HUB — player.js (BASE 13 - CLEANED & OPTIMIZED)
    💥 MAJOR FIX: No Cache, No Queue Mixing (Fresh Fetch Only)
-   🔥 UPGRADE: Spotify Search moved to BOTTOM for easy editing
+   🔥 UPGRADE: Spotify API v3 'Search All' (Mixed Results)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -401,7 +401,7 @@
 
   renderQueue();
 
-    /* ═══════════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════
      👇 EDIT ZONE: SPOTIFY SEARCH (API v3 - SEARCH ALL MIXED) 👇
   ═══════════════════════════════════════════════════════════ */
 
@@ -460,7 +460,7 @@
               return;
           }
 
-          // Duplicate Uris hatane ke liye (Agar koi Top result mein bhi ho aur Track mein bhi)
+          // Duplicate Uris hatane ke liye
           const seenUris = new Set();
 
           allItems.forEach((wrapper) => {
@@ -495,7 +495,7 @@
               } else if (item.images?.items?.[0]?.sources?.[0]?.url) {
                   thumb = item.images.items[0].sources[0].url; // Playlists
               } else if (item.visuals?.avatarImage?.sources?.[0]?.url) {
-                  thumb = item.visuals.avatarImage.sources[0].url; // Artists (Gol Photo)
+                  thumb = item.visuals.avatarImage.sources[0].url; // Artists
               }
 
               // UI Labels
@@ -544,3 +544,10 @@
           resDiv.innerHTML = '<p class="mp-empty">🚨 API Connection Error!</p>';
       }
   }
+
+  // Event Listeners for Spotify Search
+  if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
+  if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
+
+})();
