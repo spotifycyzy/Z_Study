@@ -59,6 +59,28 @@ app.get('/api/spotify-token', (req, res) => {
   tokenReq.end();
 });
 
+// Spotify Search Tunnel (Frontend ka block bypass karne ke liye)
+app.get('/api/spotify-search', (req, res) => {
+    const query = req.query.q;
+    const token = req.query.token;
+
+    const options = {
+        hostname: 'api.spotify.com',
+        path: `/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`,
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token }
+    };
+
+    const searchReq = https.request(options, (searchRes) => {
+        let body = '';
+        searchRes.on('data', (chunk) => { body += chunk; });
+        searchRes.on('end', () => { res.json(JSON.parse(body)); });
+    });
+
+    searchReq.on('error', (e) => { res.status(500).json({ error: e.message }); });
+    searchReq.end();
+});
+
 /* ── In-memory rooms & message history ─────────────────── */
 const rooms = {};
 const MAX_HISTORY = 200;
