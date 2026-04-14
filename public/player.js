@@ -401,8 +401,8 @@
 
   renderQueue();
 
-    /* ═══════════════════════════════════════════════════════════
-     👇 EDIT ZONE: SPOTIFY SEARCH (INDIAN MARKET FORCED) 👇
+      /* ═══════════════════════════════════════════════════════════
+     👇 EDIT ZONE: SPOTIFY SEARCH (SMART RELEVANCE SORT) 👇
   ═══════════════════════════════════════════════════════════ */
 
   async function searchSpotifyAlt(query, targetResultsDiv) {
@@ -411,13 +411,11 @@
       const resDiv = document.getElementById(divId);
       if (!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Exact Spotify Results...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Exact Matches...</p>';
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
           const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-          
-          // 🔥 1. URL mein hi INDIA aur MARKET force kar diya 🔥
           const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN&country=IN";
 
           const res = await fetch(url, {
@@ -426,50 +424,41 @@
                   "x-rapidapi-key": RAPID_KEY,
                   "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                   "Content-Type": "application/json",
-                  // 🔥 2. API ko bataya ki hum Indian hain (Hindi/English) 🔥
                   "Accept-Language": "en-IN,en;q=0.9,hi-IN;q=0.8,hi;q=0.7" 
               },
-              // Body mein bhi Country daal diya taaki koi chance na bache
               body: JSON.stringify({ terms: query, limit: 15, country: "IN", market: "IN" }) 
           });
           
           const responseData = await res.json();
           const searchData = responseData?.data?.searchV2 || responseData;
           
-          let allItems = [];
+          let rawItems = [];
           
-          // 🏆 1. EXACT "TOP RESULTS" 
+          // Sab kuch ek jagah jama karo (Koi order force mat karo)
           const topResultsArray = searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || [];
-          topResultsArray.forEach(item => {
-              allItems.push({ ...item, isExactTopResult: true }); 
-          });
+          topResultsArray.forEach(item => rawItems.push({ ...item, isExactTopResult: true }));
 
-          // 🎵 2. Tracks
           const tracksArray = searchData?.tracksV2?.items || searchData?.tracks?.items || [];
-          tracksArray.forEach(item => allItems.push(item));
+          tracksArray.forEach(item => rawItems.push(item));
 
-          // 📂 3. Albums
-          const albumsArray = searchData?.albumsV2?.items || searchData?.albums?.items || [];
-          albumsArray.forEach(item => allItems.push(item));
-
-          // 🎧 4. Playlists
           const playlistsArray = searchData?.playlistsV2?.items || searchData?.playlists?.items || [];
-          playlistsArray.forEach(item => allItems.push(item));
+          playlistsArray.forEach(item => rawItems.push(item));
 
-          resDiv.innerHTML = '';
+          const albumsArray = searchData?.albumsV2?.items || searchData?.albums?.items || [];
+          albumsArray.forEach(item => rawItems.push(item));
 
-          if (allItems.length === 0) {
+          if (rawItems.length === 0) {
               resDiv.innerHTML = `<p class="mp-empty">❌ No official results found.</p>`;
               return;
           }
 
+          // Data Extract aur Deduplicate karo
           const seenUris = new Set();
+          let cleanItems = [];
 
-          allItems.forEach((wrapper) => {
+          rawItems.forEach((wrapper) => {
               const item = wrapper?.item?.data || wrapper?.data || wrapper;
-              if (!item || !item.uri) return;
-
-              if (seenUris.has(item.uri)) return;
+              if (!item || !item.uri || seenUris.has(item.uri)) return;
               seenUris.add(item.uri);
 
               const uriParts = item.uri.split(':');
@@ -477,7 +466,6 @@
               const itemId = item.id || uriParts[2];
 
               const titleName = item.name || item.profile?.name || 'Unknown';
-              
               let artistName = 'Unknown';
               if (item.artists?.items?.[0]?.profile?.name) {
                   artistName = item.artists.items[0].profile.name;
@@ -498,35 +486,71 @@
                   thumb = item.visuals.avatarImage.sources[0].url; 
               }
 
-              const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
-              const imgRadius = itemType === 'artist' ? '50%' : '4px';
+              cleanItems.push({
+                  titleName, artistName, itemType, itemId, thumb,
+                  isExactTopResult: wrapper.isExactTopResult
+              });
+          });
+
+          // 🔥 THE MAGIC: SMART SORTING ALGORITHM (Tere search ko Top pe laayega) 🔥
+          const lowerQuery = query.toLowerCase();
+          
+          cleanItems.sort((a, b) => {
+              const aTitle = a.titleName.toLowerCase();
+              const bTitle = b.titleName.toLowerCase();
               
-              const topResultBadge = wrapper.isExactTopResult 
-                  ? `<div style="font-size:10px; color:#1db954; font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">🏆 TOP RESULT</div>` 
+              // 1. Agar naam exact match kar gaya, toh sabse upar phek do
+              if (aTitle === lowerQuery && bTitle !== lowerQuery) return -1;
+              if (bTitle === lowerQuery && aTitle !== lowerQuery) return 1;
+              
+              // 2. Agar naam ke andar search query chhupi hai, toh 2nd priority do
+              const aContains = aTitle.includes(lowerQuery);
+              const bContains = bTitle.includes(lowerQuery);
+              if (aContains && !bContains) return -1;
+              if (bContains && !aContains) return 1;
+              
+              // 3. API ka default Top Result (Agar title matching fail ho jaye)
+              if (a.isExactTopResult && !b.isExactTopResult) return -1;
+              if (b.isExactTopResult && !a.isExactTopResult) return 1;
+              
+              return 0; // Baaki items ko waisa hi rehne do
+          });
+
+          // 🎨 RENDER UI
+          resDiv.innerHTML = '';
+          
+          cleanItems.forEach((data, index) => {
+              const typeLabel = data.itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${data.itemType.toUpperCase()}</span>`;
+              const imgRadius = data.itemType === 'artist' ? '50%' : '4px';
+              
+              // Number 1 result par always Badge lagao (Agar wo matching hai)
+              const isTopRender = index === 0 && data.titleName.toLowerCase().includes(lowerQuery.split(' ')[0]);
+              const topResultBadge = (data.isExactTopResult || isTopRender) 
+                  ? `<div style="font-size:10px; color:#1db954; font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">🏆 BEST MATCH</div>` 
                   : "";
 
               const div = document.createElement('div');
               div.className = 'yt-search-item';
               div.innerHTML = `
-                  <img src="${thumb}" class="yt-search-thumb" style="border-radius: ${imgRadius};"/>
+                  <img src="${data.thumb}" class="yt-search-thumb" style="border-radius: ${imgRadius};"/>
                   <div class="yt-search-info">
                     ${topResultBadge}
-                    <div class="yt-search-title">${titleName}${typeLabel}</div>
-                    <div class="yt-search-sub">${artistName}</div>
+                    <div class="yt-search-title">${data.titleName}${typeLabel}</div>
+                    <div class="yt-search-sub">${data.artistName}</div>
                   </div>
-                  <span style="font-size:18px;padding:0 4px;color:#1db954">${itemType === 'track' ? '▶' : '📂'}</span>
+                  <span style="font-size:18px;padding:0 4px;color:#1db954">${data.itemType === 'track' ? '▶' : '📂'}</span>
               `;
 
               div.onclick = () => {
-                  if (itemType !== 'track') {
-                      if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${itemType.toUpperCase()}! Only Tracks can be played directly right now.`);
+                  if (data.itemType !== 'track') {
+                      if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${data.itemType.toUpperCase()}! Only Tracks can be played directly right now.`);
                       return;
                   }
 
                   if (typeof addToQueue === 'function') {
                       queue = []; 
                       currentIdx = 0; 
-                      addToQueue({ type: 'youtube_audio', title: titleName, artist: artistName, spId: itemId, thumb: thumb, isZeroxify: true });
+                      addToQueue({ type: 'youtube_audio', title: data.titleName, artist: data.artistName, spId: data.itemId, thumb: data.thumb, isZeroxify: true });
                       if (typeof showToast === 'function') showToast('🎵 Playing Track!');
                   }
               };
