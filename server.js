@@ -59,25 +59,40 @@ app.get('/api/spotify-token', (req, res) => {
   tokenReq.end();
 });
 
-// Spotify Search Tunnel (Frontend ka block bypass karne ke liye)
+// 🔍 Spotify Search Tunnel (Fixed Clean Version)
 app.get('/api/spotify-search', (req, res) => {
     const query = req.query.q;
     const token = req.query.token;
 
     const options = {
-        hostname: 'api.spotify.com',
+        // Domain name mein https:// ya extra slash bilkul nahi hona chahiye
+        hostname: 'api.spotify.com', 
         path: `/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`,
         method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + token }
+        headers: { 
+            'Authorization': 'Bearer ' + token,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
     };
 
     const searchReq = https.request(options, (searchRes) => {
         let body = '';
         searchRes.on('data', (chunk) => { body += chunk; });
-        searchRes.on('end', () => { res.json(JSON.parse(body)); });
+        searchRes.on('end', () => {
+            try {
+                // Agar body khali hai ya error hai toh check karega
+                res.json(JSON.parse(body));
+            } catch (e) {
+                res.status(500).json({ error: "Spotify response parse error", details: body });
+            }
+        });
     });
 
-    searchReq.on('error', (e) => { res.status(500).json({ error: e.message }); });
+    searchReq.on('error', (e) => { 
+        res.status(500).json({ error: "Request to Spotify failed", message: e.message }); 
+    });
+    
     searchReq.end();
 });
 
