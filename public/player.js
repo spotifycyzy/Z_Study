@@ -401,8 +401,8 @@
 
   renderQueue();
 
-  /* ═══════════════════════════════════════════════════════════
-     👇 EDIT ZONE: SPOTIFY SEARCH (API v3 - TOP RESULTS MIX) 👇
+    /* ═══════════════════════════════════════════════════════════
+     👇 EDIT ZONE: SPOTIFY SEARCH (INDIAN MARKET FORCED) 👇
   ═══════════════════════════════════════════════════════════ */
 
   async function searchSpotifyAlt(query, targetResultsDiv) {
@@ -416,15 +416,20 @@
 
       try {
           const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall";
+          
+          // 🔥 1. URL mein hi INDIA aur MARKET force kar diya 🔥
+          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN&country=IN";
 
           const res = await fetch(url, {
               method: "POST",
               headers: {
                   "x-rapidapi-key": RAPID_KEY,
                   "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
-                  "Content-Type": "application/json"
+                  "Content-Type": "application/json",
+                  // 🔥 2. API ko bataya ki hum Indian hain (Hindi/English) 🔥
+                  "Accept-Language": "en-IN,en;q=0.9,hi-IN;q=0.8,hi;q=0.7" 
               },
+              // Body mein bhi Country daal diya taaki koi chance na bache
               body: JSON.stringify({ terms: query, limit: 15, country: "IN", market: "IN" }) 
           });
           
@@ -433,13 +438,13 @@
           
           let allItems = [];
           
-          // 🏆 1. EXACT "TOP RESULTS" (Jo bhi ho: Album, Artist, ya Track)
+          // 🏆 1. EXACT "TOP RESULTS" 
           const topResultsArray = searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || [];
           topResultsArray.forEach(item => {
               allItems.push({ ...item, isExactTopResult: true }); 
           });
 
-          // 🎵 2. Uske niche baaki ke Tracks
+          // 🎵 2. Tracks
           const tracksArray = searchData?.tracksV2?.items || searchData?.tracks?.items || [];
           tracksArray.forEach(item => allItems.push(item));
 
@@ -496,7 +501,6 @@
               const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
               const imgRadius = itemType === 'artist' ? '50%' : '4px';
               
-              // 🔥 YE RAHI TERI SPOTIFY FEELING (Top Result Badge) 🔥
               const topResultBadge = wrapper.isExactTopResult 
                   ? `<div style="font-size:10px; color:#1db954; font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">🏆 TOP RESULT</div>` 
                   : "";
