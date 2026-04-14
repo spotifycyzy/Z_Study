@@ -224,36 +224,37 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (15 RESULTS) ──────────── */
+/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (FIXED URL) ──────────── */
 async function searchSpotifyAlt(query) {
     const resDiv = document.getElementById('spSearchResults');
     const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
     
-    resDiv.innerHTML = '<p class="mp-empty">⏳ Testing Nayi API (Limit: 15)...</p>';
+    resDiv.innerHTML = '<p class="mp-empty">⏳ Testing /search Endpoint...</p>';
     episodesOverlaySp.classList.remove('hidden');
 
     try {
-        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/searchTracks?q=" + encodeURIComponent(query) + "&limit=15", {
-            method: "POST",
+        // RASTA BADAL DIYA: searchTracks ki jagah sirf /search
+        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/search?q=" + encodeURIComponent(query) + "&type=tracks&limit=15", {
+            method: "POST", // Agar POST na chale toh GET try karenge, par pehle POST dekhte hain
             headers: {
                 "x-rapidapi-key": RAPID_KEY,
                 "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                 "Content-Type": "application/json"
             },
-            body: "{}"
+            body: "{}" // POST hai toh body chahiye hoti hai
         });
         const data = await res.json();
         
-        // Agar TracksV2 milta hai (Jo ki is API ka structure hai)
-        let items = data.tracksV2?.items || [];
+        // Agar response mein tracksV2 hai
+        let items = data.tracksV2?.items || data.tracks?.items || [];
         resDiv.innerHTML = '';
 
         if(items.length === 0) {
-            resDiv.innerHTML = '<p class="mp-empty">❌ No Results! API Response: ' + JSON.stringify(data).slice(0,100) + '</p>';
+            // Agar ab bhi 0 hai toh poora response dikha do error check karne ke liye
+            resDiv.innerHTML = '<p class="mp-empty">❌ No Results! Full Response: ' + JSON.stringify(data).slice(0,150) + '</p>';
             return;
         }
 
-        // List format mein results dikhana
         items.forEach((wrapper, i) => {
             const track = wrapper.item?.data || wrapper.data || wrapper;
             const trackName = track.name || 'Unknown';
