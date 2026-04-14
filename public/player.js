@@ -224,57 +224,70 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (Final Endpoint Trial) ──────────── */
 async function searchSpotifyAlt(query) {
     const resDiv = document.getElementById('spSearchResults');
     const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
     
-    resDiv.innerHTML = '<p class="mp-empty">⏳ Trying /searchAll Endpoint...</p>';
+    resDiv.innerHTML = '<p class="mp-empty">⏳ Connecting to Spotify V2 Engine...</p>';
     episodesOverlaySp.classList.remove('hidden');
 
     try {
-        // RASTA: searchAll (Jo tere JSON response mein dikha tha)
-        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/searchAll?q=" + encodeURIComponent(query) + "&limit=15", {
+        // EXACT URL from your dashboard
+        const url = "https://spotify-web-api3.p.rapidapi.com/searchTracks";
+
+        const res = await fetch(url, {
             method: "POST",
             headers: {
                 "x-rapidapi-key": RAPID_KEY,
                 "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({}) 
+            // Dashboard ke "Valid Body" section ke mutabiq query yahan jayegi
+            body: JSON.stringify({
+                q: query,
+                limit: 15
+            })
         });
+        
         const data = await res.json();
         
-        // Data structure path: data.tracksV2.items (As per your earlier log)
-        let items = data.tracksV2?.items || [];
+        // TERE RESPONSE KE MUTABIQ PATH: data.data.searchV2.tracksV2.items
+        // Ya fir seedha data.tracksV2.items (API pe depend karta hai)
+        let items = (data.data?.searchV2?.tracksV2?.items) || (data.tracksV2?.items) || [];
+        
         resDiv.innerHTML = '';
 
         if(items.length === 0) {
-            // Agar ab bhi 0 hai toh response dikhao, shayad POST ki jagah GET chahiye ho
-            resDiv.innerHTML = '<p class="mp-empty">❌ Still No Results! Response: ' + JSON.stringify(data).slice(0,150) + '</p>';
+            resDiv.innerHTML = `<p class="mp-empty">❌ No Tracks! Response: ${JSON.stringify(data).slice(0,150)}</p>`;
             return;
         }
 
         items.forEach((wrapper, i) => {
-            const track = wrapper.item?.data || wrapper.data || wrapper;
+            // Tere JSON mein 'item.data' ke andar gaana hai
+            const track = wrapper.item?.data || wrapper.data;
+            if(!track) return;
+
             const trackName = track.name || 'Unknown';
             const artistName = track.artists?.items?.[0]?.profile?.name || 'Unknown Artist';
             const trackId = track.id || 'No ID';
+            const thumb = track.albumOfTrack?.coverArt?.sources?.[0]?.url || '';
 
             const testItem = document.createElement('div');
-            testItem.style.cssText = 'padding:10px; border-bottom:1px solid #333; font-size:12px; color:#fff;';
+            testItem.style.cssText = 'padding:12px; border-bottom:1px solid #333; display:flex; align-items:center; gap:10px;';
             testItem.innerHTML = `
-                <div style="font-weight:bold; color:#1db954;">${i+1}. ${trackName}</div>
-                <div style="color:#aaa;">Artist: ${artistName}</div>
-                <div style="font-size:10px; color:#666;">ID: ${trackId}</div>
+                <img src="${thumb}" style="width:40px; height:40px; border-radius:4px;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold; color:#1db954; font-size:14px;">${i+1}. ${trackName}</div>
+                    <div style="color:#aaa; font-size:12px;">${artistName}</div>
+                    <div style="font-size:10px; color:#555;">ID: ${trackId}</div>
+                </div>
             `;
             resDiv.appendChild(testItem);
         });
 
     } catch (e) {
-        resDiv.innerHTML = '<p class="mp-empty" style="color:red;">🚨 Crash: ' + e.message + '</p>';
+        resDiv.innerHTML = `<p class="mp-empty" style="color:red;">🚨 Crash: ${e.message}</p>`;
     }
-}
 
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
