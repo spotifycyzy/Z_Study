@@ -425,7 +425,7 @@
                   "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                   "Content-Type": "application/json"
               },
-              body: JSON.stringify({ terms: query, limit: 15, country: IN }) 
+              body: JSON.stringify({ terms: query, limit: 15, country: "IN", market: "IN" }) 
           });
           
           const responseData = await res.json();
