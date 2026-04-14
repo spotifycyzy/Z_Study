@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL & FINAL CODE)
-   💥 MAJOR FIX: SP81 Reverted + Queue Click-to-Play Fixed
-   🔥 UPGRADE: Full Search Results (Tracks, Albums, Playlists)
+   💥 MAJOR FIX: SP81 Reverted + 'type=multi' Error Fixed
+   🔥 UPGRADE: Instant Click-to-Play (Queue Flush) Enabled
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -211,7 +211,7 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-  // 2. Spotify API (SP81) Search - Full Engine
+  // 2. Spotify API (SP81) Search - Full Engine (Fixed Type Multi)
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
       const divId = targetResultsDiv || 'spSearchResults';
@@ -222,8 +222,8 @@
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
-          // Stable SP81 search endpoint using GET
-          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=track,album,playlist&limit=20`;
+          // 🔥 EXACT MATCHED URL WITH type=multi 🔥
+          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=multi&offset=0&limit=20`;
 
           const res = await fetch(url, {
               method: "GET",
@@ -236,23 +236,20 @@
           const data = await res.json();
           let allItems = [];
           
-          // Flexibly extract tracks, albums, and playlists from standard API response structure
+          // Flexibly extract tracks, albums, and playlists from the 'multi' structure
           if (data.tracks?.items) allItems.push(...data.tracks.items);
-          else if (data.tracks) allItems.push(...data.tracks);
+          else if (Array.isArray(data.tracks)) allItems.push(...data.tracks);
           
           if (data.albums?.items) allItems.push(...data.albums.items);
-          else if (data.albums) allItems.push(...data.albums);
+          else if (Array.isArray(data.albums)) allItems.push(...data.albums);
           
           if (data.playlists?.items) allItems.push(...data.playlists.items);
-          else if (data.playlists) allItems.push(...data.playlists);
-
-          // Fallback if data is returned as a flat array
-          if (Array.isArray(data) && allItems.length === 0) allItems = data;
+          else if (Array.isArray(data.playlists)) allItems.push(...data.playlists);
 
           resDiv.innerHTML = '';
 
           if (allItems.length === 0) {
-              resDiv.innerHTML = '<p class="mp-empty">❌ No results found on Spotify.</p>';
+              resDiv.innerHTML = `<p class="mp-empty">❌ No results found on Spotify.</p>`;
               return;
           }
 
@@ -287,7 +284,7 @@
               div.onclick = () => {
                   if (typeof addToQueue === 'function') {
                       
-                      // 💥 THE QUEUE FIX: Clear purani queue completely
+                      // 💥 QUEUE FLUSH LOGIC: Click = Instant Exact Play
                       queue = [];
                       currentIdx = 0;
                       
@@ -308,7 +305,7 @@
 
       } catch (e) {
           console.error("Spotify Search API Error:", e);
-          resDiv.innerHTML = '<p class="mp-empty">🚨 Search failed. Please try again.</p>';
+          resDiv.innerHTML = '<p class="mp-empty">🚨 Search failed. API Error.</p>';
       }
   }
 
