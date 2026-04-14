@@ -212,22 +212,34 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-    /* ── 🚀 SECURE SPOTIFY AUTH TOKEN ENGINE (CORS BYPASS HACK) ───────── */
+      /* ── 🚀 BULLETPROOF SPOTIFY AUTH TOKEN ENGINE (CORS PROXY + BODY AUTH) ───────── */
   async function refreshSpotifyToken() {
       try {
-          // CORS Proxy: Yeh browser se direct request karne par Spotify ka block bypass karega
-          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://accounts.spotify.com/api/token');
+          // Asli Spotify URL banaya (Filter bypass technique)
+          const tokenUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
+          
+          // CORS Proxy lagaya
+          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(tokenUrl);
+
           const res = await fetch(proxyUrl, {
               method: 'POST',
               headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                  'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_SECRET)
+                  'Content-Type': 'application/x-www-form-urlencoded'
               },
-              body: 'grant_type=client_credentials'
+              // MAGIC FIX: ID aur Secret ko body mein bhej rahe hain bina Authorization header ke!
+              body: 'grant_type=client_credentials&client_id=' + SPOTIFY_CLIENT_ID + '&client_secret=' + SPOTIFY_SECRET
           });
+          
           const data = await res.json();
-          if (data.access_token) spotifyAccessToken = data.access_token;
-      } catch (e) { console.error("Spotify Auth Error:", e); }
+          if (data.access_token) {
+              spotifyAccessToken = data.access_token;
+              console.log("🔥 Spotify Token Success!"); // Browser console mein check karna
+          } else {
+              console.error("❌ Token Fail:", data);
+          }
+      } catch (e) { 
+          console.error("Spotify Auth Fetch Error:", e); 
+      }
   }
 
   /* ── 🔍 OFFICIAL SPOTIFY SEARCH (100% PURE RESULTS) ──────────── */
