@@ -401,8 +401,8 @@
 
   renderQueue();
 
-  /* ═══════════════════════════════════════════════════════════
-     👇 EDIT ZONE: SPOTIFY SEARCH (API v3 - SEARCH ALL MIXED) 👇
+    /* ═══════════════════════════════════════════════════════════
+     👇 EDIT ZONE: SPOTIFY SEARCH (API v3 - TOP RESULTS MIX) 👇
   ═══════════════════════════════════════════════════════════ */
 
   async function searchSpotifyAlt(query, targetResultsDiv) {
@@ -411,13 +411,11 @@
       const resDiv = document.getElementById(divId);
       if (!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Global Mixed Results...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Exact Spotify Results...</p>';
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
           const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-          
-          // 🔥 Asli Spotify App wala Engine 🔥
           const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall";
 
           const res = await fetch(url, {
@@ -435,24 +433,25 @@
           
           let allItems = [];
           
-          // 🏆 TERE "CHIP ORDER" KE HISAAB SE EXACT ALIGNMENT 🏆
-          // 1. TOP RESULTS
-          if (searchData?.topResultsV2?.itemsV2) {
-              allItems.push(...searchData.topResultsV2.itemsV2);
-          }
-          // 2. TRACKS (Gaane)
-          if (searchData?.tracksV2?.items) {
-              allItems.push(...searchData.tracksV2.items);
-          }
-          // 3. ALBUMS
-          if (searchData?.albumsV2?.items) {
-              allItems.push(...searchData.albumsV2.items);
-          }
-          // 4. PLAYLISTS
-          if (searchData?.playlistsV2?.items) {
-              allItems.push(...searchData.playlistsV2.items);
-          }
-          
+          // 🏆 1. EXACT "TOP RESULTS" (Jo bhi ho: Album, Artist, ya Track)
+          const topResultsArray = searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || [];
+          topResultsArray.forEach(item => {
+              // Ek special flag laga rahe hain taki UI me Top Result tag dikhe
+              allItems.push({ ...item, isExactTopResult: true }); 
+          });
+
+          // 🎵 2. Uske niche baaki ke Tracks
+          const tracksArray = searchData?.tracksV2?.items || searchData?.tracks?.items || [];
+          tracksArray.forEach(item => allItems.push(item));
+
+          // 📂 3. Albums
+          const albumsArray = searchData?.albumsV2?.items || searchData?.albums?.items || [];
+          albumsArray.forEach(item => allItems.push(item));
+
+          // 🎧 4. Playlists
+          const playlistsArray = searchData?.playlistsV2?.items || searchData?.playlists?.items || [];
+          playlistsArray.forEach(item => allItems.push(item));
+
           resDiv.innerHTML = '';
 
           if (allItems.length === 0) {
@@ -460,18 +459,15 @@
               return;
           }
 
-          // Duplicate Uris hatane ke liye
           const seenUris = new Set();
 
           allItems.forEach((wrapper) => {
-              // API v3 ke Complex dibbo ka rasta
               const item = wrapper?.item?.data || wrapper?.data || wrapper;
               if (!item || !item.uri) return;
 
               if (seenUris.has(item.uri)) return;
               seenUris.add(item.uri);
 
-              // Type aur ID nikalna
               const uriParts = item.uri.split(':');
               const itemType = uriParts[1]; // track, album, playlist, artist
               const itemId = item.id || uriParts[2];
@@ -482,31 +478,37 @@
               if (item.artists?.items?.[0]?.profile?.name) {
                   artistName = item.artists.items[0].profile.name;
               } else if (item.ownerV2?.data?.name) {
-                  artistName = item.ownerV2.data.name; // Playlists
+                  artistName = item.ownerV2.data.name; 
               } else if (itemType === 'artist') {
-                  artistName = "Artist"; 
+                  artistName = "Artist Profile"; 
               }
 
               let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
               if (item.albumOfTrack?.coverArt?.sources?.[0]?.url) {
-                  thumb = item.albumOfTrack.coverArt.sources[0].url; // Tracks
+                  thumb = item.albumOfTrack.coverArt.sources[0].url; 
               } else if (item.coverArt?.sources?.[0]?.url) {
-                  thumb = item.coverArt.sources[0].url; // Albums
+                  thumb = item.coverArt.sources[0].url; 
               } else if (item.images?.items?.[0]?.sources?.[0]?.url) {
-                  thumb = item.images.items[0].sources[0].url; // Playlists
+                  thumb = item.images.items[0].sources[0].url; 
               } else if (item.visuals?.avatarImage?.sources?.[0]?.url) {
-                  thumb = item.visuals.avatarImage.sources[0].url; // Artists
+                  thumb = item.visuals.avatarImage.sources[0].url; 
               }
 
               // UI Labels
               const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
               const imgRadius = itemType === 'artist' ? '50%' : '4px';
+              
+              // 🔥 YE RAHI TERI SPOTIFY FEELING (Top Result Badge) 🔥
+              const topResultBadge = wrapper.isExactTopResult 
+                  ? `<div style="font-size:10px; color:#1db954; font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">🏆 TOP RESULT</div>` 
+                  : "";
 
               const div = document.createElement('div');
               div.className = 'yt-search-item';
               div.innerHTML = `
                   <img src="${thumb}" class="yt-search-thumb" style="border-radius: ${imgRadius};"/>
                   <div class="yt-search-info">
+                    ${topResultBadge}
                     <div class="yt-search-title">${titleName}${typeLabel}</div>
                     <div class="yt-search-sub">${artistName}</div>
                   </div>
@@ -514,25 +516,16 @@
               `;
 
               div.onclick = () => {
-                  // 🚨 CRASH GUARD: Agar gaana nahi hai toh queue mein na ghuse
+                  // Crash Guard: Agar Top Result Playlist/Album/Artist hai, toh warn karega
                   if (itemType !== 'track') {
-                      if (typeof showToast === 'function') showToast(`⚠️ This is an ${itemType.toUpperCase()}! Only Tracks can be played directly.`);
+                      if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${itemType.toUpperCase()}! Only Tracks can be played directly right now.`);
                       return;
                   }
 
                   if (typeof addToQueue === 'function') {
-                      // 💥 FRESH START: Zero Cache + Zero Mixing
                       queue = []; 
                       currentIdx = 0; 
-
-                      addToQueue({ 
-                          type: 'youtube_audio', 
-                          title: titleName, 
-                          artist: artistName, 
-                          spId: itemId, 
-                          thumb: thumb, 
-                          isZeroxify: true 
-                      });
+                      addToQueue({ type: 'youtube_audio', title: titleName, artist: artistName, spId: itemId, thumb: thumb, isZeroxify: true });
                       if (typeof showToast === 'function') showToast('🎵 Playing Track!');
                   }
               };
@@ -545,9 +538,3 @@
       }
   }
 
-  // Event Listeners for Spotify Search
-  if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
-  if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
-  if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
-
-})();
