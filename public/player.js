@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (100% FULL & FINAL CODE)
-   💥 MAJOR FIX: JS Crash Fixed + Own Backend Token API
-   🔥 UPGRADE: Official Spotify Search + Exact M4A Bypass
+   💥 MAJOR FIX: JS Crash Fixed (Missing Brackets Restored)
+   🔥 UPGRADE: Official Spotify Search V3 + Exact M4A Bypass
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -60,8 +60,6 @@
 
   /* ── 🔑 API KEYS & GLOBAL VARIABLES ────────────────────── */
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-  
-  // YEH MISSING THA PURANI FILE MEIN!
   let spotifyAccessToken = ""; 
 
   /* ── STATE ─────────────────────────────────────────────── */
@@ -169,7 +167,6 @@
 
   /* ── 🎧 SPOTIFY AUDIO BYPASS (EXACT ID TO M4A) ─────────── */
   async function fetchPremiumAudio(spId) {
-      // 100% Exact ID (Direct Download Bypass via RapidAPI)
       const url = `https://spotify81.p.rapidapi.com/download_track?q=${spId}&onlyLinks=true`;
       
       try {
@@ -224,70 +221,80 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-async function searchSpotifyAlt(query) {
-    const resDiv = document.getElementById('spSearchResults');
-    const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-    
-    resDiv.innerHTML = '<p class="mp-empty">⏳ Connecting to Spotify V2 Engine...</p>';
-    episodesOverlaySp.classList.remove('hidden');
+  // 2. Spotify API V3 Search (Crash-Proof Version)
+  async function searchSpotifyAlt(query, targetResultsDiv) {
+      if (!query) return;
+      const divId = targetResultsDiv || 'spSearchResults';
+      const resDiv = document.getElementById(divId);
+      if (!resDiv) return;
 
-    try {
-        // EXACT URL from your dashboard
-        const url = "https://spotify-web-api3.p.rapidapi.com/searchTracks";
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Searching Official Tracks...</p>';
+      if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
-        const res = await fetch(url, {
-            method: "POST",
-            headers: {
-                "x-rapidapi-key": RAPID_KEY,
-                "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
-                "Content-Type": "application/json"
-            },
-            // Dashboard ke "Valid Body" section ke mutabiq query yahan jayegi
-            body: JSON.stringify({
-                q: query,
-                limit: 15
-            })
-        });
-        
-        const data = await res.json();
-        
-        // TERE RESPONSE KE MUTABIQ PATH: data.data.searchV2.tracksV2.items
-        // Ya fir seedha data.tracksV2.items (API pe depend karta hai)
-        let items = (data.data?.searchV2?.tracksV2?.items) || (data.tracksV2?.items) || [];
-        
-        resDiv.innerHTML = '';
+      try {
+          const url = "https://spotify-web-api3.p.rapidapi.com/searchTracks";
 
-        if(items.length === 0) {
-            resDiv.innerHTML = `<p class="mp-empty">❌ No Tracks! Response: ${JSON.stringify(data).slice(0,150)}</p>`;
-            return;
-        }
+          const res = await fetch(url, {
+              method: "POST",
+              headers: {
+                  "x-rapidapi-key": RAPID_API_KEY,
+                  "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ q: query, limit: 15 })
+          });
+          
+          const responseData = await res.json();
+          let items = responseData?.data?.searchV2?.tracksV2?.items || responseData?.tracksV2?.items || [];
+          
+          resDiv.innerHTML = '';
 
-        items.forEach((wrapper, i) => {
-            // Tere JSON mein 'item.data' ke andar gaana hai
-            const track = wrapper.item?.data || wrapper.data;
-            if(!track) return;
+          if (!items || items.length === 0) {
+              resDiv.innerHTML = '<p class="mp-empty">❌ No results found on Spotify.</p>';
+              return;
+          }
 
-            const trackName = track.name || 'Unknown';
-            const artistName = track.artists?.items?.[0]?.profile?.name || 'Unknown Artist';
-            const trackId = track.id || 'No ID';
-            const thumb = track.albumOfTrack?.coverArt?.sources?.[0]?.url || '';
+          items.forEach((wrapper) => {
+              const track = wrapper?.item?.data || wrapper?.data;
+              if (!track) return;
 
-            const testItem = document.createElement('div');
-            testItem.style.cssText = 'padding:12px; border-bottom:1px solid #333; display:flex; align-items:center; gap:10px;';
-            testItem.innerHTML = `
-                <img src="${thumb}" style="width:40px; height:40px; border-radius:4px;">
-                <div style="flex:1;">
-                    <div style="font-weight:bold; color:#1db954; font-size:14px;">${i+1}. ${trackName}</div>
-                    <div style="color:#aaa; font-size:12px;">${artistName}</div>
-                    <div style="font-size:10px; color:#555;">ID: ${trackId}</div>
-                </div>
-            `;
-            resDiv.appendChild(testItem);
-        });
+              const trackName = track?.name || 'Unknown Track';
+              const artistName = track?.artists?.items?.[0]?.profile?.name || 'Unknown Artist';
+              const trackId = track?.id;
+              const thumb = track?.albumOfTrack?.coverArt?.sources?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
 
-    } catch (e) {
-        resDiv.innerHTML = `<p class="mp-empty" style="color:red;">🚨 Crash: ${e.message}</p>`;
-    }
+              const div = document.createElement('div');
+              div.className = 'yt-search-item';
+              div.innerHTML = `
+                  <img src="${thumb}" class="yt-search-thumb"/>
+                  <div class="yt-search-info">
+                    <div class="yt-search-title">${trackName}</div>
+                    <div class="yt-search-sub">${artistName}</div>
+                  </div>
+                  <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
+              `;
+
+              div.onclick = () => {
+                  if (typeof addToQueue === 'function') {
+                      addToQueue({ 
+                          type: 'youtube_audio', 
+                          title: trackName, 
+                          artist: artistName, 
+                          spId: trackId, 
+                          thumb: thumb, 
+                          isZeroxify: true 
+                      });
+                      if (typeof showToast === 'function') showToast('🎵 Added to Queue!');
+                  }
+              };
+              resDiv.appendChild(div);
+          });
+
+      } catch (e) {
+          console.error("Spotify Search API Error:", e);
+          resDiv.innerHTML = '<p class="mp-empty">🚨 Search failed. Please try again.</p>';
+      }
+  }
 
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
@@ -295,7 +302,6 @@ async function searchSpotifyAlt(query) {
       searchYouTubeAlt(val, 'ytSearchResults'); ytInput.value = ''; 
   };
   
-  // FIXED: Ab Spotify buttons sacchi mein Spotify search karenge, YouTube nahi!
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
 
