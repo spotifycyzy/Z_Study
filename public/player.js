@@ -224,59 +224,57 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-  // 2. Official Spotify Search (Pure Results via Backend Token)
-  async function searchSpotifyAlt(query, targetResultsDiv) {
-      if (!query) return;
-      const resDiv = document.getElementById(targetResultsDiv);
-      if(!resDiv) return;
-      
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Fetching Official Library...</p>';
-      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (15 RESULTS) ──────────── */
+async function searchSpotifyAlt(query) {
+    const resDiv = document.getElementById('spSearchResults');
+    const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
+    
+    resDiv.innerHTML = '<p class="mp-empty">⏳ Testing Nayi API (Limit: 15)...</p>';
+    episodesOverlaySp.classList.remove('hidden');
 
-      if (!spotifyAccessToken) await refreshSpotifyToken();
+    try {
+        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/searchTracks?q=" + encodeURIComponent(query) + "&limit=15", {
+            method: "POST",
+            headers: {
+                "x-rapidapi-key": RAPID_KEY,
+                "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
+                "Content-Type": "application/json"
+            },
+            body: "{}"
+        });
+        const data = await res.json();
+        
+        // Agar TracksV2 milta hai (Jo ki is API ka structure hai)
+        let items = data.tracksV2?.items || [];
+        resDiv.innerHTML = '';
 
-      if (!spotifyAccessToken) {
-          resDiv.innerHTML = '<p class="mp-empty">❌ Token Missing. Check Backend.</p>';
-          return;
-      }
+        if(items.length === 0) {
+            resDiv.innerHTML = '<p class="mp-empty">❌ No Results! API Response: ' + JSON.stringify(data).slice(0,100) + '</p>';
+            return;
+        }
 
-      try {
-          const searchUrl = "https://" + ['api', 'spotify', 'com'].join('.') + "/v1/search?q=" + encodeURIComponent(query) + "&type=track&limit=15";
-          const res = await fetch(searchUrl, { 
-              headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
-          });
+        // List format mein results dikhana
+        items.forEach((wrapper, i) => {
+            const track = wrapper.item?.data || wrapper.data || wrapper;
+            const trackName = track.name || 'Unknown';
+            const artistName = track.artists?.items?.[0]?.profile?.name || 'Unknown Artist';
+            const trackId = track.id || 'No ID';
 
-          const data = await res.json();
-          let items = data.tracks?.items || [];
-          resDiv.innerHTML = '';
-          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+            const testItem = document.createElement('div');
+            testItem.style.cssText = 'padding:10px; border-bottom:1px solid #333; font-size:12px; color:#fff;';
+            testItem.innerHTML = `
+                <div style="font-weight:bold; color:#1db954;">${i+1}. ${trackName}</div>
+                <div style="color:#aaa;">Artist: ${artistName}</div>
+                <div style="font-size:10px; color:#666;">ID: ${trackId}</div>
+            `;
+            resDiv.appendChild(testItem);
+        });
 
-          items.forEach(item => {
-              const div = document.createElement('div'); div.className = 'yt-search-item';
-              const thumb = item.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-              const artistName = item.artists?.[0]?.name || 'Unknown';
-              const trackName = item.name;
-              const spId = item.id;
-              
-              div.innerHTML = `
-                <img src="${thumb}" class="yt-search-thumb"/>
-                <div class="yt-search-info">
-                  <div class="yt-search-title">${trackName}</div>
-                  <div class="yt-search-sub">${artistName}</div>
-                </div>
-                <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
-              `;
-              div.onclick = () => {
-                  addToQueue({ type: 'youtube_audio', title: trackName, artist: artistName, spId: spId, thumb: thumb, isZeroxify: true });
-                  showToast('🎵 Added to queue!');
-              };
-              resDiv.appendChild(div);
-          });
-      } catch(e) { 
-          resDiv.innerHTML = '<p class="mp-empty">Error fetching Spotify data.</p>'; 
-      }
-  }
-
+    } catch (e) {
+        resDiv.innerHTML = '<p class="mp-empty" style="color:red;">🚨 Crash: ' + e.message + '</p>';
+    }
+}
+   
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
       const val = ytInput.value.trim(); if(isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
