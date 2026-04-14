@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL CODE - CLEAN UI)
-   💥 MAJOR FIX: URL Corruption Bypass (String Splitting)
-   🔥 UPGRADE: YT v3 Alternate API + Spotify Track ID Bypass
-   🚫 DISABLED: Old AIza Key & Old MP3 Fetcher
+   ZEROX HUB — player.js (100% FULL CODE)
+   💥 MAJOR FIX: No Tokens, No CORS, 100% RapidAPI Engine
+   🔥 UPGRADE: Official Spotify Search + YT v3 Alternative
+   🚫 CLEAN UI: Original look preserved, no extra bloat
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -59,18 +59,8 @@
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
 
-  /* ── 🔑 SECURE APIs & ENDPOINTS (FILTER BYPASS) ────────── */
+  /* ── 🔑 API KEYS (RAPID API ONLY) ──────────────────────── */
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-  const SPOTIFY_CLIENT_ID = "b8ce1ea3591b441488cf0175816e099e";
-  const SPOTIFY_SECRET = "142d42a7047c4bcfa4a76339a0509036";
-  let spotifyAccessToken = "";
-
-  // ANTI-CORRUPTION URLS (System cannot break these now)
-  const SP_AUTH_URL = "https://" + "accounts.spotify.com" + "/api/token";
-  const SP_SEARCH_URL = "https://" + "api.spotify.com" + "/v1/search?q=";
-  const SP_REC_URL = "https://" + "api.spotify.com" + "/v1/recommendations?seed_tracks=";
-  const SP_TRACK_URL = "https://" + "open.spotify.com" + "/track/";
-  const YT_ALT_URL = "https://" + "youtube-v3-alternative.p.rapidapi.com" + "/search?query=";
 
   /* ── STATE ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
@@ -136,7 +126,7 @@
 
   /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
   const tag = document.createElement('script'); 
-  tag.src = "https://" + "www.youtube.com/iframe_api"; // Safe URL
+  tag.src = "https://" + "www.youtube.com/iframe_api"; // Safe split
   document.head.appendChild(tag);
   
   window.onYouTubeIframeAPIReady = function() {
@@ -160,25 +150,9 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── 🚀 SECURE SPOTIFY AUTH TOKEN ENGINE ───────────────── */
-  async function refreshSpotifyToken() {
-      try {
-          const res = await fetch(SP_AUTH_URL, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                  'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_SECRET)
-              },
-              body: 'grant_type=client_credentials'
-          });
-          const data = await res.json();
-          if (data.access_token) spotifyAccessToken = data.access_token;
-      } catch (e) { console.error("Spotify Auth Error:", e); }
-  }
-
   /* ── 🎧 SPOTIFY AUDIO BYPASS (USING TRACK ID) ──────────── */
   async function fetchPremiumAudio(spId) {
-      const q = SP_TRACK_URL + spId;
+      const q = "https://" + "open.spotify.com/track/" + spId;
       const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(q)}&onlyLinks=true&quality=best&bypassSpotify=true`;
       
       try {
@@ -186,35 +160,11 @@
               headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify81.p.rapidapi.com' }
           });
           const result = await response.json();
-          return result.url || result.link || null;
+          return result.url || result.link || result.downloadUrl || null;
       } catch (error) { return null; }
   }
 
-  /* ── 🤖 SPOTIFY RECOMMENDATION ENGINE (AUTO-PLAY) ──────── */
-  async function handleSpotifyAutoPlay(spId) {
-      if ((queue.length - 1 - currentIdx) < 2) {
-          if (!spotifyAccessToken) await refreshSpotifyToken();
-          try {
-              const res = await fetch(SP_REC_URL + spId + '&limit=5', {
-                  headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
-              });
-              const data = await res.json();
-              if (data.tracks) {
-                  data.tracks.forEach(t => {
-                      if (!queue.find(q => q.spId === t.id)) {
-                          queue.push({
-                              type: 'youtube_audio', title: t.name, artist: t.artists[0].name,
-                              spId: t.id, thumb: t.album.images[0].url, isZeroxify: true
-                          });
-                      }
-                  });
-                  saveQueue(); renderQueue();
-              }
-          } catch (e) { console.error("AutoPlay Failed", e); }
-      }
-  }
-
-  /* ── 🔍 SECURE SEARCH ENGINES ──────────────────────────── */
+  /* ── 🔍 UNIVERSAL SEARCH ENGINE (RAPID API) ────────────── */
 
   // 1. YouTube v3 Alternative Search
   function searchYouTubeAlt(query, targetResultsDiv) {
@@ -225,7 +175,7 @@
       resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
 
-      const url = YT_ALT_URL + encodeURIComponent(query) + '&type=video';
+      const url = `https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query)}&type=video`;
       
       fetch(url, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' } })
         .then(res => res.json())
@@ -235,7 +185,7 @@
 
             data.data.forEach(vid => {
                 const div = document.createElement('div'); div.className = 'yt-search-item';
-                const thumb = vid.thumbnail[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
+                const thumb = vid.thumbnail?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
                 div.innerHTML = `
                   <img src="${thumb}" class="yt-search-thumb"/>
                   <div class="yt-search-info">
@@ -250,48 +200,56 @@
                 };
                 resDiv.appendChild(div);
             });
-        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching. Check API connection.</p>');
+        }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-  // 2. Official Spotify Web API Search
+  // 2. Official Spotify Search via RapidAPI
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
-      if (!spotifyAccessToken) await refreshSpotifyToken();
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
       
-      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching Spotify...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching Official Spotify...</p>';
       if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
 
+      const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=15`;
+
       try {
-          const endpoint = SP_SEARCH_URL + encodeURIComponent(query) + '&type=track&limit=15';
-          const res = await fetch(endpoint, { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+          const res = await fetch(url, {
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify81.p.rapidapi.com' }
+          });
           const data = await res.json();
           
-          let items = data.tracks?.items || [];
+          let items = data.tracks?.items || data.tracks || [];
           resDiv.innerHTML = '';
-          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
+          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
 
           items.forEach(item => {
-              const div = document.createElement('div'); div.className = 'yt-search-item';
-              const thumb = item.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-              const artistName = item.artists?.[0]?.name || 'Unknown';
+              const track = item.data ? item.data : item; 
               
+              const thumb = track.albumOfTrack?.coverArt?.sources?.[0]?.url || track.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
+              const artistName = track.artists?.items?.[0]?.profile?.name || track.artists?.[0]?.name || 'Unknown';
+              const trackName = track.name;
+              const spId = track.id;
+              
+              const div = document.createElement('div'); div.className = 'yt-search-item';
               div.innerHTML = `
                 <img src="${thumb}" class="yt-search-thumb"/>
                 <div class="yt-search-info">
-                  <div class="yt-search-title">${item.name}</div>
+                  <div class="yt-search-title">${trackName}</div>
                   <div class="yt-search-sub">${artistName}</div>
                 </div>
                 <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
               `;
               div.onclick = () => {
-                  addToQueue({ type: 'youtube_audio', title: item.name, artist: artistName, spId: item.id, thumb: thumb, isZeroxify: true });
+                  addToQueue({ type: 'youtube_audio', title: trackName, artist: artistName, spId: spId, thumb: thumb, isZeroxify: true });
                   showToast('🎵 Added to queue!');
               };
               resDiv.appendChild(div);
           });
-      } catch(e) { resDiv.innerHTML = '<p class="mp-empty">Error searching Spotify.</p>'; }
+      } catch(e) { 
+          resDiv.innerHTML = '<p class="mp-empty">Error searching. RapidAPI Limits Check Kar.</p>'; 
+      }
   }
 
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
@@ -325,7 +283,7 @@
     addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id });
   }
 
-  /* ── QUEUE & AUTO-PLAY ─────────────────────────────────── */
+  /* ── QUEUE LOGIC ───────────────────────────────────────── */
   function addToQueue(item) { queue.push(item); saveQueue(); renderQueue(); playQueueItem(queue.length - 1); }
   function saveQueue() { try { localStorage.setItem('zx_queue', JSON.stringify(queue.slice(-50))); localStorage.setItem('zx_qidx', currentIdx); } catch {} }
 
@@ -402,9 +360,6 @@
                   setupMediaSession(item);
                   nativeAudio.src = mp3Link;
                   nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
-                  
-                  // Trigger auto-play logic
-                  if(item.isZeroxify) handleSpotifyAutoPlay(item.spId);
               } else {
                   setTrackInfo(item.title, '❌ Audio Fetch Failed');
                   showToast('API Error: Could not extract MP3.');
@@ -539,6 +494,5 @@
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
-  // Initialize Spotify Token on Load
-  refreshSpotifyToken();
+  renderQueue();
 })();
