@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (BASE 13 - CLEANED & OPTIMIZED)
-   💥 MAJOR FIX: No Cache, No Queue Mixing (Fresh Fetch Only)
-   🔥 UPGRADE: Spotify API v3 'Search All' (Mixed Results)
+   ZEROX HUB — player.js (BASE 14 - ULTIMATE SPOTIFY MIX)
+   💥 MAJOR FIX: Full Replaceable Code (No Syntax Errors)
+   🔥 UPGRADE: Exact Spotify UI with "🏆 TOP RESULT" Badge
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -156,7 +156,7 @@
   }
 
   /* ── YOUTUBE SEARCH (Original Base 9 Logic) ────────────── */
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; // User provided in base 9
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY'; 
   function searchYouTube(query, targetResultsDiv, mediaType) {
       if (!query) return;
       const resDiv = document.getElementById(targetResultsDiv);
@@ -401,7 +401,7 @@
 
   renderQueue();
 
-    /* ═══════════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════
      👇 EDIT ZONE: SPOTIFY SEARCH (API v3 - TOP RESULTS MIX) 👇
   ═══════════════════════════════════════════════════════════ */
 
@@ -436,7 +436,6 @@
           // 🏆 1. EXACT "TOP RESULTS" (Jo bhi ho: Album, Artist, ya Track)
           const topResultsArray = searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || [];
           topResultsArray.forEach(item => {
-              // Ek special flag laga rahe hain taki UI me Top Result tag dikhe
               allItems.push({ ...item, isExactTopResult: true }); 
           });
 
@@ -469,7 +468,7 @@
               seenUris.add(item.uri);
 
               const uriParts = item.uri.split(':');
-              const itemType = uriParts[1]; // track, album, playlist, artist
+              const itemType = uriParts[1]; 
               const itemId = item.id || uriParts[2];
 
               const titleName = item.name || item.profile?.name || 'Unknown';
@@ -494,7 +493,6 @@
                   thumb = item.visuals.avatarImage.sources[0].url; 
               }
 
-              // UI Labels
               const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
               const imgRadius = itemType === 'artist' ? '50%' : '4px';
               
@@ -516,7 +514,6 @@
               `;
 
               div.onclick = () => {
-                  // Crash Guard: Agar Top Result Playlist/Album/Artist hai, toh warn karega
                   if (itemType !== 'track') {
                       if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${itemType.toUpperCase()}! Only Tracks can be played directly right now.`);
                       return;
@@ -538,3 +535,9 @@
       }
   }
 
+  // Event Listeners
+  if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
+  if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
+  if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
+
+})();
