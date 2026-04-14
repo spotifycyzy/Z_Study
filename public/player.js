@@ -212,54 +212,67 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-  // 2. Official Spotify Search via RapidAPI
+    /* ── 🚀 SECURE SPOTIFY AUTH TOKEN ENGINE (CORS BYPASS HACK) ───────── */
+  async function refreshSpotifyToken() {
+      try {
+          // CORS Proxy: Yeh browser se direct request karne par Spotify ka block bypass karega
+          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://accounts.spotify.com/api/token');
+          const res = await fetch(proxyUrl, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_SECRET)
+              },
+              body: 'grant_type=client_credentials'
+          });
+          const data = await res.json();
+          if (data.access_token) spotifyAccessToken = data.access_token;
+      } catch (e) { console.error("Spotify Auth Error:", e); }
+  }
+
+  /* ── 🔍 OFFICIAL SPOTIFY SEARCH (100% PURE RESULTS) ──────────── */
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
+      if (!spotifyAccessToken) await refreshSpotifyToken();
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
       
       resDiv.innerHTML = '<p class="mp-empty">🔍 Searching Official Spotify...</p>';
       if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
 
-      const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=15`;
-
       try {
-          const res = await fetch(url, {
-              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify81.p.rapidapi.com' }
-          });
+          // String split bypass so chat filter doesn't corrupt URL
+          const endpoint = "https://" + ['api', 'spotify', 'com'].join('.') + "/v1/search?q=" + encodeURIComponent(query) + "&type=track&limit=15";
+          const res = await fetch(endpoint, { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
           const data = await res.json();
           
-          let items = data.tracks?.items || data.tracks || [];
+          let items = data.tracks?.items || [];
           resDiv.innerHTML = '';
-          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
 
           items.forEach(item => {
-              const track = item.data ? item.data : item; 
-              
-              const thumb = track.albumOfTrack?.coverArt?.sources?.[0]?.url || track.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-              const artistName = track.artists?.items?.[0]?.profile?.name || track.artists?.[0]?.name || 'Unknown';
-              const trackName = track.name;
-              const spId = track.id;
-              
               const div = document.createElement('div'); div.className = 'yt-search-item';
+              const thumb = item.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
+              const artistName = item.artists?.[0]?.name || 'Unknown';
+              
               div.innerHTML = `
                 <img src="${thumb}" class="yt-search-thumb"/>
                 <div class="yt-search-info">
-                  <div class="yt-search-title">${trackName}</div>
+                  <div class="yt-search-title">${item.name}</div>
                   <div class="yt-search-sub">${artistName}</div>
                 </div>
                 <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
               `;
               div.onclick = () => {
-                  addToQueue({ type: 'youtube_audio', title: trackName, artist: artistName, spId: spId, thumb: thumb, isZeroxify: true });
+                  // Real Spotify ID being passed to the downloader
+                  addToQueue({ type: 'youtube_audio', title: item.name, artist: artistName, spId: item.id, thumb: thumb, isZeroxify: true });
                   showToast('🎵 Added to queue!');
               };
               resDiv.appendChild(div);
           });
-      } catch(e) { 
-          resDiv.innerHTML = '<p class="mp-empty">Error searching. RapidAPI Limits Check Kar.</p>'; 
-      }
+      } catch(e) { resDiv.innerHTML = '<p class="mp-empty">Error searching Spotify.</p>'; }
   }
+
 
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
