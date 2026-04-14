@@ -199,32 +199,7 @@
                 resDiv.appendChild(div);
             });
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube V3 Alt API.</p>');
-  }
-
-    // 2. Spotify SP81 EXACT MIXED SEARCH (Tracks, Albums, Playlists)
-  async function searchSpotifyAlt(query, targetResultsDiv) {
-      if (!query) return;
-      const divId = targetResultsDiv || 'spSearchResults';
-      const resDiv = document.getElementById(divId);
-      if (!resDiv) return;
-
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Fetching Official Global Results...</p>';
-      if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
-
-      try {
-          // 🔥 EXACT MATCHED URL WITH type=multi 🔥
-          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=multi&offset=0&limit=15&numberOfTopResults=5`;
-
-          const res = await fetch(url, {
-              method: "GET",
-              headers: {
-                  "x-rapidapi-key": RAPID_API_KEY,
-                  "x-rapidapi-host": "spotify81.p.rapidapi.com"
-              }
-          });
-          
-          const data = await res.json();
-          let allItems = [];
+  }  
           
             // 2. Spotify API V3 Search (STABLE & FINAL)
   async function searchSpotifyAlt(query, targetResultsDiv) {
