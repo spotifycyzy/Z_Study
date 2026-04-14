@@ -224,34 +224,34 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (FIXED URL) ──────────── */
+/* ── 🧪 STEP 3: MOBILE TESTING ENGINE (Final Endpoint Trial) ──────────── */
 async function searchSpotifyAlt(query) {
     const resDiv = document.getElementById('spSearchResults');
     const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
     
-    resDiv.innerHTML = '<p class="mp-empty">⏳ Testing /search Endpoint...</p>';
+    resDiv.innerHTML = '<p class="mp-empty">⏳ Trying /searchAll Endpoint...</p>';
     episodesOverlaySp.classList.remove('hidden');
 
     try {
-        // RASTA BADAL DIYA: searchTracks ki jagah sirf /search
-        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/search?q=" + encodeURIComponent(query) + "&type=tracks&limit=15", {
-            method: "POST", // Agar POST na chale toh GET try karenge, par pehle POST dekhte hain
+        // RASTA: searchAll (Jo tere JSON response mein dikha tha)
+        const res = await fetch("https://spotify-web-api3.p.rapidapi.com/searchAll?q=" + encodeURIComponent(query) + "&limit=15", {
+            method: "POST",
             headers: {
                 "x-rapidapi-key": RAPID_KEY,
                 "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                 "Content-Type": "application/json"
             },
-            body: "{}" // POST hai toh body chahiye hoti hai
+            body: JSON.stringify({}) 
         });
         const data = await res.json();
         
-        // Agar response mein tracksV2 hai
-        let items = data.tracksV2?.items || data.tracks?.items || [];
+        // Data structure path: data.tracksV2.items (As per your earlier log)
+        let items = data.tracksV2?.items || [];
         resDiv.innerHTML = '';
 
         if(items.length === 0) {
-            // Agar ab bhi 0 hai toh poora response dikha do error check karne ke liye
-            resDiv.innerHTML = '<p class="mp-empty">❌ No Results! Full Response: ' + JSON.stringify(data).slice(0,150) + '</p>';
+            // Agar ab bhi 0 hai toh response dikhao, shayad POST ki jagah GET chahiye ho
+            resDiv.innerHTML = '<p class="mp-empty">❌ Still No Results! Response: ' + JSON.stringify(data).slice(0,150) + '</p>';
             return;
         }
 
@@ -275,7 +275,7 @@ async function searchSpotifyAlt(query) {
         resDiv.innerHTML = '<p class="mp-empty" style="color:red;">🚨 Crash: ' + e.message + '</p>';
     }
 }
-   
+
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
       const val = ytInput.value.trim(); if(isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
