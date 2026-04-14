@@ -221,7 +221,7 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-   // 2. Spotify API V3 Search (X-Ray Debugger Version)
+     // 2. Spotify API V3 Search (100% FIXED WITH TRUE ENDPOINT)
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
       const divId = targetResultsDiv || 'spSearchResults';
@@ -233,7 +233,9 @@
 
       try {
           const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-          const url = "https://spotify-web-api3.p.rapidapi.com/searchTracks";
+          
+          // 🔥 Asli Gupt Rasta (Jo Code Snippet se mila)
+          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchtracks";
 
           const res = await fetch(url, {
               method: "POST",
@@ -242,8 +244,8 @@
                   "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                   "Content-Type": "application/json"
               },
-              // Shayad RapidAPI yahan url params maang raha ho, par pehle body dekhte hain
-              body: JSON.stringify({ q: query, limit: 15 })
+              // 🔥 'q' ki jagah ab 'terms' jayega!
+              body: JSON.stringify({ terms: query, limit: 15 })
           });
           
           const responseData = await res.json();
@@ -251,13 +253,12 @@
           
           resDiv.innerHTML = '';
 
-          // 🚨 DEBUGGER TRIGGER 🚨
+          // 🚨 Error Catcher
           if (!items || items.length === 0) {
-              // Ab ye "No results" ki jagah poora API ka jawab chhap dega
               resDiv.innerHTML = `
                   <div style="color:#ff4d4d; font-size:11px; padding:10px; word-break:break-all;">
-                      <b>❌ No Results! API Jawab:</b><br><br>
-                      ${JSON.stringify(responseData)}
+                      <b>❌ No Results! API Response:</b><br><br>
+                      ${JSON.stringify(responseData).slice(0, 200)}
                   </div>
               `;
               return;
