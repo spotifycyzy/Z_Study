@@ -153,25 +153,29 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (CORS PROXY BYPASS) ──── */
+    /* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (NEW FREE PROXY BYPASS) ──── */
   async function refreshSpotifyToken() {
       try {
           const tokenUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
-          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(tokenUrl);
+          
+          // Naya Proxy: CodeTabs (Yeh Render domain ko block nahi karta)
+          const proxyUrl = 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(tokenUrl);
 
           const res = await fetch(proxyUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              // Client ID and Secret passed securely in body to bypass proxy stripping headers
               body: 'grant_type=client_credentials&client_id=' + SPOTIFY_CLIENT_ID + '&client_secret=' + SPOTIFY_SECRET
           });
           
           const data = await res.json();
           if (data.access_token) {
               spotifyAccessToken = data.access_token;
+              // Token mil gaya!
+          } else {
+              console.error("Token fail from new proxy:", data);
           }
       } catch (e) { 
-          console.error("Token Error:", e);
+          console.error("Token Fetch Error:", e);
       }
   }
 
@@ -531,17 +535,3 @@
   renderQueue();
 })();
 
-// 🚨 TEMPORARY PHONE TESTER 2 🚨
-setTimeout(() => {
-    const safeUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
-    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(safeUrl);
-
-    fetch(proxyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=client_credentials&client_id=b8ce1ea3591b441488cf0175816e099e&client_secret=142d42a7047c4bcfa4a76339a0509036'
-    })
-    .then(r => r.json())
-    .then(data => alert("✅ PROXY TEST RESULT:\n\n" + JSON.stringify(data)))
-    .catch(err => alert("❌ PROXY ERROR:\n\n" + err.message));
-}, 3000);
