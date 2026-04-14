@@ -221,7 +221,7 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-  // 2. Spotify API V3 Search (Crash-Proof Version)
+   // 2. Spotify API V3 Search (X-Ray Debugger Version)
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
       const divId = targetResultsDiv || 'spSearchResults';
@@ -232,15 +232,17 @@
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
+          const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
           const url = "https://spotify-web-api3.p.rapidapi.com/searchTracks";
 
           const res = await fetch(url, {
               method: "POST",
               headers: {
-                  "x-rapidapi-key": RAPID_API_KEY,
+                  "x-rapidapi-key": RAPID_KEY,
                   "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
                   "Content-Type": "application/json"
               },
+              // Shayad RapidAPI yahan url params maang raha ho, par pehle body dekhte hain
               body: JSON.stringify({ q: query, limit: 15 })
           });
           
@@ -249,8 +251,15 @@
           
           resDiv.innerHTML = '';
 
+          // 🚨 DEBUGGER TRIGGER 🚨
           if (!items || items.length === 0) {
-              resDiv.innerHTML = '<p class="mp-empty">❌ No results found on Spotify.</p>';
+              // Ab ye "No results" ki jagah poora API ka jawab chhap dega
+              resDiv.innerHTML = `
+                  <div style="color:#ff4d4d; font-size:11px; padding:10px; word-break:break-all;">
+                      <b>❌ No Results! API Jawab:</b><br><br>
+                      ${JSON.stringify(responseData)}
+                  </div>
+              `;
               return;
           }
 
@@ -292,7 +301,7 @@
 
       } catch (e) {
           console.error("Spotify Search API Error:", e);
-          resDiv.innerHTML = '<p class="mp-empty">🚨 Search failed. Please try again.</p>';
+          resDiv.innerHTML = `<p class="mp-empty">🚨 Connection Error: ${e.message}</p>`;
       }
   }
 
