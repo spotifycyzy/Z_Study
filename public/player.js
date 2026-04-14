@@ -226,87 +226,78 @@
           const data = await res.json();
           let allItems = [];
           
-          // Spotify jaisa order lane ke liye: Pehle Top Results, fir Tracks, fir baaki sab
-          if (data.topResults?.items) allItems.push(...data.topResults.items);
-          if (data.tracks?.items) allItems.push(...data.tracks.items);
-          if (data.albums?.items) allItems.push(...data.albums.items);
-          if (data.playlists?.items) allItems.push(...data.playlists.items);
+            // 2. Spotify API V3 Search (STABLE & FINAL)
+  async function searchSpotifyAlt(query, targetResultsDiv) {
+      if (!query) return;
+      const divId = targetResultsDiv || 'spSearchResults';
+      const resDiv = document.getElementById(divId);
+      if (!resDiv) return;
 
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Searching Official Spotify...</p>';
+      if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
+
+      try {
+          const RAPID_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
+          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchtracks";
+
+          const res = await fetch(url, {
+              method: "POST",
+              headers: {
+                  "x-rapidapi-key": RAPID_KEY,
+                  "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ terms: query, limit: 15 }) // Snippet matched
+          });
+          
+          const responseData = await res.json();
+          // Data path adjusted for best reliability
+          let items = responseData?.data?.searchV2?.tracksV2?.items || responseData?.tracksV2?.items || [];
+          
           resDiv.innerHTML = '';
 
-          if (allItems.length === 0) {
-              resDiv.innerHTML = `<p class="mp-empty">❌ No results found on Spotify.</p>`;
+          if (!items || items.length === 0) {
+              resDiv.innerHTML = `<p class="mp-empty">❌ No official results found.</p>`;
               return;
           }
 
-          // Duplicate remove karne ke liye (agar koi topResult mein bhi ho aur track mein bhi)
-          const seenUris = new Set();
+          items.forEach((wrapper) => {
+              const track = wrapper?.item?.data || wrapper?.data;
+              if (!track) return;
 
-          allItems.forEach((wrapper) => {
-              const item = wrapper.data || wrapper;
-              if (!item || !item.uri) return; // URI hona zaroori hai
-
-              if (seenUris.has(item.uri)) return;
-              seenUris.add(item.uri);
-
-              // 💥 URI se Type aur ID nikalna ("spotify:album:69xcXWq...")
-              const uriParts = item.uri.split(':');
-              const itemType = uriParts[1]; // track, album, artist, playlist
-              const itemId = uriParts[2];   // Asli 22 char ID
-
-              // 💥 TERE JSON KE HISAAB SE EXACT EXTRACTION 💥
-              const titleName = item.name || item.profile?.name || 'Unknown';
-              
-              let artistName = 'Unknown';
-              if (item.artists?.items?.[0]?.profile?.name) {
-                  artistName = item.artists.items[0].profile.name;
-              } else if (item.owner?.name) {
-                  artistName = item.owner.name; // Playlists ke liye
-              }
-
-              let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
-              if (item.coverArt?.sources?.[0]?.url) {
-                  thumb = item.coverArt.sources[0].url; // Albums/Tracks
-              } else if (item.visuals?.avatarImage?.sources?.[0]?.url) {
-                  thumb = item.visuals.avatarImage.sources[0].url; // Artists
-              } else if (item.images?.items?.[0]?.sources?.[0]?.url) {
-                  thumb = item.images.items[0].sources[0].url; // Playlists
-              }
-              
-              // Chhota sa tag dikhane ke liye ki ye Track hai ya Album
-              const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
+              const trackName = track?.name || 'Unknown Track';
+              const artistName = track?.artists?.items?.[0]?.profile?.name || 'Unknown Artist';
+              const trackId = track?.id;
+              // Image extraction fix
+              const thumb = track?.albumOfTrack?.coverArt?.sources?.[0]?.url || 
+                            track?.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
 
               const div = document.createElement('div');
               div.className = 'yt-search-item';
               div.innerHTML = `
-                  <img src="${thumb}" class="yt-search-thumb" style="border-radius: ${itemType === 'artist' ? '50%' : '4px'}"/>
+                  <img src="${thumb}" class="yt-search-thumb"/>
                   <div class="yt-search-info">
-                    <div class="yt-search-title">${titleName}${typeLabel}</div>
+                    <div class="yt-search-title">${trackName}</div>
                     <div class="yt-search-sub">${artistName}</div>
                   </div>
-                  <span style="font-size:18px;padding:0 4px;color:#1db954">${itemType === 'track' ? '▶' : '📂'}</span>
+                  <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
               `;
 
               div.onclick = () => {
-                  if (itemType !== 'track') {
-                      // CRASH PREVENTION: Album/Playlist M4A downloader mein nahi jayega
-                      if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${itemType.toUpperCase()}! Only Tracks can be played right now.`);
-                      return;
-                  }
-
                   if (typeof addToQueue === 'function') {
-                      queue = []; currentIdx = 0; // Instant Play fix
-                      
+                      // 💥 Optional: Purani queue clear karne ke liye niche ki 2 lines:
+                      // queue = []; 
+                      // currentIdx = 0; 
+
                       addToQueue({ 
                           type: 'youtube_audio', 
-                          title: titleName, 
+                          title: trackName, 
                           artist: artistName, 
-                          spId: itemId, 
+                          spId: trackId, 
                           thumb: thumb, 
                           isZeroxify: true 
                       });
-                      
-                      if (typeof showToast === 'function') showToast('🎵 Playing Track!');
+                      if (typeof showToast === 'function') showToast('🎵 Added to Queue!');
                   }
               };
               resDiv.appendChild(div);
@@ -314,7 +305,7 @@
 
       } catch (e) {
           console.error("Spotify Search API Error:", e);
-          resDiv.innerHTML = '<p class="mp-empty">🚨 Search failed. API Error.</p>';
+          resDiv.innerHTML = '<p class="mp-empty">🚨 API Connection Error!</p>';
       }
   }
 
