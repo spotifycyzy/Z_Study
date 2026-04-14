@@ -212,13 +212,11 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
-      /* ── 🚀 BULLETPROOF SPOTIFY AUTH TOKEN ENGINE (CORS PROXY + BODY AUTH) ───────── */
+        /* ── 🚀 DIAGNOSTIC SPOTIFY TOKEN ENGINE ───────── */
   async function refreshSpotifyToken() {
+      showToast("⏳ Checking Token..."); // Screen pe dikhega
       try {
-          // Asli Spotify URL banaya (Filter bypass technique)
           const tokenUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
-          
-          // CORS Proxy lagaya
           const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(tokenUrl);
 
           const res = await fetch(proxyUrl, {
@@ -226,21 +224,23 @@
               headers: {
                   'Content-Type': 'application/x-www-form-urlencoded'
               },
-              // MAGIC FIX: ID aur Secret ko body mein bhej rahe hain bina Authorization header ke!
               body: 'grant_type=client_credentials&client_id=' + SPOTIFY_CLIENT_ID + '&client_secret=' + SPOTIFY_SECRET
           });
           
           const data = await res.json();
           if (data.access_token) {
               spotifyAccessToken = data.access_token;
-              console.log("🔥 Spotify Token Success!"); // Browser console mein check karna
+              showToast("✅ Token Success! Ab Search kar."); 
           } else {
-              console.error("❌ Token Fail:", data);
+              // Agar Spotify ne mana kiya, toh exact reason screen pe aayega
+              alert("❌ SPOTIFY ERROR: " + JSON.stringify(data));
           }
       } catch (e) { 
-          console.error("Spotify Auth Fetch Error:", e); 
+          // Agar Proxy down hui, toh yeh alert aayega
+          alert("❌ NETWORK/PROXY ERROR: " + e.message); 
       }
   }
+
 
   /* ── 🔍 OFFICIAL SPOTIFY SEARCH (100% PURE RESULTS) ──────────── */
   async function searchSpotifyAlt(query, targetResultsDiv) {
