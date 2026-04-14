@@ -153,29 +153,21 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-    /* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (NEW FREE PROXY BYPASS) ──── */
+      /* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (VIA OWN BACKEND) ──── */
   async function refreshSpotifyToken() {
       try {
-          const tokenUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
-          
-          // Naya Proxy: CodeTabs (Yeh Render domain ko block nahi karta)
-          const proxyUrl = 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(tokenUrl);
-
-          const res = await fetch(proxyUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: 'grant_type=client_credentials&client_id=' + SPOTIFY_CLIENT_ID + '&client_secret=' + SPOTIFY_SECRET
-          });
-          
+          // Koi proxy nahi, seedha apne server ki API hit ho rahi hai!
+          const res = await fetch('/api/spotify-token');
           const data = await res.json();
+          
           if (data.access_token) {
               spotifyAccessToken = data.access_token;
-              // Token mil gaya!
+              console.log("🔥 Token Fetched from OWN SERVER!");
           } else {
-              console.error("Token fail from new proxy:", data);
+              console.error("❌ Own Server Token Fail:", data);
           }
       } catch (e) { 
-          console.error("Token Fetch Error:", e);
+          console.error("Backend Request Error:", e);
       }
   }
 
@@ -534,4 +526,3 @@
 
   renderQueue();
 })();
-
