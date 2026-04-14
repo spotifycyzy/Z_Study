@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (100% FULL CODE)
-   💥 MAJOR FIX: Script Crash Fixed + Complete File Rebuild
-   🔥 UPGRADE: Official Spotify Search (CORS Proxy Bypass)
-   🎧 AUDIO: Exact ID Match for M4A Premium Audio
+   ZEROX HUB — player.js (100% FULL & FINAL CODE)
+   💥 MAJOR FIX: JS Crash Fixed + Own Backend Token API
+   🔥 UPGRADE: Official Spotify Search + Exact M4A Bypass
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -59,11 +58,11 @@
   nativeAudio.setAttribute('playsinline', '');
   nativeAudio.setAttribute('webkit-playsinline', '');
 
-  /* ── 🔑 API KEYS & SECRETS ─────────────────────────────── */
+  /* ── 🔑 API KEYS & GLOBAL VARIABLES ────────────────────── */
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
-  const SPOTIFY_CLIENT_ID = "b8ce1ea3591b441488cf0175816e099e";
-  const SPOTIFY_SECRET = "142d42a7047c4bcfa4a76339a0509036";
-  let spotifyAccessToken = "";
+  
+  // YEH MISSING THA PURANI FILE MEIN!
+  let spotifyAccessToken = ""; 
 
   /* ── STATE ─────────────────────────────────────────────── */
   let queue           = JSON.parse(localStorage.getItem('zx_queue') || '[]');
@@ -129,7 +128,7 @@
 
   /* ── YOUTUBE ENGINE (IFRAME PLAYER) ────────────────────── */
   const tag = document.createElement('script'); 
-  tag.src = "https://" + ['www', 'youtube', 'com'].join('.') + "/iframe_api"; // Filter bypass
+  tag.src = "https://" + ['www', 'youtube', 'com'].join('.') + "/iframe_api"; 
   document.head.appendChild(tag);
   
   window.onYouTubeIframeAPIReady = function() {
@@ -153,9 +152,24 @@
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
+  /* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (VIA OWN BACKEND) ──── */
+  async function refreshSpotifyToken() {
+      try {
+          const res = await fetch('/api/spotify-token');
+          const data = await res.json();
+          if (data.access_token) {
+              spotifyAccessToken = data.access_token;
+          } else {
+              console.error("Backend Error: ", data);
+          }
+      } catch (e) { 
+          console.error("Backend Fetch Crash: ", e);
+      }
+  }
+
   /* ── 🎧 SPOTIFY AUDIO BYPASS (EXACT ID TO M4A) ─────────── */
   async function fetchPremiumAudio(spId) {
-      // 100% Exact ID jaisa tune test kiya tha. No extra URLs.
+      // 100% Exact ID (Direct Download Bypass via RapidAPI)
       const url = `https://spotify81.p.rapidapi.com/download_track?q=${spId}&onlyLinks=true`;
       
       try {
@@ -167,7 +181,6 @@
           if (Array.isArray(result)) return result[0]?.url || result[0]?.link || null;
           return result.url || result.link || result.downloadUrl || null;
       } catch (error) { 
-          console.error("M4A Fetch Error:", error);
           return null; 
       }
   }
@@ -180,7 +193,7 @@
       const resDiv = document.getElementById(targetResultsDiv);
       if(!resDiv) return;
       
-      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
 
       const url = `https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query)}&type=video`;
@@ -211,12 +224,66 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube API.</p>');
   }
 
+  // 2. Official Spotify Search (Pure Results via Backend Token)
+  async function searchSpotifyAlt(query, targetResultsDiv) {
+      if (!query) return;
+      const resDiv = document.getElementById(targetResultsDiv);
+      if(!resDiv) return;
+      
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Fetching Official Library...</p>';
+      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
+
+      if (!spotifyAccessToken) await refreshSpotifyToken();
+
+      if (!spotifyAccessToken) {
+          resDiv.innerHTML = '<p class="mp-empty">❌ Token Missing. Check Backend.</p>';
+          return;
+      }
+
+      try {
+          const searchUrl = "https://" + ['api', 'spotify', 'com'].join('.') + "/v1/search?q=" + encodeURIComponent(query) + "&type=track&limit=15";
+          const res = await fetch(searchUrl, { 
+              headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
+          });
+
+          const data = await res.json();
+          let items = data.tracks?.items || [];
+          resDiv.innerHTML = '';
+          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+
+          items.forEach(item => {
+              const div = document.createElement('div'); div.className = 'yt-search-item';
+              const thumb = item.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
+              const artistName = item.artists?.[0]?.name || 'Unknown';
+              const trackName = item.name;
+              const spId = item.id;
+              
+              div.innerHTML = `
+                <img src="${thumb}" class="yt-search-thumb"/>
+                <div class="yt-search-info">
+                  <div class="yt-search-title">${trackName}</div>
+                  <div class="yt-search-sub">${artistName}</div>
+                </div>
+                <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
+              `;
+              div.onclick = () => {
+                  addToQueue({ type: 'youtube_audio', title: trackName, artist: artistName, spId: spId, thumb: thumb, isZeroxify: true });
+                  showToast('🎵 Added to queue!');
+              };
+              resDiv.appendChild(div);
+          });
+      } catch(e) { 
+          resDiv.innerHTML = '<p class="mp-empty">Error fetching Spotify data.</p>'; 
+      }
+  }
+
   /* ── EVENT LISTENERS (INPUT & BUTTONS) ─────────────────── */
   if(ytAddBtn) ytAddBtn.onclick = () => { 
       const val = ytInput.value.trim(); if(isYouTubeUrl(val)) { loadYouTube(val); ytInput.value = ''; return; }
       searchYouTubeAlt(val, 'ytSearchResults'); ytInput.value = ''; 
   };
   
+  // FIXED: Ab Spotify buttons sacchi mein Spotify search karenge, YouTube nahi!
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
 
@@ -303,8 +370,8 @@
           nativeAudio.src = item.cachedUrl;
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
       } else {
-          setTrackInfo(item.title, 'Extracting Premium M4A...');
-          showToast('Fetching Audio via ID...');
+          setTrackInfo(item.title, 'Extracting Premium Audio...');
+          showToast('Fetching Full Audio via ID...');
 
           fetchPremiumAudio(item.spId).then(m4aLink => {
               if(m4aLink) {
@@ -319,8 +386,8 @@
                   nativeAudio.src = m4aLink;
                   nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
               } else {
-                  setTrackInfo(item.title, '❌ M4A Fetch Failed');
-                  showToast('API Error: Could not extract Audio.');
+                  setTrackInfo(item.title, '❌ Audio Fetch Failed');
+                  showToast('API Error: RapidAPI Check kar.');
                   setTimeout(playNext, 2000); 
               }
           });
@@ -454,87 +521,3 @@
 
   renderQueue();
 })();
-
-/* ── 🚀 SPOTIFY AUTH TOKEN ENGINE (VIA OWN BACKEND) ──── */
-  async function refreshSpotifyToken() {
-      try {
-          showToast("⏳ Requesting token from backend...");
-          const res = await fetch('/api/spotify-token');
-          const data = await res.json();
-          
-          if (data.access_token) {
-              spotifyAccessToken = data.access_token;
-              showToast("✅ Token Success!");
-          } else {
-              alert("❌ Backend Error: " + JSON.stringify(data));
-          }
-      } catch (e) { 
-          alert("🚨 Backend Fetch Crash: " + e.message);
-      }
-  }
-
-  /* ── 🔍 OFFICIAL SPOTIFY SEARCH (DIAGNOSTIC MODE) ────────────────────────── */
-  async function searchSpotifyAlt(query, targetResultsDiv) {
-      if (!query) return;
-      const resDiv = document.getElementById(targetResultsDiv);
-      if(!resDiv) return;
-      
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Connecting to Spotify DB...</p>';
-      if(targetResultsDiv === 'spSearchResults') episodesOverlaySp.classList.remove('hidden');
-
-      try {
-          if (!spotifyAccessToken) {
-              await refreshSpotifyToken();
-          }
-
-          if (!spotifyAccessToken) {
-              resDiv.innerHTML = '<p class="mp-empty">❌ Server Token Missing.</p>';
-              return;
-          }
-
-          // Safe URL bypass
-          const searchUrl = "https://" + ['api', 'spotify', 'com'].join('.') + "/v1/search?q=" + encodeURIComponent(query) + "&type=track&limit=15";
-          
-          const res = await fetch(searchUrl, { 
-              headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
-          });
-
-          // AGAR SPOTIFY NE ERROR FEKA:
-          if (!res.ok) {
-              const errText = await res.text();
-              resDiv.innerHTML = `<p class="mp-empty" style="color:#E8436A; font-weight:bold;">❌ Spotify API Rejected:<br>Status: ${res.status}<br>Reason: ${errText}</p>`;
-              return;
-          }
-
-          const data = await res.json();
-          let items = data.tracks?.items || [];
-          resDiv.innerHTML = '';
-          if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-
-          items.forEach(item => {
-              const div = document.createElement('div'); div.className = 'yt-search-item';
-              const thumb = item.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-              const artistName = item.artists?.[0]?.name || 'Unknown';
-              const trackName = item.name;
-              const spId = item.id;
-              
-              div.innerHTML = `
-                <img src="${thumb}" class="yt-search-thumb"/>
-                <div class="yt-search-info">
-                  <div class="yt-search-title">${trackName}</div>
-                  <div class="yt-search-sub">${artistName}</div>
-                </div>
-                <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
-              `;
-              div.onclick = () => {
-                  addToQueue({ type: 'youtube_audio', title: trackName, artist: artistName, spId: spId, thumb: thumb, isZeroxify: true });
-                  showToast('🎵 Added to queue!');
-              };
-              resDiv.appendChild(div);
-          });
-          
-      } catch(e) { 
-          // AGAR JAVASCRIPT CRASH HUI (Network Error / CORS)
-          resDiv.innerHTML = `<p class="mp-empty" style="color:red; font-weight:bold;">🚨 JS Crash:<br>${e.name} - ${e.message}</p>`; 
-      }
-  }
