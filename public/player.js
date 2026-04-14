@@ -530,3 +530,18 @@
 
   renderQueue();
 })();
+
+// 🚨 TEMPORARY PHONE TESTER 2 🚨
+setTimeout(() => {
+    const safeUrl = "https://" + ['accounts', 'spotify', 'com'].join('.') + "/api/token";
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(safeUrl);
+
+    fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&client_id=b8ce1ea3591b441488cf0175816e099e&client_secret=142d42a7047c4bcfa4a76339a0509036'
+    })
+    .then(r => r.json())
+    .then(data => alert("✅ PROXY TEST RESULT:\n\n" + JSON.stringify(data)))
+    .catch(err => alert("❌ PROXY ERROR:\n\n" + err.message));
+}, 3000);
