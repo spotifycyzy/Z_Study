@@ -212,7 +212,7 @@
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
-          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=track&limit=20`;
+          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=20`;
 
           const res = await fetch(url, {
               method: "GET",
