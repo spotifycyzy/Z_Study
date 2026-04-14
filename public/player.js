@@ -201,18 +201,19 @@
         }).catch(() => resDiv.innerHTML = '<p class="mp-empty">Error searching YouTube V3 Alt API.</p>');
   }
 
-  // 2. Spotify SP81 Search (Tracks Only Endpoint)
+    // 2. Spotify SP81 EXACT MIXED SEARCH (Tracks, Albums, Playlists)
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
       const divId = targetResultsDiv || 'spSearchResults';
       const resDiv = document.getElementById(divId);
       if (!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Searching Spotify Tracks...</p>';
+      resDiv.innerHTML = '<p class="mp-empty">⏳ Fetching Official Global Results...</p>';
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
-          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=tracks&limit=20`;
+          // 🔥 EXACT MATCHED URL WITH type=multi 🔥
+          const url = `https://spotify81.p.rapidapi.com/search?q=${encodeURIComponent(query)}&type=multi&offset=0&limit=15&numberOfTopResults=5`;
 
           const res = await fetch(url, {
               method: "GET",
@@ -225,56 +226,87 @@
           const data = await res.json();
           let allItems = [];
           
-          // SP81 extraction logic for tracks
+          // Spotify jaisa order lane ke liye: Pehle Top Results, fir Tracks, fir baaki sab
+          if (data.topResults?.items) allItems.push(...data.topResults.items);
           if (data.tracks?.items) allItems.push(...data.tracks.items);
-          else if (Array.isArray(data.tracks)) allItems.push(...data.tracks);
-          else if (Array.isArray(data)) allItems = data;
+          if (data.albums?.items) allItems.push(...data.albums.items);
+          if (data.playlists?.items) allItems.push(...data.playlists.items);
 
           resDiv.innerHTML = '';
 
           if (allItems.length === 0) {
-              resDiv.innerHTML = `<p class="mp-empty">❌ No tracks found on Spotify.</p>`;
+              resDiv.innerHTML = `<p class="mp-empty">❌ No results found on Spotify.</p>`;
               return;
           }
 
-          allItems.forEach((item) => {
-              const trackData = item.data || item;
-              if (!trackData || !trackData.id) return;
+          // Duplicate remove karne ke liye (agar koi topResult mein bhi ho aur track mein bhi)
+          const seenUris = new Set();
 
-              const titleName = trackData.name || trackData.title || 'Unknown Title';
-              const artistName = trackData.artists?.[0]?.name || 'Spotify Artist';
-              const itemId = trackData.id;
+          allItems.forEach((wrapper) => {
+              const item = wrapper.data || wrapper;
+              if (!item || !item.uri) return; // URI hona zaroori hai
+
+              if (seenUris.has(item.uri)) return;
+              seenUris.add(item.uri);
+
+              // 💥 URI se Type aur ID nikalna ("spotify:album:69xcXWq...")
+              const uriParts = item.uri.split(':');
+              const itemType = uriParts[1]; // track, album, artist, playlist
+              const itemId = uriParts[2];   // Asli 22 char ID
+
+              // 💥 TERE JSON KE HISAAB SE EXACT EXTRACTION 💥
+              const titleName = item.name || item.profile?.name || 'Unknown';
+              
+              let artistName = 'Unknown';
+              if (item.artists?.items?.[0]?.profile?.name) {
+                  artistName = item.artists.items[0].profile.name;
+              } else if (item.owner?.name) {
+                  artistName = item.owner.name; // Playlists ke liye
+              }
 
               let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
-              if (trackData.album?.images?.[0]?.url) thumb = trackData.album.images[0].url;
-              else if (trackData.images?.[0]?.url) thumb = trackData.images[0].url;
+              if (item.coverArt?.sources?.[0]?.url) {
+                  thumb = item.coverArt.sources[0].url; // Albums/Tracks
+              } else if (item.visuals?.avatarImage?.sources?.[0]?.url) {
+                  thumb = item.visuals.avatarImage.sources[0].url; // Artists
+              } else if (item.images?.items?.[0]?.sources?.[0]?.url) {
+                  thumb = item.images.items[0].sources[0].url; // Playlists
+              }
               
+              // Chhota sa tag dikhane ke liye ki ye Track hai ya Album
+              const typeLabel = itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${itemType.toUpperCase()}</span>`;
+
               const div = document.createElement('div');
               div.className = 'yt-search-item';
               div.innerHTML = `
-                  <img src="${thumb}" class="yt-search-thumb"/>
+                  <img src="${thumb}" class="yt-search-thumb" style="border-radius: ${itemType === 'artist' ? '50%' : '4px'}"/>
                   <div class="yt-search-info">
-                    <div class="yt-search-title">${titleName}</div>
+                    <div class="yt-search-title">${titleName}${typeLabel}</div>
                     <div class="yt-search-sub">${artistName}</div>
                   </div>
-                  <span style="font-size:18px;padding:0 4px;color:#1db954">▶</span>
+                  <span style="font-size:18px;padding:0 4px;color:#1db954">${itemType === 'track' ? '▶' : '📂'}</span>
               `;
 
               div.onclick = () => {
+                  if (itemType !== 'track') {
+                      // CRASH PREVENTION: Album/Playlist M4A downloader mein nahi jayega
+                      if (typeof showToast === 'function') showToast(`⚠️ You clicked an ${itemType.toUpperCase()}! Only Tracks can be played right now.`);
+                      return;
+                  }
+
                   if (typeof addToQueue === 'function') {
-                      // 💥 QUEUE FIX: Clear purani queue completely for instant play
-                      queue = []; currentIdx = 0;
+                      queue = []; currentIdx = 0; // Instant Play fix
                       
                       addToQueue({ 
-                          type: 'youtube_audio', // Hum type same rakh rahe hain audio routing ke liye
+                          type: 'youtube_audio', 
                           title: titleName, 
                           artist: artistName, 
-                          spId: itemId, // Ye SP81 Id seedha M4A fetcher me jayegi
+                          spId: itemId, 
                           thumb: thumb, 
                           isZeroxify: true 
                       });
                       
-                      if (typeof showToast === 'function') showToast('🎵 Playing Exact Match!');
+                      if (typeof showToast === 'function') showToast('🎵 Playing Track!');
                   }
               };
               resDiv.appendChild(div);
