@@ -150,13 +150,11 @@
     else if (event.data === YT.PlayerState.PAUSED) { isPlaying = false; updatePlayBtn(); broadcastSync({ action: 'pause', time }); }
     else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
-
-  /* ── 🎧 SPOTIFY AUDIO BYPASS (M4A FETCHER) ─────────────── */
+   
   async function fetchPremiumAudio(spId) {
-      // ANTI-CORRUPTION HACK: Breaking the string so chat filters can't ruin it
-      const spotifyDomain = ['open', 'spotify', 'com'].join('.');
-      const q = `https://${spotifyDomain}/track/${spId}`;
-      const url = `https://spotify81.p.rapidapi.com/download_track?q=${encodeURIComponent(q)}&onlyLinks=true&quality=best&bypassSpotify=true`;
+      // FIX: Sirf direct ID pass kar rahe hain (Jaise tune test kiya tha)
+      // bypassSpotify=true hata diya kyunki ab hum direct Spotify ID de rahe hain
+      const url = `https://spotify81.p.rapidapi.com/download_track?q=${spId}&onlyLinks=true`;
       
       try {
           const response = await fetch(url, {
@@ -164,7 +162,9 @@
           });
           const result = await response.json();
           
-          // Handles both object and array responses from RapidAPI
+          // Debugging: Agar fir bhi na chale, toh PC pe F12 > Console me dekh lena kya error aaya
+          console.log("RapidAPI Audio Response:", result);
+          
           if (Array.isArray(result)) return result[0]?.url || result[0]?.link || null;
           return result.url || result.link || result.downloadUrl || null;
       } catch (error) { 
