@@ -426,7 +426,7 @@
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
   // ---------------------------
  
-  function renderMedia(item) {
+        function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
@@ -458,6 +458,48 @@
           nativeAudio.src = item.url; 
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
           setTrackInfo(item.title, '☁️ Cloud Audio');
+      }
+
+      // ✅ ADDED: Background Engine Trigger
+      if (autoPlayEnabled && item.spId) {
+          preFetchNextVibe(item.spId);
+      }
+  }
+
+     /* ── 🚀 ZERO-GAP PRE-FETCH ENGINE ── */
+  async function preFetchNextVibe(trackId) {
+      // Agar queue mein pehle se gaana aage hai, toh fetch mat karo
+      if (currentIdx < queue.length - 1) return;
+
+      console.log("📡 Background Engine: Pre-fetching next vibe...");
+      const recs = await fetchRecommendations(trackId);
+      
+      if (recs && recs.length > 0) {
+          // Sirf 1 best match queue mein pehle hi daal do
+          queue.push(recs[0]); 
+          renderQueue();
+          console.log("✅ Next track ready in queue.");
+      }
+  }
+
+  /* ── UPDATED playNext (Fast Transition) ── */
+  async function playNext() {
+      // Agar pre-fetch ne gaana daal diya hai, toh turant bajao
+      if (currentIdx < queue.length - 1) {
+          playQueueItem(currentIdx + 1);
+      } 
+      // Fallback: Agar kisi wajah se queue khali hai
+      else if (autoPlayEnabled) {
+          const lastTrack = queue[currentIdx];
+          if (lastTrack && lastTrack.spId) {
+              showToast("✨ Engine: Finding vibes...");
+              const recs = await fetchRecommendations(lastTrack.spId);
+              if (recs && recs.length > 0) {
+                  recs.forEach(r => queue.push(r));
+                  renderQueue();
+                  playQueueItem(currentIdx + 1);
+              }
+          }
       }
   }
 
