@@ -406,9 +406,11 @@
           setTrackInfo(item.title, '☁️ Cloud Audio');
       }
 
-      // ✅ Trigger Vibe Engine Pre-fetch
-      if (autoPlayEnabled && item.spId) {
-          preFetchNextVibe(item.spId);
+            // ✅ Trigger Vibe Engine (Force Start)
+      if (autoPlayEnabled) {
+          const triggerId = item.spId || `${item.title} ${item.artist || ''}`;
+          updateMonitor("Triggering Engine..."); 
+          preFetchNextVibe(triggerId);
       }
   }
 
