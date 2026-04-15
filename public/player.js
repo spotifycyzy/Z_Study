@@ -527,68 +527,39 @@
   }
 
 /* ── 🚀 THE UNSTOPPABLE VIBE-LOCK ENGINE (FINAL) ── */
-let isFetchingNext = false;
-
 // ── 1. BACKGROUND EXTRACTOR (Pre-loader) ──
 async function preFetchNextTrack() {
-    if (isFetchingNext) return;
+    // Check if we already have a future track ready to avoid duplicates
+    if (isFetchingNext || currentIdx < queue.length - 1) return; 
+    
     isFetchingNext = true;
-
     try {
-        // Step A: Agla gaana dhoondo (Vibe Engine)
         const nextTrack = await getNextVibe();
         
         if (nextTrack) {
-            // Step B: Abhi iska m4a link nikaal lo (Background mein)
+            // Check: Kahin ye gaana pehle se queue mein toh nahi?
+            const isDuplicate = queue.some(t => t.spId === nextTrack.spId);
+            if (isDuplicate) {
+                isFetchingNext = false;
+                return; 
+            }
+
             console.log(`Pre-fetching: ${nextTrack.title}`);
             const audioUrl = await getAudioUrl(nextTrack.title, nextTrack.artist);
             
             if (audioUrl) {
-                // Audio URL ko track object mein hi save kar lo
                 nextTrack.preloadedUrl = audioUrl;
                 queue.push(nextTrack);
                 console.log("Next track ready and pre-loaded!");
+                
+                // 🔥 SYNC UPDATE: Agar sync site hai, toh yahan Firestore update call karo
+                // updateRoomQueue(queue); 
             }
         }
     } catch (e) {
         console.error("Pre-fetch failed", e);
     } finally {
         isFetchingNext = false;
-    }
-}
-
-// ── 2. MODIFIED PLAY FUNCTION ──
-async function playSong(track) {
-    // Agar link pehle se hai (Pre-loaded), toh wahi use karo
-    let finalUrl = track.preloadedUrl;
-
-    if (!finalUrl) {
-        // Fallback: Agar kisi wajah se pre-load nahi hua, tab fetch karo
-        showLoader(); // Sirf tabhi loader dikhao jab pre-load na ho
-        finalUrl = await getAudioUrl(track.title, track.artist);
-    }
-
-    audioElement.src = finalUrl;
-    audioElement.play();
-
-    // ── GAANA START HOTE HI, AGLE KI TAYYARI KARO ──
-    // Hum current gaana shuru hote hi next fetch kar lenge
-    preFetchNextTrack();
-}
-
-// ── 3. INSTANT NEXT HANDLER ──
-function playNext() {
-    if (currentIdx < queue.length - 1) {
-        currentIdx++;
-        const nextTrack = queue[currentIdx];
-        
-        // Instant play kyunki preloadedUrl pehle se object mein hai
-        playSong(nextTrack);
-    } else {
-        // Agar queue khali hai (Pre-fetch fail hua ho), toh manually fetch try karo
-        preFetchNextTrack().then(() => {
-            if (currentIdx < queue.length - 1) playNext();
-        });
     }
 }
 
