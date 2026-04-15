@@ -526,21 +526,31 @@
     return results.slice(0, 5);
   }
 
-  async function preFetchNextVibe(trackId) {
-    if (currentIdx < queue.length - 1 || isFetchingVibe) return;
+   async function preFetchNextVibe(trackId) {
+    // Sirf tab roko agar pehle se fetching chal rahi ho
+    if (isFetchingVibe) return;
     
     isFetchingVibe = true;
+    updateMonitor("Fetching Vibes..."); // Monitor update yahan hoga
+    
     try {
       const vibes = await fetchVibes(trackId);
-      if (vibes.length > 0 && currentIdx >= queue.length - 1) {
-        queue = [...queue, vibes[0]];
-        if (vibes.length > 1) window._pendingVibes = vibes.slice(1);
+      if (vibes && vibes.length > 0) {
+        // Purane vibes hata kar naye add karo ya append karo
+        queue = [...queue, ...vibes.slice(0, 3)]; // Agle 3 gaane queue mein daal diye
+        updateMonitor(`Vibes Loaded: ${vibes.length}`);
         renderQueue();
+      } else {
+        updateMonitor("No Vibes Found", true);
       }
-    } catch { /* silent fail */ }
-    finally { isFetchingVibe = false; }
+    } catch (e) {
+      updateMonitor("Fetch Error", true);
+      console.error(e);
+    } finally {
+      isFetchingVibe = false;
+    }
   }
-
+  
   async function playNext() {
     if (currentIdx < queue.length - 1) {
       playQueueItem(currentIdx + 1);
