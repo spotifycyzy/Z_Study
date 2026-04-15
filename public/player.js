@@ -72,6 +72,7 @@
   let ytPlayer = null;
   let isYtReady = false;
   let isRemoteAction = false;
+  let autoplayenabled = true;
   let remoteTimer = null;
 
   function setRemoteAction() {
@@ -346,6 +347,18 @@
       } catch (error) { return null; }
   }
 
+  async function fetchRecommendations(trackId) {
+    try {
+        const res = await fetch(`https://${SP81_HOST}/recommendations?seed_tracks=${trackId}&limit=5&market=IN`, {
+            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+        });
+        const data = await res.json();
+        return (data.tracks || []).map(t => ({
+            type: 'youtube_audio', title: t.name, artist: t.artists[0].name, spId: t.id, thumb: t.album.images[0].url
+        }));
+    } catch (e) { return []; }
+}
+ 
   /* ── 8. 🎹 QUEUE & CORE RENDERER ENGINE ─────────────────── */
   function addToQueue(item) { queue.push(item); renderQueue(); playQueueItem(queue.length - 1); }
 
@@ -368,11 +381,34 @@
       renderMedia(item);
   }
 
-  function playNext() { playQueueItem(currentIdx + 1); }
-  function playPrev() { playQueueItem(currentIdx - 1); }
+   // --- YE WALA REPLACE KAR ---
+  async function playNext() {
+      if (currentIdx < queue.length - 1) {
+          playQueueItem(currentIdx + 1);
+      } else if (autoPlayEnabled) {
+          const lastTrack = queue[currentIdx];
+          if (lastTrack && lastTrack.spId) {
+              showToast("✨ Engine: Finding similar vibes...");
+              const recs = await fetchRecommendations(lastTrack.spId);
+              if (recs && recs.length > 0) {
+                  recs.forEach(r => queue.push(r));
+                  renderQueue();
+                  playQueueItem(currentIdx + 1);
+              }
+          } else {
+              showToast("Reached the end of queue.");
+          }
+      }
+  }
+
+  function playPrev() { 
+      if (currentIdx > 0) playQueueItem(currentIdx - 1); 
+  }
+
   mpNexts.forEach(b => b.addEventListener('click', playNext));
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
-
+  // ---------------------------
+  
   function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
@@ -493,7 +529,7 @@
       }
   };
 
-  /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
+    /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
   if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = async () => { 
@@ -504,13 +540,30 @@
       spInput.value = ''; 
   };
 
+  // ✅ POINT 4: Auto-Play Toggle Logic
+  const autoPlayBtn = document.getElementById('autoPlayToggle');
+  if (autoPlayBtn) {
+      // Initial state set karna
+      if (autoPlayEnabled) autoPlayBtn.classList.add('active');
+
+      autoPlayBtn.onclick = () => {
+          autoPlayEnabled = !autoPlayEnabled;
+          autoPlayBtn.classList.toggle('active', autoPlayEnabled);
+          showToast(autoPlayEnabled ? "Auto-play: ON ✨" : "Auto-play: OFF 🌑");
+      };
+  }
+
   function toggleFullscreenState() {
-      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) { document.body.classList.add('is-fullscreen'); } 
-      else { document.body.classList.remove('is-fullscreen'); }
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) { 
+          document.body.classList.add('is-fullscreen'); 
+      } else { 
+          document.body.classList.remove('is-fullscreen'); 
+      }
   }
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
+  // Sab kuch set karne ke baad initial queue render
   renderQueue();
 
 })();
