@@ -670,6 +670,26 @@
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
+  /* ── 🟢 INTERNAL VIBE MONITOR (DEBUGGER) ── */
+  const monitor = document.createElement('div');
+  monitor.id = 'vibeMonitor';
+  monitor.style.cssText = 'position:fixed; bottom:120px; right:10px; background:rgba(0,0,0,0.8); color:#0f0; font-family:monospace; font-size:10px; padding:10px; border-radius:8px; z-index:1000000; pointer-events:none; border:1px solid #333; max-width:200px;';
+  monitor.innerHTML = '<b>Vibe Engine:</b> <span id="vibeStatus">Idle</span>';
+  document.body.appendChild(monitor);
+
+  function updateMonitor(msg, isError = false) {
+    const status = document.getElementById('vibeStatus');
+    if (status) {
+      status.textContent = msg;
+      status.style.color = isError ? '#ff4d4d' : '#0f0';
+    }
+    console.log(`[VIBE-LOG]: ${msg}`);
+  }
+
+  // Ab apne purane fetchVibes function mein updateMonitor ko call kar dena:
+  // Example: updateMonitor("Searching Artist..."); 
+  // Example: updateMonitor("No Vibes Found", true);
+  
   renderQueue();
 
 })();
