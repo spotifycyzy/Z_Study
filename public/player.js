@@ -527,41 +527,48 @@
   }
 
 /* ── 🚀 THE UNSTOPPABLE VIBE-LOCK ENGINE (FINAL) ── */
-// ── 1. BACKGROUND EXTRACTOR (Pre-loader) ──
+/* ── 🚀 THE ANDROID-STABLE VIBE ENGINE ── */
 async function preFetchNextTrack() {
-    // Check if we already have a future track ready to avoid duplicates
-    if (isFetchingNext || currentIdx < queue.length - 1) return; 
+    if (isFetchingNext) return;
     
+    // Safety check: Agar queue mein pehle se 1 se zyada gaana hai, toh fetch mat karo
+    if (currentIdx < queue.length - 1) {
+        console.log("Next track already in queue.");
+        return;
+    }
+
     isFetchingNext = true;
+
     try {
         const nextTrack = await getNextVibe();
         
         if (nextTrack) {
-            // Check: Kahin ye gaana pehle se queue mein toh nahi?
-            const isDuplicate = queue.some(t => t.spId === nextTrack.spId);
-            if (isDuplicate) {
-                isFetchingNext = false;
-                return; 
-            }
-
-            console.log(`Pre-fetching: ${nextTrack.title}`);
-            const audioUrl = await getAudioUrl(nextTrack.title, nextTrack.artist);
-            
-            if (audioUrl) {
-                nextTrack.preloadedUrl = audioUrl;
-                queue.push(nextTrack);
-                console.log("Next track ready and pre-loaded!");
+            // Android pe timeout dena behtar hota hai taaki UI thread free rahe
+            setTimeout(async () => {
+                const audioUrl = await getAudioUrl(nextTrack.title, nextTrack.artist);
                 
-                // 🔥 SYNC UPDATE: Agar sync site hai, toh yahan Firestore update call karo
-                // updateRoomQueue(queue); 
-            }
+                if (audioUrl) {
+                    nextTrack.preloadedUrl = audioUrl;
+                    
+                    // Android fix: Spread operator use karo update ke liye
+                    queue = [...queue, nextTrack]; 
+                    
+                    console.log("✅ Queue Updated:", queue.length);
+                    
+                    // AGAR SYNC SITE HAI: Toh yahan Firestore update trigger karo
+                    // updateFirestoreQueue(queue);
+                }
+                isFetchingNext = false;
+            }, 500);
+        } else {
+            isFetchingNext = false;
         }
     } catch (e) {
-        console.error("Pre-fetch failed", e);
-    } finally {
+        console.error("Fetch Error:", e);
         isFetchingNext = false;
     }
 }
+
 
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
