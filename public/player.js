@@ -382,18 +382,29 @@
   }
 
    // --- YE WALA REPLACE KAR ---
+    // --- YE WALA REPLACE KAR ---
   async function playNext() {
+      // 1. Agar queue mein gaana hai, toh agla bajao
       if (currentIdx < queue.length - 1) {
           playQueueItem(currentIdx + 1);
-      } else if (autoPlayEnabled) {
+      } 
+      // 2. Agar queue khatam aur Auto-play ON hai
+      else if (autoPlayEnabled) {
           const lastTrack = queue[currentIdx];
           if (lastTrack && lastTrack.spId) {
               showToast("✨ Engine: Finding similar vibes...");
               const recs = await fetchRecommendations(lastTrack.spId);
+              
               if (recs && recs.length > 0) {
+                  // Naye gaane queue mein jodo
                   recs.forEach(r => queue.push(r));
                   renderQueue();
-                  playQueueItem(currentIdx + 1);
+                  
+                  // Index aage badhao aur seedha media render karo
+                  currentIdx++;
+                  renderMedia(queue[currentIdx]);
+              } else {
+                  showToast("No more similar tracks found.");
               }
           } else {
               showToast("Reached the end of queue.");
@@ -402,13 +413,19 @@
   }
 
   function playPrev() { 
-      if (currentIdx > 0) playQueueItem(currentIdx - 1); 
+      // Safe check taaki negative index pe na jaye
+      if (currentIdx > 0) {
+          playQueueItem(currentIdx - 1); 
+      } else {
+          showToast("This is the first song!");
+      }
   }
 
+  // Event Listeners for Buttons
   mpNexts.forEach(b => b.addEventListener('click', playNext));
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
   // ---------------------------
-  
+ 
   function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
