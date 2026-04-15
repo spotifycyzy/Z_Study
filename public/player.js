@@ -530,52 +530,56 @@
 async function fetchRecommendations(trackId) {
     try {
         const currentTrack = queue[currentIdx];
-        const isHindi = ["bol do na", "arijit", "armaan", "jubin", "pritam", "hindi"].some(w => currentTrack.title.toLowerCase().includes(w));
+        const artistName = currentTrack.artist || "";
+        
+        // 1. Language/Vibe Check
+        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
+                        ["hindi", "arijit", "armaan", "jubin", "pritam", "bol do na"].some(w => currentTrack.title.toLowerCase().includes(w));
 
-        // 1. Zyada results mangwao (Limit: 50) taaki filter karne ke liye maal mile
-        const params = new URLSearchParams({
-            seed_tracks: trackId,
-            limit: '50', 
-            market: 'IN',
-            offset: '0',
-            target_popularity: '65'
-        });
+        let searchQuery = "";
+        if (isHindi) {
+            // Forcefully Indian results search karo
+            // Hum Artist ke saath "Hindi" ya "Bollywood" attach kar rahe hain
+            searchQuery = encodeURIComponent(`artist:${artistName} bollywood hits`);
+        } else {
+            searchQuery = encodeURIComponent(`artist:${artistName} popular`);
+        }
 
-        const res = await fetch(`https://${SP81_HOST}/recommendations?${params.toString()}`, {
-            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-        });
-        const data = await res.json();
-        if (!data.tracks) return [];
-
-        // 2. 🛡️ THE VIBE POLICE (Manual Cleaning)
-        let filtered = data.tracks.filter(t => {
-            const name = t.name.toLowerCase();
-            const artist = t.artists[0]?.name.toLowerCase();
-
-            if (isHindi) {
-                // Block Non-Indian Vibe Keywords
-                const globalTrash = ["şehri", "tadı", "la razón", "jedag", "mencintaimu", "turkish", "trap", "phonk", "remix"];
-                if (globalTrash.some(word => name.includes(word) || artist.includes(word))) return false;
-
-                // Block known foreign alphabet characters or vibes
-                // Turkish (ş, ı), Spanish, etc.
-                const isForeign = /[şığçöüñáéíóú]/.test(name) || /[şığçöüñáéíóú]/.test(artist);
-                if (isForeign) return false;
+        // 2. Recommendations ki jagah Search API call karo
+        // Ye zyada "Strict" hota hai
+        const res = await fetch(`https://${SP81_HOST}/search?q=${searchQuery}&type=track&limit=15&market=IN`, {
+            headers: { 
+                'x-rapidapi-key': RAPID_API_KEY, 
+                'x-rapidapi-host': SP81_HOST 
             }
-            return t.id !== trackId;
         });
+        
+        const data = await res.json();
+        const tracks = data.tracks?.items || [];
 
-        // 3. Agar list khali ho jaye (Risk management)
-        const finalSelection = filtered.length > 0 ? filtered : data.tracks;
+        if (tracks.length === 0) {
+            // Agar search se kuch na mile (Rare), tab fallback to default search
+            const fallbackRes = await fetch(`https://${SP81_HOST}/search?q=top%20bollywood%20songs&type=track&limit=10&market=IN`, {
+                headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+            });
+            const fbData = await fallbackRes.json();
+            return (fbData.tracks?.items || []).map(t => formatTrack(t));
+        }
 
-        return finalSelection.slice(0, 5).map(t => ({
-            type: 'youtube_audio',
-            title: t.name,
-            artist: t.artists[0]?.name || "Artist",
-            spId: t.id,
-            thumb: t.album?.images[0]?.url
-        }));
+        // 3. Mapping function to clean data
+        return tracks
+            .filter(t => t.id !== trackId)
+            .slice(0, 5)
+            .map(t => ({
+                type: 'youtube_audio',
+                title: t.name,
+                artist: t.artists[0]?.name || "Artist",
+                spId: t.id,
+                thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+            }));
+
     } catch (e) {
+        console.error("Plan B Error:", e);
         return [];
     }
 }
