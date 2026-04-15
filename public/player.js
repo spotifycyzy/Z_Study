@@ -527,32 +527,68 @@
   }
 
 /* ── 🚀 THE UNSTOPPABLE VIBE-LOCK ENGINE (FINAL) ── */
-async function getNextVibe() {
-    const current = queue[currentIdx]; // Jo abhi baj raha hai
-    
-    // 🔥 Magic Query: Artist ka naam + Bollywood tag
-    // Isse results hamesha relevant rehte hain
-    const query = `artist:${current.artist} bollywood`; 
+let isFetchingNext = false;
+
+// ── 1. BACKGROUND EXTRACTOR (Pre-loader) ──
+async function preFetchNextTrack() {
+    if (isFetchingNext) return;
+    isFetchingNext = true;
 
     try {
-        const res = await fetch(`https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=15&market=IN`, {
-            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-        });
-
-        const data = await res.json();
-        const tracks = data.tracks?.items || [];
-
-        // Top 5 mein se koi ek random uthao taaki diversity bani rahe
-        const next = tracks[Math.floor(Math.random() * Math.min(tracks.length, 5))];
-
-        return {
-            title: next.name,
-            artist: next.artists[0].name,
-            thumb: next.album.images[0].url,
-            spId: next.id
-        };
+        // Step A: Agla gaana dhoondo (Vibe Engine)
+        const nextTrack = await getNextVibe();
+        
+        if (nextTrack) {
+            // Step B: Abhi iska m4a link nikaal lo (Background mein)
+            console.log(`Pre-fetching: ${nextTrack.title}`);
+            const audioUrl = await getAudioUrl(nextTrack.title, nextTrack.artist);
+            
+            if (audioUrl) {
+                // Audio URL ko track object mein hi save kar lo
+                nextTrack.preloadedUrl = audioUrl;
+                queue.push(nextTrack);
+                console.log("Next track ready and pre-loaded!");
+            }
+        }
     } catch (e) {
-        return null;
+        console.error("Pre-fetch failed", e);
+    } finally {
+        isFetchingNext = false;
+    }
+}
+
+// ── 2. MODIFIED PLAY FUNCTION ──
+async function playSong(track) {
+    // Agar link pehle se hai (Pre-loaded), toh wahi use karo
+    let finalUrl = track.preloadedUrl;
+
+    if (!finalUrl) {
+        // Fallback: Agar kisi wajah se pre-load nahi hua, tab fetch karo
+        showLoader(); // Sirf tabhi loader dikhao jab pre-load na ho
+        finalUrl = await getAudioUrl(track.title, track.artist);
+    }
+
+    audioElement.src = finalUrl;
+    audioElement.play();
+
+    // ── GAANA START HOTE HI, AGLE KI TAYYARI KARO ──
+    // Hum current gaana shuru hote hi next fetch kar lenge
+    preFetchNextTrack();
+}
+
+// ── 3. INSTANT NEXT HANDLER ──
+function playNext() {
+    if (currentIdx < queue.length - 1) {
+        currentIdx++;
+        const nextTrack = queue[currentIdx];
+        
+        // Instant play kyunki preloadedUrl pehle se object mein hai
+        playSong(nextTrack);
+    } else {
+        // Agar queue khali hai (Pre-fetch fail hua ho), toh manually fetch try karo
+        preFetchNextTrack().then(() => {
+            if (currentIdx < queue.length - 1) playNext();
+        });
     }
 }
 
