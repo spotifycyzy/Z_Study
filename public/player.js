@@ -529,19 +529,17 @@
       /* ── 🚀 ULTRA-VIBE RECOMMENDATION ENGINE ── */
    async function fetchRecommendations(trackId) {
     try {
-        // 1. Artist aur Title pakdo current gaane ka
         const currentTrack = queue[currentIdx];
-        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
-                        ["hindi", "arijit", "armaan", "jubin", "pritam"].some(kw => currentTrack.title.toLowerCase().includes(kw));
-
-        // 2. Base URL - Market hamesha India rakho
-        let url = `https://${SP81_HOST}/recommendations?limit=12&market=IN&seed_tracks=${trackId}`;
         
-        // 3. AGAR HINDI GAANA HAI -> Toh Genre aur Artist ka pehra lagao
-        if (isHindi) {
-            // Indian specific genres jo Spotify samajhta hai
-            url += `&seed_genres=indian,bollywood,desi`; 
-        }
+        // 1. Current Song ki Language identify karo (Simple logic)
+        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
+                        ["bol do na", "chahun", "arijit", "armaan", "hindi"].some(w => currentTrack.title.toLowerCase().includes(w));
+
+        // 2. Recommendations mangwao with Market Lock
+        let url = `https://${SP81_HOST}/recommendations?limit=15&market=IN&seed_tracks=${trackId}`;
+        
+        // Agar Hindi hai, toh Indian genres force karo
+        if (isHindi) url += `&seed_genres=indian,bollywood`;
 
         const res = await fetch(url, {
             headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
@@ -550,19 +548,25 @@
         
         if(!data.tracks) return [];
 
-        // 4. 🔥 HARD FILTER: English/Haryanvi/Spanish ko block karo agar tu Romantic Hindi sun raha hai
+        // 3. 🔥 THE VIBE GUARD: Inhe list se dhakka maar kar bahar nikalo
         let filteredTracks = data.tracks.filter(t => {
             const title = t.name.toLowerCase();
             const artist = t.artists[0]?.name.toLowerCase();
-            
-            // Agar tu Hindi sun raha hai toh in keywords ko block maaro
-            const blackList = ["dando", "fullgas", "phonk", "trap", "the weeknd", "bad bunny"];
-            const isUnwanted = blackList.some(word => title.includes(word) || artist.includes(word));
-            
-            return !isUnwanted && t.id !== trackId;
+
+            // Ye list un gaano ki hai jo baar-baar disturb kar rahe hain
+            const blackList = ["funk", "hov", "dando", "fullgas", "phonk", "trap", "remix", "techno"];
+            const isSpam = blackList.some(word => title.includes(word) || artist.includes(word));
+
+            // Agar Hindi sun rahe ho, toh English titles ko filter karo (Optional but effective)
+            if (isHindi) {
+                const isEnglishPop = artist.includes("weeknd") || artist.includes("drake") || artist.includes("bieber");
+                if (isEnglishPop) return false;
+            }
+
+            return !isSpam && t.id !== trackId;
         });
 
-        // 5. Result return karo
+        // 4. Return results
         return filteredTracks.slice(0, 5).map(t => ({
             type: 'youtube_audio',
             title: t.name,
@@ -571,11 +575,11 @@
             thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
         }));
     } catch (e) {
-        console.error("Vibe Engine Crash:", e);
+        console.error("Vibe Engine Failure:", e);
         return [];
     }
 }
- 
+
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream' || activeType === 'youtube_audio') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
