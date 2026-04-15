@@ -528,51 +528,56 @@
 
       /* ── 🚀 ULTRA-VIBE RECOMMENDATION ENGINE ── */
   async function fetchRecommendations(trackId) {
-      try {
-          let artistId = "";
-          
-          // 1. Artist ID nikalne ki koshish (Try-Catch taaki crash na ho)
-          try {
-              const trackRes = await fetch(`https://${SP81_HOST}/track_metadata?id=${trackId}`, {
-                  headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-              });
-              const trackInfo = await trackRes.json();
-              artistId = trackInfo.artists?.[0]?.id || "";
-          } catch(e) { 
-              console.log("Metadata fetch skipped or failed, using track seed only.");
-          }
+    try {
+        const currentTrack = queue[currentIdx];
+        const artistName = currentTrack.artist || "";
+        
+        // 1. Agar artist name hai, toh hum 'Search' ka sahara lenge
+        // Isse language filter lagana asaan ho jata hai
+        const searchQuery = encodeURIComponent(`artist:${artistName} hindi`);
+        
+        // Hum pehle Artist ke similar gaane dhundte hain
+        const res = await fetch(`https://${SP81_HOST}/search?q=${searchQuery}&type=track&limit=10&market=IN`, {
+            headers: { 
+                'x-rapidapi-key': RAPID_API_KEY, 
+                'x-rapidapi-host': SP81_HOST 
+            }
+        });
+        const data = await res.json();
+        
+        // 2. Filter: English gaano ko strictly bahar phenko
+        // Hum check karenge ki title mein English pop stars na hon
+        let tracks = data.tracks?.items || [];
+        
+        let filteredTracks = tracks.filter(t => {
+            const title = t.name.toLowerCase();
+            const artist = t.artists[0]?.name.toLowerCase();
+            // In names ko block kar do jo aksar beech mein ghuste hain
+            const forbidden = ["the weeknd", "drake", "bieber", "combs", "swift"];
+            return !forbidden.some(f => artist.includes(f)) && t.id !== trackId;
+        });
 
-          // 2. Recommendations URL build karo
-          // Artist ID mil gayi toh language lock pakka ho jayega
-          let url = `https://${SP81_HOST}/recommendations?limit=10&market=IN&seed_tracks=${trackId}`;
-          if(artistId) url += `&seed_artists=${artistId}`;
-          
-          const res = await fetch(url, {
-              headers: { 
-                  'x-rapidapi-key': RAPID_API_KEY, 
-                  'x-rapidapi-host': SP81_HOST 
-              }
-          });
-          const data = await res.json();
-          
-          if(!data.tracks || data.tracks.length === 0) return [];
+        // 3. Agar search se gaane nahi mile (Rare), tabhi purana Recommendation engine chalao
+        if (filteredTracks.length === 0) {
+            const recRes = await fetch(`https://${SP81_HOST}/recommendations?seed_tracks=${trackId}&limit=5&market=IN`, {
+                headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+            });
+            const recData = await recRes.json();
+            filteredTracks = recData.tracks || [];
+        }
 
-          // 3. Filter & Map
-          return data.tracks
-            .filter(t => t.id !== trackId)
-            .slice(0, 5)
-            .map(t => ({
-                type: 'youtube_audio',
-                title: t.name,
-                artist: t.artists[0]?.name || "Artist",
-                spId: t.id,
-                thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-            }));
-      } catch (e) {
-          console.error("Vibe Engine Error:", e);
-          return [];
-      }
-  }
+        return filteredTracks.slice(0, 5).map(t => ({
+            type: 'youtube_audio',
+            title: t.name,
+            artist: t.artists[0]?.name || "Artist",
+            spId: t.id,
+            thumb: (t.album?.images && t.album.images[0]?.url) || 'https://i.imgur.com/8Q5FqWj.jpeg'
+        }));
+    } catch (e) {
+        console.error("Vibe Engine Error:", e);
+        return [];
+    }
+}
 
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
