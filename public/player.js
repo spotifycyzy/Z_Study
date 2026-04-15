@@ -458,41 +458,37 @@
   }
 
   /* ── SMART VIBE QUERIES (No Quotes, High Volume Fetch) ── */
-    /* ── SMART VIBE QUERIES (STRICT API FIX) ── */
-  function buildVibeQueries(track) {
-    // Sirf artist ka main naam nikalna (e.g. "Arijit Singh, Shreya Ghoshal" -> "Arijit Singh")
+      function buildVibeQueries(track) {
+    // Sirf artist ka main naam nikalna
     const artist = (track.artist || '').split(',')[0].trim();
-    const isHindi = isHindiTrack(track);
-    const queries = [];
-
-    // 1. Sabse pehle API ko sirf Artist ka naam do (ye sabse accurate tracks dega)
+    
     if (artist && artist !== 'Unknown' && artist !== 'Artist Profile') {
-      queries.push(artist); 
-      queries.push(`artist:${artist}`); // Spotify strict artist filter
+      // Sirf artist ka naam bhejenge, API apne aap uske popular tracks de degi
+      return [artist]; 
     }
-
-    // 2. Agar us artist ke gaane khatam ho jayein, toh broad genre search karo
-    if (isHindi) {
-      queries.push('Bollywood Hits');
-      queries.push('Hindi Trending');
-      queries.push('Lofi Hindi');
-    } else {
-      queries.push('Global Top 50');
-      queries.push('Viral Hits');
+    
+    // Agar artist unknown hai toh trending hits utha lo
+    return ['Bollywood Trending', 'Top Global Hits'];
+  }
+  
+      async function searchTracks(query, limit = 15) {
+    try {
+      const res = await fetch(
+        `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=multi&limit=${limit}&market=IN`,
+        { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
+      );
+      const data = await res.json();
+      
+      // Smart filter: tracks prioritised, fallback to topResults
+      const tracks = data.tracks?.items || (data.topResults?.items || []).filter(i => i.type === 'track');
+      return tracks || [];
+    } catch (e) {
+      console.error("Vibe Search Error:", e);
+      return [];
     }
-
-    return queries;
   }
 
-  async function searchTracks(query, limit = 12) {
-    const res = await fetch(
-      `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=IN`,
-      { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-    );
-    const data = await res.json();
-    return data.tracks?.items || [];
-  }
-
+  
   function formatVibeTrack(t) {
     return {
       type:   'youtube_audio',
