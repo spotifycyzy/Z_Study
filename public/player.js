@@ -526,34 +526,30 @@
       }
   }
 
-   /* ── 🚀 FINAL ULTRA-VIBE ENGINE (PROTOTYPE V3) ── */
+/* ── 🚀 THE UNSTOPPABLE VIBE-LOCK ENGINE (FINAL) ── */
 async function fetchRecommendations(trackId) {
     try {
         const currentTrack = queue[currentIdx];
+        const titleLower = currentTrack.title.toLowerCase();
+        
+        // 1. Identify Language Zone
         const isHindi = /[अ-ह]/.test(currentTrack.title) || 
-                        ["hindi", "arijit", "armaan", "jubin", "pritam", "bol do na"].some(w => currentTrack.title.toLowerCase().includes(w));
+                        ["hindi", "arijit", "armaan", "jubin", "pritam", "bol do na", "zara"].some(w => titleLower.includes(w));
 
-        // 🛠️ EXACT PARAMS based on your curl & Spotify 81 logic
-        const queryParams = {
+        // 2. Build Query Params (Strictly following your CURL structure)
+        const params = new URLSearchParams({
             seed_tracks: trackId,
             seed_artists: '', 
-            seed_genres: isHindi ? 'bollywood,indian-pop' : 'pop,rock',
-            limit: '12',
-            offset: '0',        // 👈 Exactly before market
+            seed_genres: isHindi ? 'bollywood,indian-pop' : 'pop,r-n-b,chill',
+            limit: '20',        // Zyada mangwao taaki filter karne ka option rahe
+            offset: '0',
             market: 'IN',
-            // Mood Settings (Scale 0-10 based on your example)
-            target_popularity: '70',     // ✅ High popularity = No "Jedag/Funk" spam
-            target_energy: isHindi ? '4' : '8',
-            target_valence: isHindi ? '4' : '7',
-            target_acousticness: isHindi ? '7' : '2'
-        };
+            target_popularity: '80', // Only Top Hits (Removes Jedag/Funk/Random stuff)
+            target_energy: isHindi ? '3' : '5',
+            target_valence: isHindi ? '3' : '5'
+        });
 
-        // Building URL with correct encoding and order
-        const queryString = Object.keys(queryParams)
-            .map(key => `${key}=${encodeURIComponent(queryParams[key])}`)
-            .join('&');
-
-        const url = `https://${SP81_HOST}/recommendations?${queryString}`;
+        const url = `https://${SP81_HOST}/recommendations?${params.toString()}`;
 
         const res = await fetch(url, {
             method: 'GET',
@@ -565,38 +561,38 @@ async function fetchRecommendations(trackId) {
         });
 
         const data = await res.json();
-        if (!data.tracks || data.tracks.length === 0) return [];
+        if (!data.tracks) return [];
 
-        // 🛡️ THE "JUNK-YARD" FILTER (Strict Blocking)
-        const blackList = ["jedag", "funk", "hov", "dando", "fullgas", "phonk", "remix", "bass boosted"];
+        // 3. 🛡️ THE LANGUAGE JAIL (Strict Filter)
+        let filteredTracks = data.tracks.filter(t => {
+            const tName = t.name.toLowerCase();
+            const tArtist = t.artists[0]?.name.toLowerCase();
+            
+            // Banned Genres/Styles
+            const globalJunk = ["jedag", "funk", "hov", "dando", "phonk", "remix", "mencintaimu", "untuk"];
+            if (globalJunk.some(j => tName.includes(j) || tArtist.includes(j))) return false;
 
-        return data.tracks
-            .filter(t => {
-                const name = t.name.toLowerCase();
-                const art = t.artists[0]?.name.toLowerCase();
-                
-                // 1. Remove blacklisted words
-                const isJunk = blackList.some(word => name.includes(word) || art.includes(word));
-                
-                // 2. Extra Safety: Agar Hindi sun rahe ho toh English Pop stars ko hatao
-                let isWrongVibe = false;
-                if(isHindi) {
-                    isWrongVibe = ["the weeknd", "bad bunny", "central cee"].some(a => art.includes(a));
-                }
+            if (isHindi) {
+                // Agar Hindi chal raha hai, toh sirf Indian sounding names ya common playback singers allow karo
+                // Ye ek basic check hai: English alphabets wale titles jo pure English pop hain, unhe roko
+                const englishStars = ["juice wrld", "the weeknd", "xxxtentacion", "lil", "drake", "post malone"];
+                if (englishStars.some(star => tArtist.includes(star))) return false;
+            }
 
-                return !isJunk && !isWrongVibe && t.id !== trackId;
-            })
-            .slice(0, 5)
-            .map(t => ({
-                type: 'youtube_audio',
-                title: t.name,
-                artist: t.artists[0]?.name || "Artist",
-                spId: t.id,
-                thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-            }));
+            return t.id !== trackId;
+        });
+
+        // 4. Return top 5 safest matches
+        return filteredTracks.slice(0, 5).map(t => ({
+            type: 'youtube_audio',
+            title: t.name,
+            artist: t.artists[0]?.name || "Artist",
+            spId: t.id,
+            thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+        }));
 
     } catch (e) {
-        console.error("Vibe Engine Fatal Error:", e);
+        console.error("Fatal Recommendation Error:", e);
         return [];
     }
 }
