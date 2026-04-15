@@ -467,6 +467,29 @@
       }
   }
 
+  /* ── 🚀 RECOMMENDATION ENGINE (YE WALA ADD KARO) ── */
+  async function fetchRecommendations(trackId) {
+      try {
+          const res = await fetch(`https://${SP81_HOST}/recommendations?seed_tracks=${trackId}&limit=5&market=IN`, {
+              headers: { 
+                  'x-rapidapi-key': RAPID_API_KEY, 
+                  'x-rapidapi-host': SP81_HOST 
+              }
+          });
+          const data = await res.json();
+          return (data.tracks || []).map(t => ({
+              type: 'youtube_audio',
+              title: t.name,
+              artist: t.artists[0]?.name || "Artist",
+              spId: t.id,
+              thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+          }));
+      } catch (e) {
+          console.error("Rec Engine Error:", e);
+          return [];
+      }
+  }
+   
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream' || activeType === 'youtube_audio') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
