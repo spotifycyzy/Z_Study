@@ -527,58 +527,55 @@
   }
 
       /* ── 🚀 ULTRA-VIBE RECOMMENDATION ENGINE ── */
-  async function fetchRecommendations(trackId) {
+   async function fetchRecommendations(trackId) {
     try {
+        // 1. Artist aur Title pakdo current gaane ka
         const currentTrack = queue[currentIdx];
-        const artistName = currentTrack.artist || "";
+        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
+                        ["hindi", "arijit", "armaan", "jubin", "pritam"].some(kw => currentTrack.title.toLowerCase().includes(kw));
+
+        // 2. Base URL - Market hamesha India rakho
+        let url = `https://${SP81_HOST}/recommendations?limit=12&market=IN&seed_tracks=${trackId}`;
         
-        // 1. Agar artist name hai, toh hum 'Search' ka sahara lenge
-        // Isse language filter lagana asaan ho jata hai
-        const searchQuery = encodeURIComponent(`artist:${artistName} hindi`);
-        
-        // Hum pehle Artist ke similar gaane dhundte hain
-        const res = await fetch(`https://${SP81_HOST}/search?q=${searchQuery}&type=track&limit=10&market=IN`, {
-            headers: { 
-                'x-rapidapi-key': RAPID_API_KEY, 
-                'x-rapidapi-host': SP81_HOST 
-            }
+        // 3. AGAR HINDI GAANA HAI -> Toh Genre aur Artist ka pehra lagao
+        if (isHindi) {
+            // Indian specific genres jo Spotify samajhta hai
+            url += `&seed_genres=indian,bollywood,desi`; 
+        }
+
+        const res = await fetch(url, {
+            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
         });
         const data = await res.json();
         
-        // 2. Filter: English gaano ko strictly bahar phenko
-        // Hum check karenge ki title mein English pop stars na hon
-        let tracks = data.tracks?.items || [];
-        
-        let filteredTracks = tracks.filter(t => {
+        if(!data.tracks) return [];
+
+        // 4. 🔥 HARD FILTER: English/Haryanvi/Spanish ko block karo agar tu Romantic Hindi sun raha hai
+        let filteredTracks = data.tracks.filter(t => {
             const title = t.name.toLowerCase();
             const artist = t.artists[0]?.name.toLowerCase();
-            // In names ko block kar do jo aksar beech mein ghuste hain
-            const forbidden = ["the weeknd", "drake", "bieber", "combs", "swift"];
-            return !forbidden.some(f => artist.includes(f)) && t.id !== trackId;
+            
+            // Agar tu Hindi sun raha hai toh in keywords ko block maaro
+            const blackList = ["dando", "fullgas", "phonk", "trap", "the weeknd", "bad bunny"];
+            const isUnwanted = blackList.some(word => title.includes(word) || artist.includes(word));
+            
+            return !isUnwanted && t.id !== trackId;
         });
 
-        // 3. Agar search se gaane nahi mile (Rare), tabhi purana Recommendation engine chalao
-        if (filteredTracks.length === 0) {
-            const recRes = await fetch(`https://${SP81_HOST}/recommendations?seed_tracks=${trackId}&limit=5&market=IN`, {
-                headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-            });
-            const recData = await recRes.json();
-            filteredTracks = recData.tracks || [];
-        }
-
+        // 5. Result return karo
         return filteredTracks.slice(0, 5).map(t => ({
             type: 'youtube_audio',
             title: t.name,
             artist: t.artists[0]?.name || "Artist",
             spId: t.id,
-            thumb: (t.album?.images && t.album.images[0]?.url) || 'https://i.imgur.com/8Q5FqWj.jpeg'
+            thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
         }));
     } catch (e) {
-        console.error("Vibe Engine Error:", e);
+        console.error("Vibe Engine Crash:", e);
         return [];
     }
 }
-
+ 
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream' || activeType === 'youtube_audio') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
