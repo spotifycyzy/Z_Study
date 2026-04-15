@@ -527,26 +527,34 @@
   }
 
     /* ── 🚀 SMART RECOMMENDATION ENGINE (UPDATED) ── */
-  async function fetchRecommendations(trackId) {
+    async function fetchRecommendations(trackId) {
       try {
-          // Market IN rakha hai, par limit ko thoda optimize kiya hai
-          const res = await fetch(`https://${SP81_HOST}/recommendations?seed_tracks=${trackId}&limit=8&market=IN&min_popularity=40`, {
-              headers: { 
-                  'x-rapidapi-key': RAPID_API_KEY, 
-                  'x-rapidapi-host': SP81_HOST 
-              }
+          // 1. Current gaane ki metadata se Artist ID nikalna zaroori hai
+          // Iske liye hum pehle track details fetch karenge (Just for 100% accuracy)
+          const trackRes = await fetch(`https://${SP81_HOST}/track_metadata?id=${trackId}`, {
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+          });
+          const trackInfo = await trackRes.json();
+          
+          const artistId = trackInfo.artists?.[0]?.id || "";
+          const genres = trackInfo.genres?.join(',') || "indian,bollywood"; // Fallback to Indian genres
+
+          // 2. Ab Recommendations mangwao with Artist & Track seed
+          // Isse Language switch hone ke chances 90% kam ho jayenge
+          let url = `https://${SP81_HOST}/recommendations?limit=10&market=IN&seed_tracks=${trackId}`;
+          if(artistId) url += `&seed_artists=${artistId}`;
+          
+          const res = await fetch(url, {
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
           });
           const data = await res.json();
           
-          if(!data.tracks || data.tracks.length === 0) {
-              console.log("No tracks found in recommendations.");
-              return [];
-          }
+          if(!data.tracks || data.tracks.length === 0) return [];
 
-          // Filter: Kahin wo hi gaana dubara toh nahi aa raha?
+          // 3. Filter: Sirf wo gaane jo current vibe se match karein
           return data.tracks
-            .filter(t => t.id !== trackId) // Current gaana repeat na ho
-            .slice(0, 5) // Top 5 relevant uthao
+            .filter(t => t.id !== trackId)
+            .slice(0, 5)
             .map(t => ({
                 type: 'youtube_audio',
                 title: t.name,
@@ -555,7 +563,7 @@
                 thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
             }));
       } catch (e) {
-          console.error("Rec Engine Error:", e);
+          console.error("Vibe Engine Error:", e);
           return [];
       }
   }
