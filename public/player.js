@@ -199,154 +199,107 @@
   }
 
   /* ── 7. 🎧 SPOTIFY API ENGINE (MULTI-RESULT + SMART SORT) ─ */
-  async function searchSpotifyAlt(query, targetResultsDiv) {
-      if (!query) return;
-      const divId = targetResultsDiv || 'spSearchResults';
-      const resDiv = document.getElementById(divId);
-      if (!resDiv) return;
+  /* ── 7. 🎧 SPOTIFY API ENGINE (FIXED DATA KEYS) ─────────── */
+async function searchSpotifyAlt(query, targetResultsDiv) {
+    if (!query) return;
+    const divId = targetResultsDiv || 'spSearchResults';
+    const resDiv = document.getElementById(divId);
+    if (!resDiv) return;
 
-      resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Exact Matches...</p>';
-      if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
+    resDiv.innerHTML = '<p class="mp-empty">⏳ Loading Exact Matches...</p>';
+    if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
-      try {
-          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN&country=IN";
-          const res = await fetch(url, {
-              method: "POST",
-              headers: {
-                  "x-rapidapi-key": RAPID_API_KEY,
-                  "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
-                  "Content-Type": "application/json",
-                  "Accept-Language": "en-IN,en;q=0.9,hi-IN;q=0.8,hi;q=0.7" 
-              },
-              body: JSON.stringify({ terms: query, limit: 15, country: "IN", market: "IN" }) 
-          });
-          
-          const responseData = await res.json();
-          const searchData = responseData?.data?.searchV2 || responseData;
-          let rawItems = [];
-          
-          (searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || []).forEach(item => rawItems.push({ ...item, isExactTopResult: true }));
-          (searchData?.tracksV2?.items || searchData?.tracks?.items || []).forEach(item => rawItems.push(item));
-          (searchData?.playlistsV2?.items || searchData?.playlists?.items || []).forEach(item => rawItems.push(item));
-          (searchData?.albumsV2?.items || searchData?.albums?.items || []).forEach(item => rawItems.push(item));
+    try {
+        const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN";
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "x-rapidapi-key": RAPID_API_KEY,
+                "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ terms: query, limit: 15, market: "IN" }) 
+        });
+        
+        const responseData = await res.json();
+        const searchData = responseData?.data?.searchV2 || responseData;
+        let rawItems = [];
+        
+        (searchData?.topResults?.items || searchData?.topResultsV2?.itemsV2 || []).forEach(item => rawItems.push({ ...item, isExactTopResult: true }));
+        (searchData?.tracksV2?.items || searchData?.tracks?.items || []).forEach(item => rawItems.push(item));
+        (searchData?.playlistsV2?.items || searchData?.playlists?.items || []).forEach(item => rawItems.push(item));
+        (searchData?.albumsV2?.items || searchData?.albums?.items || []).forEach(item => rawItems.push(item));
 
-          if (rawItems.length === 0) { resDiv.innerHTML = `<p class="mp-empty">❌ No official results found.</p>`; return; }
+        if (rawItems.length === 0) { resDiv.innerHTML = `<p class="mp-empty">❌ No official results found.</p>`; return; }
 
-          const seenUris = new Set();
-          let cleanItems = [];
+        const seenUris = new Set();
+        let cleanItems = [];
 
-          rawItems.forEach((wrapper) => {
-              const item = wrapper?.item?.data || wrapper?.data || wrapper;
-              if (!item || !item.uri || seenUris.has(item.uri)) return;
-              seenUris.add(item.uri);
+        rawItems.forEach((wrapper) => {
+            const item = wrapper?.item?.data || wrapper?.data || wrapper;
+            if (!item || !item.uri || seenUris.has(item.uri)) return;
+            seenUris.add(item.uri);
 
-              const uriParts = item.uri.split(':');
-              const itemType = uriParts[1]; 
-              const itemId = item.id || uriParts[2];
+            const uriParts = item.uri.split(':');
+            const itemType = uriParts[1]; 
+            const itemId = item.id || uriParts[2]; // Ye hai original Spotify ID
 
-              const titleName = item.name || item.profile?.name || 'Unknown';
-              let artistName = 'Unknown';
-              if (item.artists?.items?.[0]?.profile?.name) { artistName = item.artists.items[0].profile.name; } 
-              else if (item.ownerV2?.data?.name) { artistName = item.ownerV2.data.name; } 
-              else if (itemType === 'artist') { artistName = "Artist Profile"; }
+            const titleName = item.name || item.profile?.name || 'Unknown';
+            let artistName = 'Unknown';
+            if (item.artists?.items?.[0]?.profile?.name) { artistName = item.artists.items[0].profile.name; } 
+            else if (item.ownerV2?.data?.name) { artistName = item.ownerV2.data.name; } 
 
-              let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
-              if (item.albumOfTrack?.coverArt?.sources?.[0]?.url) { thumb = item.albumOfTrack.coverArt.sources[0].url; } 
-              else if (item.coverArt?.sources?.[0]?.url) { thumb = item.coverArt.sources[0].url; } 
-              else if (item.images?.items?.[0]?.sources?.[0]?.url) { thumb = item.images.items[0].sources[0].url; } 
-              else if (item.visuals?.avatarImage?.sources?.[0]?.url) { thumb = item.visuals.avatarImage.sources[0].url; }
+            let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
+            const sources = item.albumOfTrack?.coverArt?.sources || item.coverArt?.sources || item.images?.items?.[0]?.sources || item.visuals?.avatarImage?.sources;
+            if (sources && sources[0]) thumb = sources[0].url;
 
-              cleanItems.push({ titleName, artistName, itemType, itemId, thumb, isExactTopResult: wrapper.isExactTopResult });
-          });
+            cleanItems.push({ titleName, artistName, itemType, itemId, thumb, isExactTopResult: wrapper.isExactTopResult });
+        });
 
-          const lowerQuery = query.toLowerCase();
-          cleanItems.sort((a, b) => {
-              const aTitle = a.titleName.toLowerCase(), bTitle = b.titleName.toLowerCase();
-              if (aTitle === lowerQuery && bTitle !== lowerQuery) return -1;
-              if (bTitle === lowerQuery && aTitle !== lowerQuery) return 1;
-              const aContains = aTitle.includes(lowerQuery), bContains = bTitle.includes(lowerQuery);
-              if (aContains && !bContains) return -1;
-              if (bContains && !aContains) return 1;
-              if (a.isExactTopResult && !b.isExactTopResult) return -1;
-              if (b.isExactTopResult && !a.isExactTopResult) return 1;
-              return 0;
-          });
+        renderSpotifyUI(cleanItems, resDiv, query.toLowerCase());
+    } catch (e) { 
+        console.error("Spotify Search API Error:", e); 
+        resDiv.innerHTML = '<p class="mp-empty">🚨 API Connection Error!</p>'; 
+    }
+}
 
-          renderSpotifyUI(cleanItems, resDiv, lowerQuery);
-      } catch (e) { console.error("Spotify Search API Error:", e); resDiv.innerHTML = '<p class="mp-empty">🚨 API Connection Error!</p>'; }
-  }
+function renderSpotifyUI(cleanItems, resDiv, lowerQuery = "") {
+    resDiv.innerHTML = '';
+    cleanItems.forEach((data, index) => {
+        const typeLabel = data.itemType === 'track' ? "" : ` <span class="badge-type">${data.itemType.toUpperCase()}</span>`;
+        const div = document.createElement('div');
+        div.className = 'yt-search-item';
+        div.innerHTML = `
+            <img src="${data.thumb}" class="yt-search-thumb" style="border-radius: ${data.itemType === 'artist' ? '50%' : '4px'};"/>
+            <div class="yt-search-info">
+              <div class="yt-search-title">${data.titleName}${typeLabel}</div>
+              <div class="yt-search-sub">${data.artistName}</div>
+            </div>
+            <span class="play-icon-sp">${data.itemType === 'track' ? '▶' : '📂'}</span>
+        `;
 
-  function renderSpotifyUI(cleanItems, resDiv, lowerQuery = "") {
-      resDiv.innerHTML = '';
-      cleanItems.forEach((data, index) => {
-          const typeLabel = data.itemType === 'track' ? "" : ` <span style="font-size:9px; background:#e8436a; color:#fff; padding:2px 4px; border-radius:3px; margin-left:5px;">${data.itemType.toUpperCase()}</span>`;
-          const imgRadius = data.itemType === 'artist' ? '50%' : '4px';
-          const isTopRender = index === 0 && lowerQuery && data.titleName.toLowerCase().includes(lowerQuery.split(' ')[0]);
-          const topResultBadge = (data.isExactTopResult || isTopRender) ? `<div style="font-size:10px; color:#1db954; font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">🏆 BEST MATCH</div>` : "";
-
-          const div = document.createElement('div');
-          div.className = 'yt-search-item';
-          div.innerHTML = `
-              <img src="${data.thumb}" class="yt-search-thumb" style="border-radius: ${imgRadius};"/>
-              <div class="yt-search-info">
-                ${topResultBadge}
-                <div class="yt-search-title">${data.titleName}${typeLabel}</div>
-                <div class="yt-search-sub">${data.artistName}</div>
-              </div>
-              <span style="font-size:18px;padding:0 4px;color:#1db954">${data.itemType === 'track' ? '▶' : '📂'}</span>
-          `;
-
-          div.onclick = async () => {
-              if (data.itemType === 'playlist') {
-                  showToast(`📂 Loading Playlist...`);
-                  const tracks = await fetchPlaylistTracks(data.itemId);
-                  renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), resDiv, "");
-              } else if (data.itemType === 'album') {
-                  showToast(`📂 Loading Album...`);
-                  const tracks = await fetchAlbumTracks(data.itemId);
-                  renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), resDiv, "");
-              } else if (data.itemType === 'artist') {
-                  showToast(`👤 Artist Profiles cannot be played directly.`);
-              } else {
-                  queue = []; currentIdx = 0; 
-                  addToQueue({ type: 'youtube_audio', title: data.titleName, artist: data.artistName, spId: data.itemId, thumb: data.thumb, isZeroxify: true });
-                  showToast('🎵 Playing Track!');
-              }
-          };
-          resDiv.appendChild(div);
-      });
-  }
-
-  /* ── Fetchers for Playlists/Albums (Direct API) ── */
-  async function fetchPlaylistTracks(playlistId) {
-      try {
-          const res = await fetch(`https://${SP81_HOST}/playlist_tracks?id=${playlistId}&offset=0&limit=100&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
-          const data = await res.json();
-          return (data.items || []).filter(i => i.track && !i.track.is_local).map(i => ({
-              id: i.track.id, title: i.track.name, artist: i.track.artists[0]?.name || "Unknown", image: i.track.album?.images[0]?.url || ""
-          }));
-      } catch (e) { return []; }
-  }
-
-  async function fetchAlbumTracks(albumId) {
-      try {
-          const res = await fetch(`https://${SP81_HOST}/album_tracks?id=${albumId}&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
-          const data = await res.json();
-          let albumImg = (data.album && data.album.images) ? data.album.images[0].url : "";
-          return (data.album?.tracks?.items || []).map(i => ({
-              id: i.id, title: i.name, artist: i.artists[0]?.name || "Unknown", image: albumImg
-          }));
-      } catch (e) { return []; }
-  }
-
-  async function fetchPremiumAudio(spId) {
-      try {
-          const res = await fetch(`https://${SP81_HOST}/download_track?q=${spId}&onlyLinks=true`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
-          const result = await res.json();
-          return Array.isArray(result) ? (result[0]?.url || result[0]?.link) : (result.url || result.link || result.downloadUrl);
-      } catch (error) { return null; }
-  }
-
+        div.onclick = async () => {
+            if (data.itemType === 'playlist' || data.itemType === 'album') {
+                showToast(`📂 Loading...`);
+                const tracks = (data.itemType === 'playlist') ? await fetchPlaylistTracks(data.itemId) : await fetchAlbumTracks(data.itemId);
+                renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), resDiv, "");
+            } else if (data.itemType === 'track') {
+                queue = []; currentIdx = 0; 
+                // Yahan ensure kiya hai ki ID 'spId' key mein jaye
+                addToQueue({ 
+                    type: 'youtube_audio', 
+                    title: data.titleName, 
+                    artist: data.artistName, 
+                    spId: data.itemId, 
+                    thumb: data.thumb, 
+                    isZeroxify: true 
+                });
+                showToast('🎵 Playing Track!');
+            }
+        };
+        resDiv.appendChild(div);
+    });
+}
 
   /* ── 8. 🎹 QUEUE & CORE RENDERER ENGINE ─────────────────── */
   function addToQueue(item) { queue.push(item); renderQueue(); playQueueItem(queue.length - 1); }
