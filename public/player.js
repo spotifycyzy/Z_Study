@@ -530,69 +530,51 @@
 async function fetchRecommendations(trackId) {
     try {
         const currentTrack = queue[currentIdx];
-        const titleLower = currentTrack.title.toLowerCase();
-        
-        // 1. Identify Language Zone
-        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
-                        ["hindi", "arijit", "armaan", "jubin", "pritam", "bol do na", "zara"].some(w => titleLower.includes(w));
+        const isHindi = ["bol do na", "arijit", "armaan", "hindi"].some(w => currentTrack.title.toLowerCase().includes(w));
 
-        // 2. Build Query Params (Strictly following your CURL structure)
         const params = new URLSearchParams({
             seed_tracks: trackId,
-            seed_artists: '', 
-            seed_genres: isHindi ? 'bollywood,indian-pop' : 'pop,r-n-b,chill',
-            limit: '20',        // Zyada mangwao taaki filter karne ka option rahe
-            offset: '0',
+            limit: '25', // 👈 Zyada mangwao taaki hum filter kar sakein
             market: 'IN',
-            target_popularity: '80', // Only Top Hits (Removes Jedag/Funk/Random stuff)
-            target_energy: isHindi ? '3' : '5',
-            target_valence: isHindi ? '3' : '5'
+            offset: '0',
+            target_popularity: '70'
         });
 
-        const url = `https://${SP81_HOST}/recommendations?${params.toString()}`;
-
-        const res = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-rapidapi-host': SP81_HOST,
-                'x-rapidapi-key': RAPID_API_KEY
-            }
+        const res = await fetch(`https://${SP81_HOST}/recommendations?${params.toString()}`, {
+            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
         });
-
         const data = await res.json();
         if (!data.tracks) return [];
 
-        // 3. 🛡️ THE LANGUAGE JAIL (Strict Filter)
-        let filteredTracks = data.tracks.filter(t => {
-            const tName = t.name.toLowerCase();
-            const tArtist = t.artists[0]?.name.toLowerCase();
-            
-            // Banned Genres/Styles
-            const globalJunk = ["jedag", "funk", "hov", "dando", "phonk", "remix", "mencintaimu", "untuk"];
-            if (globalJunk.some(j => tName.includes(j) || tArtist.includes(j))) return false;
+        // 🛡️ THE LANGUAGE FILTER (Manual Logic)
+        let filtered = data.tracks.filter(t => {
+            const name = t.name.toLowerCase();
+            const artist = t.artists[0]?.name.toLowerCase();
 
             if (isHindi) {
-                // Agar Hindi chal raha hai, toh sirf Indian sounding names ya common playback singers allow karo
-                // Ye ek basic check hai: English alphabets wale titles jo pure English pop hain, unhe roko
-                const englishStars = ["juice wrld", "the weeknd", "xxxtentacion", "lil", "drake", "post malone"];
-                if (englishStars.some(star => tArtist.includes(star))) return false;
-            }
+                // 1. Block known non-Hindi vibe words
+                const nonHindiBlock = ["la razón", "jedag", "remix", "trap", "phonk", "mencintaimu"];
+                if (nonHindiBlock.some(word => name.includes(word))) return false;
 
+                // 2. Simple logic: Agar tu Hindi sun raha hai, toh Spanish/Latin artists ko block karo
+                // (Most Latin songs have 'feat.' or specific rhythm titles)
+                const isLatin = ["j balvin", "bad bunny", "karol g", "ozuna"].some(a => artist.includes(a));
+                if (isLatin) return false;
+            }
             return t.id !== trackId;
         });
 
-        // 4. Return top 5 safest matches
-        return filteredTracks.slice(0, 5).map(t => ({
+        // Agar filtering ke baad kuch na bache, toh original data se fallback
+        const finalSelection = filtered.length > 0 ? filtered : data.tracks;
+
+        return finalSelection.slice(0, 5).map(t => ({
             type: 'youtube_audio',
             title: t.name,
             artist: t.artists[0]?.name || "Artist",
             spId: t.id,
-            thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+            thumb: t.album?.images[0]?.url
         }));
-
     } catch (e) {
-        console.error("Fatal Recommendation Error:", e);
         return [];
     }
 }
