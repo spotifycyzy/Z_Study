@@ -72,7 +72,7 @@
   let ytPlayer = null;
   let isYtReady = false;
   let isRemoteAction = false;
-  let autoplayenabled = true;
+  let autoPlayEnabled = true;
   let remoteTimer = null;
 
   function setRemoteAction() {
