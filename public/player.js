@@ -139,8 +139,6 @@
       if (!synced || isRemoteAction) {
           if (event.data === YT.PlayerState.PLAYING) { isPlaying = true; updatePlayBtn(); }
           if (event.data === YT.PlayerState.PAUSED)  { isPlaying = false; updatePlayBtn(); }
-          // ✅ Added Fallback Next trigger for YouTube Video mode
-          if (event.data === YT.PlayerState.ENDED) { playNext(); }
           return;
       }
       const time = ytPlayer.getCurrentTime();
@@ -372,7 +370,8 @@
       renderMedia(item);
   }
 
-  function renderMedia(item) {
+
+        function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
@@ -406,11 +405,9 @@
           setTrackInfo(item.title, '☁️ Cloud Audio');
       }
 
-            // ✅ Trigger Vibe Engine (Force Start)
-      if (autoPlayEnabled) {
-          const triggerId = item.spId || `${item.title} ${item.artist || ''}`;
-          updateMonitor("Triggering Engine..."); 
-          preFetchNextVibe(triggerId);
+      // ✅ ADDED: Background Engine Trigger
+      if (autoPlayEnabled && item.spId) {
+          preFetchNextVibe(item);
       }
   }
 
@@ -438,146 +435,139 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     🚀 ZEROX VIBE ENGINE — Zero-Gap Auto-play (SMART FIX)
+     ZEROX VIBE ENGINE v2 — YouTube-Seeded Spotify Autoplay
+     ─────────────────────────────────────────────────────────
+     1. Current Spotify track plays (type: youtube_audio)
+     2. Background: YouTube search for "title artist" returns
+        related video titles  (no YT playback at all)
+     3. Each YT title → Spotify SP81 search → get spId
+     4. Those spIds are queued as youtube_audio items
+     5. Audio played via fetchPremiumAudio — 100% Spotify feel
+     6. isFetchingVibe flag prevents Android parallel-fetch freeze
+     7. _pendingVibes buffer = zero-gap between tracks
   ══════════════════════════════════════════════════════════ */
 
   let isFetchingVibe = false;
+  let pendingVibes   = [];     // local array — no window pollution
 
-  /* ── Detect if track is Bollywood / Hindi ── */
-  function isHindiTrack(track) {
-    const title  = (track.title  || '').toLowerCase();
-    const artist = (track.artist || '').toLowerCase();
-    const devanagari = /[\u0900-\u097F]/.test(track.title || '');
-    const hindiKeywords = [
-      'hindi','bollywood','filmi','arijit','armaan','jubin','pritam',
-      'atif','neha','shreya','kumar sanu','udit','lata','kishore',
-      'sonu nigam','mohit','darshan','anuv','vishal','shekhar',
-      'shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman',
-      'amit trivedi','sachin jigar','tanishk','benny dayal','badshah',
-      'honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'
-    ];
-    return devanagari || hindiKeywords.some(k => title.includes(k) || artist.includes(k));
-  }
-
-  /* ── SMART VIBE QUERIES (No Quotes, High Volume Fetch) ── */
-      function buildVibeQueries(track) {
-    // Sirf artist ka main naam nikalna
-    const artist = (track.artist || '').split(',')[0].trim();
-    
-    if (artist && artist !== 'Unknown' && artist !== 'Artist Profile') {
-      // Sirf artist ka naam bhejenge, API apne aap uske popular tracks de degi
-      return [artist]; 
-    }
-    
-    // Agar artist unknown hai toh trending hits utha lo
-    return ['Bollywood Trending', 'Top Global Hits'];
-  }
-  
-      async function searchTracks(query, limit = 15) {
+  /* ── Step 1: YouTube search for related track names ── */
+  async function searchYTForVibes(title, artist) {
+    const q   = encodeURIComponent(title + ' ' + artist + ' audio');
+    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&q=' + q + '&type=video&key=' + YOUTUBE_API_KEY;
     try {
-      const res = await fetch(
-        `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=multi&limit=${limit}&market=IN`,
-        { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-      );
+      const res  = await fetch(url);
       const data = await res.json();
-      
-      // Smart filter: tracks prioritised, fallback to topResults
-      const tracks = data.tracks?.items || (data.topResults?.items || []).filter(i => i.type === 'track');
-      return tracks || [];
+      if (!data.items || !data.items.length) return [];
+      return data.items.map(function(v) {
+        return { ytTitle: v.snippet.title, ytChannel: v.snippet.channelTitle };
+      });
     } catch (e) {
-      console.error("Vibe Search Error:", e);
       return [];
     }
   }
 
-  
-  function formatVibeTrack(t) {
-    return {
-      type:   'youtube_audio',
-      title:  t.name,
-      artist: t.artists?.[0]?.name || 'Artist',
-      spId:   t.id,
-      thumb:  t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-    };
-  }
-
-  async function fetchVibes(trackId) {
-    const track    = queue[currentIdx] || { artist: 'Unknown' };
-    const queries  = buildVibeQueries(track);
-    const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
-    let   results  = [];
-
-    for (const q of queries) {
-      try {
-        const tracks = await searchTracks(q, 15);
-        const fresh  = tracks
-          .filter(t => t.id && !seenIds.has(t.id))
-          .map(formatVibeTrack);
-        
-        for (const t of fresh) {
-          if (!results.find(r => r.spId === t.spId)) {
-            results.push(t);
-            seenIds.add(t.spId);
-          }
-        }
-        if (results.length >= 5) break; 
-      } catch { /* Try next query if one fails */ }
-    }
-    return results.slice(0, 5);
-  }
-
-   async function preFetchNextVibe(trackId) {
-    // Sirf tab roko agar pehle se fetching chal rahi ho
-    if (isFetchingVibe) return;
-    
-    isFetchingVibe = true;
-    updateMonitor("Fetching Vibes..."); // Monitor update yahan hoga
-    
+  /* ── Step 2: Resolve one YT result → Spotify track ── */
+  async function resolveToSpotify(ytTitle, ytChannel) {
+    var cleaned = ytTitle
+      .replace(/\(.*?\)/g, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/official|video|lyrics|audio|hd|4k|ft\.|feat\./gi, '')
+      .trim()
+      .slice(0, 60);
+    var q = encodeURIComponent(cleaned);
     try {
-      const vibes = await fetchVibes(trackId);
-      if (vibes && vibes.length > 0) {
-        // Purane vibes hata kar naye add karo ya append karo
-        queue = [...queue, ...vibes.slice(0, 3)]; // Agle 3 gaane queue mein daal diye
-        updateMonitor(`Vibes Loaded: ${vibes.length}`);
-        renderQueue();
-      } else {
-        updateMonitor("No Vibes Found", true);
-      }
+      var res  = await fetch(
+        'https://' + SP81_HOST + '/search?q=' + q + '&type=track&limit=1&market=IN',
+        { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
+      );
+      var data  = await res.json();
+      var track = data.tracks && data.tracks.items && data.tracks.items[0];
+      if (!track) return null;
+      return {
+        type:   'youtube_audio',
+        title:  track.name,
+        artist: (track.artists && track.artists[0] && track.artists[0].name) || ytChannel,
+        spId:   track.id,
+        thumb:  (track.album && track.album.images && track.album.images[0] && track.album.images[0].url) || 'https://i.imgur.com/8Q5FqWj.jpeg'
+      };
     } catch (e) {
-      updateMonitor("Fetch Error", true);
-      console.error(e);
-    } finally {
-      isFetchingVibe = false;
+      return null;
     }
   }
-  
+
+  /* ── Step 3: Full pipeline — YT titles → Spotify spIds ── */
+  async function fetchVibesFromYT(currentTrack) {
+    var ytResults = await searchYTForVibes(currentTrack.title || '', currentTrack.artist || '');
+    if (!ytResults.length) return [];
+
+    var seenIds = {};
+    queue.forEach(function(q) { if (q.spId) seenIds[q.spId] = true; });
+    if (currentTrack.spId) seenIds[currentTrack.spId] = true;
+
+    var resolved = [];
+    for (var i = 0; i < ytResults.length; i++) {
+      if (resolved.length >= 5) break;
+      var track = await resolveToSpotify(ytResults[i].ytTitle, ytResults[i].ytChannel);
+      if (track && track.spId && !seenIds[track.spId]) {
+        resolved.push(track);
+        seenIds[track.spId] = true;
+      }
+    }
+    return resolved;
+  }
+
+  /* ── Background pre-fetch (runs silently during playback) ── */
+  async function preFetchNextVibe(currentTrack) {
+    if (currentIdx < queue.length - 1) return;  // already have next
+    if (isFetchingVibe) return;                  // Android guard
+    isFetchingVibe = true;
+    try {
+      var vibes = await fetchVibesFromYT(currentTrack);
+      if (vibes.length > 0 && currentIdx >= queue.length - 1) {
+        queue = queue.concat([vibes[0]]);
+        pendingVibes = vibes.slice(1);
+        renderQueue();
+      }
+    } catch (e) { /* never crash playback */ }
+    isFetchingVibe = false;
+  }
+
+  /* ── playNext ── */
   async function playNext() {
+    // Pre-fetched track already in queue → instant
     if (currentIdx < queue.length - 1) {
       playQueueItem(currentIdx + 1);
       return;
     }
+
     if (!autoPlayEnabled) { showToast('End of queue.'); return; }
 
-    const last = queue[currentIdx];
+    var last = queue[currentIdx];
     if (!last || !last.spId) { showToast('End of queue.'); return; }
 
-    if (window._pendingVibes && window._pendingVibes.length > 0) {
-      const next = window._pendingVibes.shift();
-      queue = [...queue, next];
+    // Drain pending buffer — zero-gap
+    if (pendingVibes.length > 0) {
+      var next = pendingVibes.shift();
+      queue = queue.concat([next]);
       renderQueue();
       playQueueItem(currentIdx + 1);
-      preFetchNextVibe(next.spId);
+      preFetchNextVibe(next);
       return;
     }
 
-    showToast('✨ Finding next vibe...');
-    const vibes = await fetchVibes(last.spId);
-    if (vibes.length > 0) {
-      vibes.forEach(v => { queue = [...queue, v]; });
-      renderQueue();
-      playQueueItem(currentIdx + 1);
-    } else {
-      showToast('No more vibes found.');
+    // Nothing pre-fetched → fetch now
+    showToast('Finding next vibe...');
+    try {
+      var vibes = await fetchVibesFromYT(last);
+      if (vibes.length > 0) {
+        queue = queue.concat(vibes);
+        renderQueue();
+        playQueueItem(currentIdx + 1);
+      } else {
+        showToast('No more vibes found.');
+      }
+    } catch (e) {
+      showToast('Could not fetch next track.');
     }
   }
 
@@ -586,8 +576,9 @@
     else showToast('This is the first song!');
   }
 
-  mpNexts.forEach(b => b.addEventListener('click', playNext));
-  mpPrevs.forEach(b => b.addEventListener('click', playPrev));
+  mpNexts.forEach(function(b) { b.addEventListener('click', playNext); });
+  mpPrevs.forEach(function(b) { b.addEventListener('click', playPrev); });
+
 
   /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
@@ -651,7 +642,7 @@
       }
   };
 
-  /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
+    /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
   if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = async () => { 
@@ -662,9 +653,12 @@
       spInput.value = ''; 
   };
 
+  // ✅ POINT 4: Auto-Play Toggle Logic
   const autoPlayBtn = document.getElementById('autoPlayToggle');
   if (autoPlayBtn) {
+      // Initial state set karna
       if (autoPlayEnabled) autoPlayBtn.classList.add('active');
+
       autoPlayBtn.onclick = () => {
           autoPlayEnabled = !autoPlayEnabled;
           autoPlayBtn.classList.toggle('active', autoPlayEnabled);
@@ -682,26 +676,7 @@
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
-  /* ── 🟢 INTERNAL VIBE MONITOR (DEBUGGER) ── */
-  const monitor = document.createElement('div');
-  monitor.id = 'vibeMonitor';
-  monitor.style.cssText = 'position:fixed; bottom:120px; right:10px; background:rgba(0,0,0,0.8); color:#0f0; font-family:monospace; font-size:10px; padding:10px; border-radius:8px; z-index:1000000; pointer-events:none; border:1px solid #333; max-width:200px;';
-  monitor.innerHTML = '<b>Vibe Engine:</b> <span id="vibeStatus">Idle</span>';
-  document.body.appendChild(monitor);
-
-  function updateMonitor(msg, isError = false) {
-    const status = document.getElementById('vibeStatus');
-    if (status) {
-      status.textContent = msg;
-      status.style.color = isError ? '#ff4d4d' : '#0f0';
-    }
-    console.log(`[VIBE-LOG]: ${msg}`);
-  }
-
-  // Ab apne purane fetchVibes function mein updateMonitor ko call kar dena:
-  // Example: updateMonitor("Searching Artist..."); 
-  // Example: updateMonitor("No Vibes Found", true);
-  
+  // Sab kuch set karne ke baad initial queue render
   renderQueue();
 
 })();
