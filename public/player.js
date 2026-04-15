@@ -526,32 +526,38 @@
       }
   }
 
-    /* ── 🚀 SMART RECOMMENDATION ENGINE (UPDATED) ── */
-    async function fetchRecommendations(trackId) {
+      /* ── 🚀 ULTRA-VIBE RECOMMENDATION ENGINE ── */
+  async function fetchRecommendations(trackId) {
       try {
-          // 1. Current gaane ki metadata se Artist ID nikalna zaroori hai
-          // Iske liye hum pehle track details fetch karenge (Just for 100% accuracy)
-          const trackRes = await fetch(`https://${SP81_HOST}/track_metadata?id=${trackId}`, {
-              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-          });
-          const trackInfo = await trackRes.json();
+          let artistId = "";
           
-          const artistId = trackInfo.artists?.[0]?.id || "";
-          const genres = trackInfo.genres?.join(',') || "indian,bollywood"; // Fallback to Indian genres
+          // 1. Artist ID nikalne ki koshish (Try-Catch taaki crash na ho)
+          try {
+              const trackRes = await fetch(`https://${SP81_HOST}/track_metadata?id=${trackId}`, {
+                  headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+              });
+              const trackInfo = await trackRes.json();
+              artistId = trackInfo.artists?.[0]?.id || "";
+          } catch(e) { 
+              console.log("Metadata fetch skipped or failed, using track seed only.");
+          }
 
-          // 2. Ab Recommendations mangwao with Artist & Track seed
-          // Isse Language switch hone ke chances 90% kam ho jayenge
+          // 2. Recommendations URL build karo
+          // Artist ID mil gayi toh language lock pakka ho jayega
           let url = `https://${SP81_HOST}/recommendations?limit=10&market=IN&seed_tracks=${trackId}`;
           if(artistId) url += `&seed_artists=${artistId}`;
           
           const res = await fetch(url, {
-              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
+              headers: { 
+                  'x-rapidapi-key': RAPID_API_KEY, 
+                  'x-rapidapi-host': SP81_HOST 
+              }
           });
           const data = await res.json();
           
           if(!data.tracks || data.tracks.length === 0) return [];
 
-          // 3. Filter: Sirf wo gaane jo current vibe se match karein
+          // 3. Filter & Map
           return data.tracks
             .filter(t => t.id !== trackId)
             .slice(0, 5)
