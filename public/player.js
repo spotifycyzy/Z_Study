@@ -568,4 +568,121 @@
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
 
+// ==========================================
+// 🚀 SPOTIFY API ENGINE (Directly below Event Listeners)
+// ==========================================
+
+// 1. Updated API Credentials (Applied your key & host)
+const RAPID_API_KEY = "48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be";
+const SP81_HOST = "spotify81.p.rapidapi.com";
+
+const fetchOptions = {
+    method: 'GET',
+    headers: {
+        'x-rapidapi-key': RAPID_API_KEY,
+        'x-rapidapi-host': SP81_HOST,
+        'Content-Type': 'application/json'
+    }
+};
+
+// ==========================================
+// 🧩 THE UNIVERSAL DATA PARSER
+// ==========================================
+// Kachre (raw JSON) se clean data nikalna + "IN" market filter
+function parseSpotifyData(itemsArray, sourceType, fallbackAlbumImage = null) {
+    if (!itemsArray || !Array.isArray(itemsArray)) return [];
+    
+    const cleanQueue = [];
+
+    itemsArray.forEach(item => {
+        try {
+            // Recommendation mein seedha item hota hai, Playlist/Album mein track ke andar
+            let trackNode = (sourceType === 'recommendation') ? item : item.track;
+
+            // 🛡️ Basic Validation
+            if (!trackNode || trackNode.is_local) return;
+
+            // 🛡️ Strict Market Filter (Agar India ke liye available nahi hai toh skip)
+            if (trackNode.available_markets && !trackNode.available_markets.includes("IN")) {
+                return; 
+            }
+
+            // Image Extraction Logic
+            let imageUrl = fallbackAlbumImage;
+            if (trackNode.album && trackNode.album.images && trackNode.album.images.length > 0) {
+                imageUrl = trackNode.album.images[0].url; 
+            }
+
+            // Artist Extraction Logic
+            let artistName = "Unknown Artist";
+            if (trackNode.artists && trackNode.artists.length > 0) {
+                artistName = trackNode.artists[0].name;
+            } else if (trackNode.artists && trackNode.artists.items) {
+                artistName = trackNode.artists.items[0].profile.name;
+            }
+
+            // Standard Song Object for Player
+            cleanQueue.push({
+                id: trackNode.id,
+                title: trackNode.name,
+                artist: artistName,
+                image: imageUrl,
+                duration_ms: trackNode.duration_ms || (trackNode.duration ? trackNode.duration.totalMilliseconds : 0),
+                uri: trackNode.uri
+            });
+        } catch (err) {
+            console.error("Single track parsing error:", err);
+        }
+    });
+
+    return cleanQueue;
+}
+
+// ==========================================
+// 📡 FETCH FUNCTIONS (Integrated with your Credentials)
+// ==========================================
+
+// 👉 1. Get Playlist Tracks
+async function fetchPlaylistTracks(playlistId) {
+    try {
+        // limit=100 as per your cURL example
+        const url = `https://${SP81_HOST}/playlist_tracks?id=${playlistId}&offset=0&limit=100&market=IN`;
+        const response = await fetch(url, fetchOptions);
+        const data = await response.json();
+        return parseSpotifyData(data.items, 'playlist');
+    } catch (error) {
+        console.error("Playlist API Error:", error);
+        return [];
+    }
+}
+
+// 👉 2. Get Album Tracks
+async function fetchAlbumTracks(albumId) {
+    try {
+        const url = `https://${SP81_HOST}/album_tracks?id=${albumId}&market=IN`;
+        const response = await fetch(url, fetchOptions);
+        const data = await response.json();
+
+        let albumImage = (data.album && data.album.images) ? data.album.images[0].url : "";
+        return parseSpotifyData(data.album.tracks.items, 'album', albumImage);
+    } catch (error) {
+        console.error("Album API Error:", error);
+        return [];
+    }
+}
+
+// 👉 3. Get Recommendations (Auto-Play)
+async function fetchRecommendations(seedTrackId) {
+    try {
+        // 10 mangwaye credits bachane ke liye
+        const url = `https://${SP81_HOST}/recommendations?seed_tracks=${seedTrackId}&limit=10&market=IN`;
+        const response = await fetch(url, fetchOptions);
+        const data = await response.json();
+        return parseSpotifyData(data.tracks, 'recommendation');
+    } catch (error) {
+        console.error("Recommendations API Error:", error);
+        return [];
+    }
+}
+
 })();
