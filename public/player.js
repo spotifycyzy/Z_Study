@@ -458,32 +458,27 @@
   }
 
   /* ── SMART VIBE QUERIES (No Quotes, High Volume Fetch) ── */
+    /* ── SMART VIBE QUERIES (STRICT API FIX) ── */
   function buildVibeQueries(track) {
-    // Clean artist string to get primary name only
+    // Sirf artist ka main naam nikalna (e.g. "Arijit Singh, Shreya Ghoshal" -> "Arijit Singh")
     const artist = (track.artist || '').split(',')[0].trim();
     const isHindi = isHindiTrack(track);
     const queries = [];
 
-    if (artist && artist !== 'Unknown') {
-      if (isHindi) {
-        queries.push(`${artist} bollywood hits`);
-        queries.push(`${artist} hindi songs`);
-        queries.push(`${artist} best songs`);
-      } else {
-        queries.push(`${artist} popular`);
-        queries.push(`${artist} top tracks`);
-      }
+    // 1. Sabse pehle API ko sirf Artist ka naam do (ye sabse accurate tracks dega)
+    if (artist && artist !== 'Unknown' && artist !== 'Artist Profile') {
+      queries.push(artist); 
+      queries.push(`artist:${artist}`); // Spotify strict artist filter
     }
 
-    // Genre Fallbacks
+    // 2. Agar us artist ke gaane khatam ho jayein, toh broad genre search karo
     if (isHindi) {
-      queries.push('top bollywood hits 2026');
-      queries.push('latest hindi movie songs');
-      queries.push('trending bollywood playlist');
+      queries.push('Bollywood Hits');
+      queries.push('Hindi Trending');
+      queries.push('Lofi Hindi');
     } else {
-      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
-      if (words) queries.push(`${words} popular`);
-      queries.push('top global hits popular');
+      queries.push('Global Top 50');
+      queries.push('Viral Hits');
     }
 
     return queries;
