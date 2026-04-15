@@ -421,35 +421,41 @@ function renderSpotifyUI(cleanItems, resDiv, lowerQuery = "") {
   }
 
   /* ── Build search queries for vibe matching ── */
-  function buildVibeQueries(track) {
-    const artist = (track.artist || '').trim();
-    const isHindi = isHindiTrack(track);
-    const queries = [];
+  /* ── Build search queries for vibe matching (SMART REPLACEMENT) ── */
+function buildVibeQueries(track) {
+  // 1. Artist name clean karo (Sirf main artist uthao)
+  const artist = (track.artist || '').split(',')[0].trim();
+  const isHindi = isHindiTrack(track);
+  const queries = [];
 
-    if (artist) {
-      if (isHindi) {
-        // Same artist, explicitly Bollywood context
-        queries.push(`artist:"${artist}" bollywood`);
-        queries.push(`artist:"${artist}" hindi songs`);
-      } else {
-        queries.push(`artist:"${artist}" popular`);
-        queries.push(`artist:"${artist}"`);
-      }
-    }
-
-    // Genre fallback
+  if (artist && artist !== 'Unknown') {
     if (isHindi) {
-      queries.push('top bollywood hits 2024');
-      queries.push('hindi love songs popular');
+      // ✅ Removed quotes & prefix for better search volume
+      queries.push(`${artist} bollywood hits`);
+      queries.push(`${artist} hindi songs`);
+      queries.push(`${artist} best songs`);
     } else {
-      // Use title words as genre hint
-      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
-      if (words) queries.push(`${words} popular`);
-      queries.push('top hits popular');
+      queries.push(`${artist} popular`);
+      queries.push(`${artist} top tracks`);
     }
-
-    return queries;
   }
+
+  // 2. Genre fallback (Current Year updated to 2026)
+  if (isHindi) {
+    queries.push('top bollywood hits 2026');
+    queries.push('latest hindi movie songs');
+    queries.push('trending bollywood playlist');
+  } else {
+    // Use title words as genre hint
+    const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
+    if (words) {
+      queries.push(`${words} popular`);
+    }
+    queries.push('top global hits popular');
+  }
+
+  return queries;
+}
 
   /* ── Fetch tracks from one search query ── */
   async function searchTracks(query, limit = 12) {
@@ -473,48 +479,52 @@ function renderSpotifyUI(cleanItems, resDiv, lowerQuery = "") {
   }
 
   /* ── Core: fetch next vibes using search (not recommendations) ── */
-  async function fetchVibes(trackId) {
-    const track    = queue[currentIdx];
-    const queries  = buildVibeQueries(track);
-    const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
-    let   results  = [];
+    async function fetchVibes(trackId) {
+    const track = queue[currentIdx] || { artist: 'Bollywood' };
+    const queries = buildVibeQueries(track);
+    
+    // ✅ Ensure kar ki 'spId' use ho raha hai filter mein
+    const seenIds = new Set(queue.map(q => q.spId).filter(Boolean));
+    let results = [];
 
     for (const q of queries) {
-      try {
-        const tracks = await searchTracks(q, 15);
-        const fresh  = tracks
-          .filter(t => t.id && !seenIds.has(t.id))
-          .map(formatVibeTrack);
-        // Merge — deduplicate as we go
-        for (const t of fresh) {
-          if (!results.find(r => r.spId === t.spId)) {
-            results.push(t);
-            seenIds.add(t.spId);
-          }
-        }
-        if (results.length >= 5) break; // enough — stop early
-      } catch { /* try next query */ }
-    }
+      const tracks = await searchTracks(q);
+      const fresh = tracks
+        .filter(t => t.id && !seenIds.has(t.id)) // Naya gaana dhoondo
+        .map(t => ({
+          type: 'youtube_audio',
+          title: t.name,
+          artist: t.artists?.[0]?.name || 'Artist',
+          spId: t.id, // ID pass karo
+          thumb: t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+        }));
 
-    return results.slice(0, 5);
+      if (fresh.length > 0) {
+        results = [...results, ...fresh];
+        if (results.length >= 5) break; // Kafi gaane mil gaye, ruk jao
+      }
+    }
+    return results;
   }
 
   /* ── Background pre-fetch: runs during current track ── */
-  async function preFetchNextVibe(trackId) {
-    // Skip if queue already has tracks ahead, or already fetching
-    if (currentIdx < queue.length - 1) return;
-    if (isFetchingVibe) return;
+    async function preFetchNextVibe(trackId) {
+    // Agar agla gaana pehle se hai ya fetch chal raha hai, toh ruko
+    if (currentIdx < queue.length - 1 || isFetchingVibe) return;
+    
     isFetchingVibe = true;
     try {
       const vibes = await fetchVibes(trackId);
-      if (vibes.length > 0 && currentIdx >= queue.length - 1) {
-        // Only push first one silently — rest added if needed
-        queue = [...queue, vibes[0]];
-        if (vibes.length > 1) window._pendingVibes = vibes.slice(1);
-        renderQueue();
+      if (vibes.length > 0) {
+        queue.push(vibes[0]); // Agla vibe queue mein add karo
+        renderQueue(); // UI update karo
       }
-    } catch { /* silent */ }
-    finally { isFetchingVibe = false; }
+    } catch (e) {
+      console.error("Vibe Engine Background Error:", e);
+    } finally {
+      // ✅ Ye hamesha lock kholega taaki agla fetch ho sake
+      isFetchingVibe = false; 
+    }
   }
 
   /* ── playNext: instant if pre-fetched, otherwise fetch now ── */
