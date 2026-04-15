@@ -530,14 +530,15 @@
 async function fetchRecommendations(trackId) {
     try {
         const currentTrack = queue[currentIdx];
-        const isHindi = ["bol do na", "arijit", "armaan", "hindi"].some(w => currentTrack.title.toLowerCase().includes(w));
+        const isHindi = ["bol do na", "arijit", "armaan", "jubin", "pritam", "hindi"].some(w => currentTrack.title.toLowerCase().includes(w));
 
+        // 1. Zyada results mangwao (Limit: 50) taaki filter karne ke liye maal mile
         const params = new URLSearchParams({
             seed_tracks: trackId,
-            limit: '25', // 👈 Zyada mangwao taaki hum filter kar sakein
+            limit: '50', 
             market: 'IN',
             offset: '0',
-            target_popularity: '70'
+            target_popularity: '65'
         });
 
         const res = await fetch(`https://${SP81_HOST}/recommendations?${params.toString()}`, {
@@ -546,25 +547,25 @@ async function fetchRecommendations(trackId) {
         const data = await res.json();
         if (!data.tracks) return [];
 
-        // 🛡️ THE LANGUAGE FILTER (Manual Logic)
+        // 2. 🛡️ THE VIBE POLICE (Manual Cleaning)
         let filtered = data.tracks.filter(t => {
             const name = t.name.toLowerCase();
             const artist = t.artists[0]?.name.toLowerCase();
 
             if (isHindi) {
-                // 1. Block known non-Hindi vibe words
-                const nonHindiBlock = ["la razón", "jedag", "remix", "trap", "phonk", "mencintaimu"];
-                if (nonHindiBlock.some(word => name.includes(word))) return false;
+                // Block Non-Indian Vibe Keywords
+                const globalTrash = ["şehri", "tadı", "la razón", "jedag", "mencintaimu", "turkish", "trap", "phonk", "remix"];
+                if (globalTrash.some(word => name.includes(word) || artist.includes(word))) return false;
 
-                // 2. Simple logic: Agar tu Hindi sun raha hai, toh Spanish/Latin artists ko block karo
-                // (Most Latin songs have 'feat.' or specific rhythm titles)
-                const isLatin = ["j balvin", "bad bunny", "karol g", "ozuna"].some(a => artist.includes(a));
-                if (isLatin) return false;
+                // Block known foreign alphabet characters or vibes
+                // Turkish (ş, ı), Spanish, etc.
+                const isForeign = /[şığçöüñáéíóú]/.test(name) || /[şığçöüñáéíóú]/.test(artist);
+                if (isForeign) return false;
             }
             return t.id !== trackId;
         });
 
-        // Agar filtering ke baad kuch na bache, toh original data se fallback
+        // 3. Agar list khali ho jaye (Risk management)
         const finalSelection = filtered.length > 0 ? filtered : data.tracks;
 
         return finalSelection.slice(0, 5).map(t => ({
