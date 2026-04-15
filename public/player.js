@@ -527,60 +527,32 @@
   }
 
 /* ── 🚀 THE UNSTOPPABLE VIBE-LOCK ENGINE (FINAL) ── */
-async function fetchRecommendations(trackId) {
+async function getNextVibe() {
+    const current = queue[currentIdx]; // Jo abhi baj raha hai
+    
+    // 🔥 Magic Query: Artist ka naam + Bollywood tag
+    // Isse results hamesha relevant rehte hain
+    const query = `artist:${current.artist} bollywood`; 
+
     try {
-        const currentTrack = queue[currentIdx];
-        const artistName = currentTrack.artist || "";
-        
-        // 1. Language/Vibe Check
-        const isHindi = /[अ-ह]/.test(currentTrack.title) || 
-                        ["hindi", "arijit", "armaan", "jubin", "pritam", "bol do na"].some(w => currentTrack.title.toLowerCase().includes(w));
-
-        let searchQuery = "";
-        if (isHindi) {
-            // Forcefully Indian results search karo
-            // Hum Artist ke saath "Hindi" ya "Bollywood" attach kar rahe hain
-            searchQuery = encodeURIComponent(`artist:${artistName} bollywood hits`);
-        } else {
-            searchQuery = encodeURIComponent(`artist:${artistName} popular`);
-        }
-
-        // 2. Recommendations ki jagah Search API call karo
-        // Ye zyada "Strict" hota hai
-        const res = await fetch(`https://${SP81_HOST}/search?q=${searchQuery}&type=track&limit=15&market=IN`, {
-            headers: { 
-                'x-rapidapi-key': RAPID_API_KEY, 
-                'x-rapidapi-host': SP81_HOST 
-            }
+        const res = await fetch(`https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=15&market=IN`, {
+            headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
         });
-        
+
         const data = await res.json();
         const tracks = data.tracks?.items || [];
 
-        if (tracks.length === 0) {
-            // Agar search se kuch na mile (Rare), tab fallback to default search
-            const fallbackRes = await fetch(`https://${SP81_HOST}/search?q=top%20bollywood%20songs&type=track&limit=10&market=IN`, {
-                headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-            });
-            const fbData = await fallbackRes.json();
-            return (fbData.tracks?.items || []).map(t => formatTrack(t));
-        }
+        // Top 5 mein se koi ek random uthao taaki diversity bani rahe
+        const next = tracks[Math.floor(Math.random() * Math.min(tracks.length, 5))];
 
-        // 3. Mapping function to clean data
-        return tracks
-            .filter(t => t.id !== trackId)
-            .slice(0, 5)
-            .map(t => ({
-                type: 'youtube_audio',
-                title: t.name,
-                artist: t.artists[0]?.name || "Artist",
-                spId: t.id,
-                thumb: t.album?.images[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-            }));
-
+        return {
+            title: next.name,
+            artist: next.artists[0].name,
+            thumb: next.album.images[0].url,
+            spId: next.id
+        };
     } catch (e) {
-        console.error("Plan B Error:", e);
-        return [];
+        return null;
     }
 }
 
