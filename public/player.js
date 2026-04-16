@@ -3,7 +3,7 @@
    💥 MAJOR FIX: 0% Duplicate Variables, 100% Bracket Safe
    🔥 UPGRADE: Multi-Results (Tracks, Playlists, Albums) + Smart Sort
    ✅ FULL LOGIC: Cinema Mode, Cloud Audio, Sync Network, Visualizer
-   🚀 VIBE ENGINE UPGRADE: YouTube-to-Spotify Hybrid (RapidAPI)
+   🚀 VIBE ENGINE UPGRADE: YouTube-to-Spotify Hybrid (YT v3 alt + SP3 + SP81)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -62,7 +62,8 @@
   /* ── 2. 🔑 GLOBAL API CONFIG (SINGLE DECLARATION) ───────── */
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   const SP81_HOST = 'spotify81.p.rapidapi.com';
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
+  const SP3_HOST = 'spotify-web-api3.p.rapidapi.com';
+  const YT_ALT_HOST = 'youtube-v3-alternative.p.rapidapi.com';
 
   /* ── 3. STATE VARIABLES ────────────────────────────────── */
   let queue = [];
@@ -149,7 +150,7 @@
       else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC ───────────────────── */
+  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC (YT v3 Alternative) ───────────────────── */
   function searchYouTube(query, targetResultsDiv, mediaType) {
       if (!query) return;
       const resDiv = document.getElementById(targetResultsDiv);
@@ -157,17 +158,24 @@
       resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
 
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=\( {encodeURIComponent(query)}&type=video&key= \){YOUTUBE_API_KEY}`)
+      fetch(`https://\( {YT_ALT_HOST}/search?query= \){encodeURIComponent(query)}&geo=IN&lang=hi&type=video&sort_by=relevance`, {
+          headers: {
+              'x-rapidapi-key': RAPID_API_KEY,
+              'x-rapidapi-host': YT_ALT_HOST
+          }
+      })
           .then(res => res.json())
           .then(data => {
               resDiv.innerHTML = '';
-              if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-              data.items.forEach(vid => {
+              const items = data.data || [];
+              if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+              items.forEach(vid => {
                   const div = document.createElement('div'); div.className = 'yt-search-item';
-                  div.innerHTML = `<img src="\( {vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title"> \){vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
+                  const thumb = vid.thumbnail && vid.thumbnail[0] ? vid.thumbnail[0].url : 'https://i.imgur.com/8Q5FqWj.jpeg';
+                  div.innerHTML = `<img src="\( {thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title"> \){vid.title}</div><div class="yt-search-sub">${vid.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
                   div.onclick = () => {
                       queue = []; currentIdx = 0;
-                      addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
+                      addToQueue({ type: mediaType, title: vid.title, ytId: vid.videoId, thumb: thumb });
                       showToast('🎵 Playing Selection!');
                   };
                   resDiv.appendChild(div);
@@ -211,16 +219,15 @@
       if (typeof episodesOverlaySp !== 'undefined') episodesOverlaySp.classList.remove('hidden');
 
       try {
-          const url = "https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN&country=IN";
+          const url = `https://${SP3_HOST}/v1/social/spotify/searchall`;
           const res = await fetch(url, {
               method: "POST",
               headers: {
                   "x-rapidapi-key": RAPID_API_KEY,
-                  "x-rapidapi-host": "spotify-web-api3.p.rapidapi.com",
-                  "Content-Type": "application/json",
-                  "Accept-Language": "en-IN,en;q=0.9,hi-IN;q=0.8,hi;q=0.7" 
+                  "x-rapidapi-host": SP3_HOST,
+                  "Content-Type": "application/json"
               },
-              body: JSON.stringify({ terms: query, limit: 15, country: "IN", market: "IN" }) 
+              body: JSON.stringify({ terms: query, limit: 15 }) 
           });
           
           const responseData = await res.json();
@@ -319,36 +326,41 @@
       });
   }
 
-  /* ── Fetchers for Playlists/Albums (Direct API) ── */
+  /* ── Fetchers for Playlists/Albums (SP81) ── */
   async function fetchPlaylistTracks(playlistId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/playlist_tracks?id= \){playlistId}&offset=0&limit=100&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://\( {SP81_HOST}/playlist_tracks?id= \){playlistId}&offset=0&limit=100`, { 
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } 
+          });
           const data = await res.json();
           return (data.items || []).filter(i => i.track && !i.track.is_local).map(i => ({
-              id: i.track.id, title: i.track.name, artist: i.track.artists[0]?.name || "Unknown", image: i.track.album?.images[0]?.url || ""
+              id: i.track.id, title: i.track.name, artist: i.track.artists?.[0]?.name || "Unknown", image: i.track.album?.images?.[0]?.url || ""
           }));
       } catch (e) { return []; }
   }
 
   async function fetchAlbumTracks(albumId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/album_tracks?id= \){albumId}&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://\( {SP81_HOST}/album_tracks?id= \){albumId}`, { 
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } 
+          });
           const data = await res.json();
           let albumImg = (data.album && data.album.images) ? data.album.images[0].url : "";
           return (data.album?.tracks?.items || []).map(i => ({
-              id: i.id, title: i.name, artist: i.artists[0]?.name || "Unknown", image: albumImg
+              id: i.id, title: i.name, artist: i.artists?.[0]?.name || "Unknown", image: albumImg
           }));
       } catch (e) { return []; }
   }
 
   async function fetchPremiumAudio(spId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/download_track?q= \){spId}&onlyLinks=true`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://\( {SP81_HOST}/download_track?q= \){spId}&onlyLinks=true&bypassSpotify=false&downloadFullVideo=false&quality=best&extraUrls=false`, { 
+              headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } 
+          });
           const result = await res.json();
-          return Array.isArray(result) ? (result[0]?.url || result[0]?.link) : (result.url || result.link || result.downloadUrl);
+          return result.url || result[0]?.url || null;
       } catch (error) { return null; }
   }
-
 
   /* ── 8. 🎹 QUEUE & CORE RENDERER ENGINE ─────────────────── */
   function addToQueue(item) { queue.push(item); renderQueue(); playQueueItem(queue.length - 1); }
@@ -508,23 +520,23 @@
     const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
     let   results  = [];
 
-    // YouTube-to-Spotify Hybrid Vibe Engine (PRO 3.1 UPGRADE)
+    // YouTube-to-Spotify Hybrid Vibe Engine (YT v3 alt + SP3 + SP81)
     const searchQuery = `songs like ${track.title || 'hit song'} ${track.artist || ''}`.trim();
 
     try {
-      const YT_RAPID_HOST = 'youtube-v31.p.rapidapi.com';
-      const ytRes = await fetch(`https://\( {YT_RAPID_HOST}/search?part=snippet&q= \){encodeURIComponent(searchQuery)}&type=video&maxResults=15`, {
+      // 1. Search YouTube using YT v3 Alternative
+      const ytRes = await fetch(`https://\( {YT_ALT_HOST}/search?query= \){encodeURIComponent(searchQuery)}&geo=IN&lang=hi&type=video&sort_by=relevance`, {
           headers: {
               'x-rapidapi-key': RAPID_API_KEY,
-              'x-rapidapi-host': YT_RAPID_HOST
+              'x-rapidapi-host': YT_ALT_HOST
           }
       });
       const ytData = await ytRes.json();
-
-      const ytSongTitles = (ytData.items || [])
-        .map(item => item.snippet ? item.snippet.title : '')
+      const ytSongTitles = (ytData.data || [])
+        .map(item => item.title || '')
         .filter(title => title && title.length > 15 && !title.toLowerCase().includes('live') && !title.toLowerCase().includes('cover') && !title.toLowerCase().includes('official video'));
 
+      // 2. Bridge each YouTube title → Spotify SP3 search for clean track data
       for (const ytTitle of ytSongTitles) {
         if (results.length >= 5) break;
         try {
