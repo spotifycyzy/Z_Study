@@ -73,6 +73,7 @@
     <div class="mp-tabs">
       <button class="mp-tab active" data-tab="url">Library/URL</button>
       <button class="mp-tab" data-tab="youtube">YouTube</button>
+      <button class="mp-tab" data-tab="ytmusic">🎵 YT Music</button>
       <button class="mp-tab" data-tab="spotify">Global Music</button>
       <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
@@ -110,6 +111,43 @@
         <div class="yt-search-results active" id="ytSearchResults">
           <p class="mp-empty">Type something above and hit search.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══ YT MUSIC TAB ═══ -->
+    <div class="mp-tab-content" id="tab-ytmusic">
+      <div class="ytm-search-bar">
+        <input id="ytmInput" class="mp-input" type="text" placeholder="🎵 Type song name and hit Play…" autocomplete="off"/>
+        <button id="ytmSearchBtn" class="ytm-search-btn">▶ Play</button>
+      </div>
+      <!-- Auto-play toggle inside this section too -->
+      <div class="ytm-autoplay-row">
+        <span class="ytm-ap-label">⚡ Auto-play</span>
+        <button id="autoPlayToggle" class="ytm-ap-toggle">ON</button>
+      </div>
+      <!-- Now playing card -->
+      <div id="ytmNowPlaying" class="ytm-now-playing" style="display:none">
+        <img id="ytmAlbumArt" src="https://i.imgur.com/8Q5FqWj.jpeg" alt="art" class="ytm-album-art"/>
+        <div class="ytm-track-info">
+          <div id="ytmTrackTitle" class="ytm-track-title">—</div>
+          <div id="ytmTrackArtist" class="ytm-track-artist">—</div>
+          <div id="ytmViz" class="music-visualizer" style="margin-top:6px">
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            <div class="bar"></div><div class="bar"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Prefetch status -->
+      <div id="ytmPrefetchStatus" class="ytm-prefetch-status" style="display:none"></div>
+      <!-- Up Next list -->
+      <div id="ytmUpNextList" class="ytm-up-next" style="display:none">
+        <div class="ytm-up-next-title">⚡ Up Next (Auto)</div>
+      </div>
+      <!-- Empty state -->
+      <div id="ytmEmptyState" class="ytm-empty-state">
+        <span style="font-size:28px">🎵</span><br/>
+        Type a song name above and hit Play.<br/>
+        <span style="font-size:12px;color:rgba(255,181,200,0.5)">Audio plays instantly — no iframe!</span>
       </div>
     </div>
 
