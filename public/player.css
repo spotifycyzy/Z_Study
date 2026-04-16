@@ -241,3 +241,111 @@ body.is-fullscreen #zxPanel {
 
 body { padding-top: 50px; }
 #chatApp, #notesViewer { top: 50px; }
+
+/* ══════════════════════════════════════════════════════
+   YT MUSIC SECTION
+══════════════════════════════════════════════════════ */
+
+/* Search bar */
+.ytm-search-bar {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.ytm-search-btn {
+  padding: 0 16px; background: linear-gradient(135deg, #E8436A, #C2005F);
+  border: none; border-radius: 12px; color: #fff; font-weight: 700;
+  cursor: pointer; white-space: nowrap; font-size: 13px;
+  transition: opacity 0.2s;
+}
+.ytm-search-btn:disabled { opacity: 0.6; }
+
+/* Auto-play row */
+.ytm-autoplay-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding: 8px 12px;
+  background: rgba(180,80,255,0.07); border-radius: 10px;
+  border: 1px solid rgba(180,80,255,0.18);
+}
+.ytm-ap-label { font-size: 13px; font-weight: 600; color: rgba(255,232,239,0.75); }
+.ytm-ap-toggle {
+  padding: 5px 14px; border-radius: 20px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 700; font-family: 'Sora', sans-serif;
+  background: rgba(232,67,106,0.12); color: rgba(255,181,200,0.6);
+  border: 1px solid rgba(232,67,106,0.25);
+  transition: all 0.25s;
+}
+.ytm-ap-toggle.active {
+  background: linear-gradient(135deg, #E8436A, #C2005F);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 0 10px rgba(232,67,106,0.45);
+}
+
+/* Now playing card */
+.ytm-now-playing {
+  display: flex; gap: 12px; align-items: center;
+  padding: 12px; margin-bottom: 10px;
+  background: rgba(232,67,106,0.08); border-radius: 14px;
+  border: 1px solid rgba(232,67,106,0.22);
+}
+.ytm-album-art {
+  width: 70px; height: 70px; border-radius: 10px; object-fit: cover; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 12px rgba(232,67,106,0.25);
+}
+.ytm-track-info { flex: 1; min-width: 0; }
+.ytm-track-title {
+  font-size: 14px; font-weight: 700; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ytm-track-artist {
+  font-size: 11px; color: rgba(255,181,200,0.65); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Prefetch status */
+.ytm-prefetch-status {
+  font-size: 11px; padding: 6px 12px; border-radius: 8px; margin-bottom: 8px;
+  background: rgba(180,80,255,0.08); color: rgba(255,232,239,0.6);
+  border: 1px solid rgba(180,80,255,0.18);
+}
+
+/* Up Next list */
+.ytm-up-next { margin-top: 4px; }
+.ytm-up-next-title {
+  font-size: 11px; font-weight: 700; color: rgba(255,181,200,0.55);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+}
+.ytm-next-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.2s; margin-bottom: 5px;
+}
+.ytm-next-item:hover       { background: rgba(232,67,106,0.12); border-color: rgba(232,67,106,0.3); }
+.ytm-next-item.prefetched  { border-color: rgba(122,219,138,0.35); }
+.ytm-next-item.loading-prefetch { opacity: 0.6; }
+.ytm-next-item img         { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.next-info  { flex: 1; min-width: 0; }
+.next-title { font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.next-artist{ font-size: 10px; color: rgba(255,181,200,0.55); margin-top: 2px; }
+
+/* Empty state */
+.ytm-empty-state {
+  text-align: center; padding: 18px 10px;
+  font-size: 13px; color: rgba(255,232,239,0.45); line-height: 1.7;
+}
+
+/* Spinner inside empty state */
+.ytm-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(232,67,106,0.3); border-top-color: #E8436A;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast fade animation */
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
