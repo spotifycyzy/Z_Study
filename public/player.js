@@ -405,9 +405,9 @@
           setTrackInfo(item.title, '☁️ Cloud Audio');
       }
 
-      // ✅ ADDED: Background Engine Trigger
-      if (autoPlayEnabled && item.spId) {
-          preFetchNextVibe(item.spId);
+      // ✅ Background vibe pre-fetch — triggers for youtube_audio and stream
+      if (autoPlayEnabled && (item.type === 'youtube_audio' || item.type === 'stream')) {
+          setTimeout(() => preFetchNextVibe(item), 5000);
       }
   }
 
@@ -435,137 +435,111 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     🚀 ZEROX VIBE ENGINE — Zero-Gap Auto-play
+     🚀 ZEROX VIBE ENGINE — YouTube-powered Auto-play
      
-     HOW IT WORKS:
-     • Uses SP81 /search API only (no /recommendations endpoint)
-     • While current track plays, silently pre-fetches next vibe
-     • Detects Hindi/Bollywood via script + keywords + artist name
-     • Pulls from TWO search strategies and merges results:
-         1. Same artist's other tracks  → stays in same vibe
-         2. Genre-tagged search         → stays in same genre
-     • Deduplicates against current queue so no repeat plays
-     • Fallback chain: artist search → genre search → bollywood top
-     • isFetching flag prevents parallel fetches on Android
+     HOW IT WORKS (Global Music / youtube_audio tracks):
+     • Track has a ytId  → YouTube relatedToVideoId API
+       Same video's "Up Next" list — guaranteed same vibe
+     • Track has no ytId → build smart search query from
+       title + artist and search YouTube Music category
+     • Pre-fetches SILENTLY while current track plays
+       so next song is ready with ZERO gap
+     • Deduplicates against everything already in queue
+     • isFetchingVibe guard prevents Android parallel fetches
+     
+     APIs used: YouTube Data API v3 only (same key, free)
   ══════════════════════════════════════════════════════════ */
 
-  let isFetchingVibe = false;   // Android freeze guard
+  let isFetchingVibe = false;
+  window._pendingVibes = [];
 
-  /* ── Detect if track is Bollywood / Hindi ── */
-  function isHindiTrack(track) {
-    const title  = (track.title  || '').toLowerCase();
-    const artist = (track.artist || '').toLowerCase();
-    const devanagari = /[\u0900-\u097F]/.test(track.title || '');
-    const hindiKeywords = [
-      'hindi','bollywood','filmi','arijit','armaan','jubin','pritam',
-      'atif','neha','shreya','kumar sanu','udit','lata','kishore',
-      'sonu nigam','mohit','darshan','anuv','vishal','shekhar',
-      'shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman',
-      'amit trivedi','sachin jigar','tanishk','benny dayal','badshah',
-      'honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'
-    ];
-    return devanagari || hindiKeywords.some(k => title.includes(k) || artist.includes(k));
-  }
-
-  /* ── Build search queries for vibe matching ── */
-  function buildVibeQueries(track) {
+  /* ── Build a smart YouTube search query from track metadata ── */
+  function buildVibeQuery(track) {
     const artist = (track.artist || '').trim();
-    const isHindi = isHindiTrack(track);
-    const queries = [];
+    const title  = (track.title  || '').replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+    // Keep only first 4 meaningful words of title
+    const titleWords = title.split(' ').filter(w => w.length > 2).slice(0, 4).join(' ');
 
-    if (artist) {
-      if (isHindi) {
-        // Same artist, explicitly Bollywood context
-        queries.push(`artist:"${artist}" bollywood`);
-        queries.push(`artist:"${artist}" hindi songs`);
-      } else {
-        queries.push(`artist:"${artist}" popular`);
-        queries.push(`artist:"${artist}"`);
-      }
-    }
-
-    // Genre fallback
-    if (isHindi) {
-      queries.push('top bollywood hits 2024');
-      queries.push('hindi love songs popular');
-    } else {
-      // Use title words as genre hint
-      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
-      if (words) queries.push(`${words} popular`);
-      queries.push('top hits popular');
-    }
-
-    return queries;
+    if (artist && titleWords) return `${artist} ${titleWords} similar`;
+    if (artist)               return `${artist} popular songs`;
+    return `${titleWords} songs`;
   }
 
-  /* ── Fetch tracks from one search query ── */
-  async function searchTracks(query, limit = 12) {
-    const res = await fetch(
-      `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=IN`,
-      { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-    );
-    const data = await res.json();
-    return data.tracks?.items || [];
-  }
+  /* ── Core: fetch vibe recommendations via YouTube ── */
+  async function fetchVibes(track) {
+    const seenYtIds = new Set(queue.map(q => q.ytId).filter(Boolean));
+    let results = [];
 
-  /* ── Format raw SP track into queue item ── */
-  function formatVibeTrack(t) {
-    return {
-      type:   'youtube_audio',
-      title:  t.name,
-      artist: t.artists?.[0]?.name || 'Artist',
-      spId:   t.id,
-      thumb:  t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-    };
-  }
-
-  /* ── Core: fetch next vibes using search (not recommendations) ── */
-  async function fetchVibes(trackId) {
-    const track    = queue[currentIdx];
-    const queries  = buildVibeQueries(track);
-    const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
-    let   results  = [];
-
-    for (const q of queries) {
-      try {
-        const tracks = await searchTracks(q, 15);
-        const fresh  = tracks
-          .filter(t => t.id && !seenIds.has(t.id))
-          .map(formatVibeTrack);
-        // Merge — deduplicate as we go
-        for (const t of fresh) {
-          if (!results.find(r => r.spId === t.spId)) {
-            results.push(t);
-            seenIds.add(t.spId);
-          }
+    try {
+      // PATH A — track already has a ytId (most reliable)
+      if (track.ytId) {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&type=video&relatedToVideoId=${track.ytId}&key=${YOUTUBE_API_KEY}`;
+        const res  = await fetch(url, { signal: AbortSignal.timeout(7000) });
+        const data = await res.json();
+        if (data.items?.length) {
+          results = data.items
+            .filter(v => v.id?.videoId && !seenYtIds.has(v.id.videoId))
+            .map(v => ({
+              type:      'youtube_audio',
+              title:     v.snippet.title,
+              artist:    v.snippet.channelTitle,
+              ytId:      v.id.videoId,
+              thumb:     v.snippet.thumbnails.high?.url || v.snippet.thumbnails.medium?.url || '',
+              _vibeFrom: track.title
+            }));
         }
-        if (results.length >= 5) break; // enough — stop early
-      } catch { /* try next query */ }
+      }
+
+      // PATH B — no ytId or path A returned nothing: smart search
+      if (results.length < 3) {
+        const q   = buildVibeQuery(track);
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&q=${encodeURIComponent(q)}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+        const res  = await fetch(url, { signal: AbortSignal.timeout(7000) });
+        const data = await res.json();
+        if (data.items?.length) {
+          const extra = data.items
+            .filter(v => v.id?.videoId && !seenYtIds.has(v.id.videoId))
+            .map(v => ({
+              type:      'youtube_audio',
+              title:     v.snippet.title,
+              artist:    v.snippet.channelTitle,
+              ytId:      v.id.videoId,
+              thumb:     v.snippet.thumbnails.high?.url || v.snippet.thumbnails.medium?.url || '',
+              _vibeFrom: track.title
+            }));
+          // Merge, deduplicate
+          const merged = new Set(results.map(r => r.ytId));
+          extra.forEach(e => { if (!merged.has(e.ytId)) { results.push(e); merged.add(e.ytId); } });
+        }
+      }
+    } catch (e) {
+      console.warn('[vibe]', e.message);
     }
 
     return results.slice(0, 5);
   }
 
-  /* ── Background pre-fetch: runs during current track ── */
-  async function preFetchNextVibe(trackId) {
-    // Skip if queue already has tracks ahead, or already fetching
-    if (currentIdx < queue.length - 1) return;
+  /* ── Background pre-fetch: runs silently ~5s after track starts ── */
+  async function preFetchNextVibe(track) {
+    if (currentIdx < queue.length - 1) return; // queue already has tracks ahead
     if (isFetchingVibe) return;
     isFetchingVibe = true;
     try {
-      const vibes = await fetchVibes(trackId);
+      const vibes = await fetchVibes(track);
       if (vibes.length > 0 && currentIdx >= queue.length - 1) {
-        // Only push first one silently — rest added if needed
+        // Push first one into queue silently, rest into pending buffer
         queue = [...queue, vibes[0]];
-        if (vibes.length > 1) window._pendingVibes = vibes.slice(1);
+        window._pendingVibes = vibes.slice(1);
         renderQueue();
+        console.log(`[vibe] Pre-loaded: "${vibes[0].title}" (similar to "${track.title}")`);
       }
     } catch { /* silent */ }
     finally { isFetchingVibe = false; }
   }
 
-  /* ── playNext: instant if pre-fetched, otherwise fetch now ── */
+  /* ── playNext: instant if pre-fetched, fetch now if not ── */
   async function playNext() {
+    // Queue already has next track (pre-fetched) — instant play
     if (currentIdx < queue.length - 1) {
       playQueueItem(currentIdx + 1);
       return;
@@ -573,23 +547,25 @@
     if (!autoPlayEnabled) { showToast('End of queue.'); return; }
 
     const last = queue[currentIdx];
-    if (!last || !last.spId) { showToast('End of queue.'); return; }
+    if (!last) { showToast('End of queue.'); return; }
 
-    // Check if we have pending vibes from last pre-fetch
-    if (window._pendingVibes && window._pendingVibes.length > 0) {
+    // Use pending buffer first (fastest)
+    if (window._pendingVibes?.length > 0) {
       const next = window._pendingVibes.shift();
       queue = [...queue, next];
       renderQueue();
       playQueueItem(currentIdx + 1);
-      // Refill pending vibes in background
-      preFetchNextVibe(next.spId);
+      // Refill buffer in background
+      preFetchNextVibe(next);
       return;
     }
 
-    showToast('✨ Finding next vibe...');
-    const vibes = await fetchVibes(last.spId);
+    // Nothing pre-fetched — fetch now
+    showToast('✨ Finding similar vibes…');
+    const vibes = await fetchVibes(last);
     if (vibes.length > 0) {
       vibes.forEach(v => { queue = [...queue, v]; });
+      window._pendingVibes = [];
       renderQueue();
       playQueueItem(currentIdx + 1);
     } else {
