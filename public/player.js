@@ -1,11 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (PRO 3.3 VIBE FIXED + STABILITY RESTORED)
-   💥 FIXED: YouTube search results + Spotify playback fully restored
-   🔥 UPGRADE: Vibe Engine (single song → true similar mood/vibe, ZERO repeats)
-   ✅ Playlist/Album = strict order
-   ✅ Single song = instant zero-delay next (YouTube cinema)
-   ✅ 100% original features untouched (no degradation)
-   ═══════════════════════════════════════════════════════════ */
+   ZEROX HUB — player.js (PRO 3.1 FINAL BUILD)
+   💥 MAJOR FIX: 0% Duplicate Variables, 100% Bracket Safe
+   🔥 UPGRADE: Multi-Results (Tracks, Playlists, Albums) + Smart Sort
+   ✅ FULL LOGIC: Cinema Mode, Cloud Audio, Sync Network, Visualizer
+═══════════════════════════════════════════════════════════ */
 'use strict';
 
 (function () {
@@ -76,8 +74,6 @@
   let isRemoteAction = false;
   let autoPlayEnabled = true;
   let remoteTimer = null;
-  let playMode = 'vibe';           // 'vibe' (single song) or 'playlist'
-  let avoidTracks = new Set();     // normalized title+artist to stop repeats
 
   function setRemoteAction() {
       isRemoteAction = true;
@@ -151,7 +147,7 @@
       else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC (100% ORIGINAL) ───── */
+  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC ───────────────────── */
   function searchYouTube(query, targetResultsDiv, mediaType) {
       if (!query) return;
       const resDiv = document.getElementById(targetResultsDiv);
@@ -159,14 +155,14 @@
       resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
 
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=\( {encodeURIComponent(query)}&type=video&key= \){YOUTUBE_API_KEY}`)
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
           .then(res => res.json())
           .then(data => {
               resDiv.innerHTML = '';
               if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
               data.items.forEach(vid => {
                   const div = document.createElement('div'); div.className = 'yt-search-item';
-                  div.innerHTML = `<img src="\( {vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title"> \){vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
+                  div.innerHTML = `<img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
                   div.onclick = () => {
                       queue = []; currentIdx = 0;
                       addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
@@ -202,7 +198,7 @@
       queue=[]; currentIdx=0; addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id });
   }
 
-  /* ── 7. 🎧 SPOTIFY API ENGINE (100% ORIGINAL) ───────────── */
+  /* ── 7. 🎧 SPOTIFY API ENGINE (MULTI-RESULT + SMART SORT) ─ */
   async function searchSpotifyAlt(query, targetResultsDiv) {
       if (!query) return;
       const divId = targetResultsDiv || 'spSearchResults';
@@ -294,7 +290,7 @@
               <img src="${data.thumb}" class="yt-search-thumb" style="border-radius: ${imgRadius};"/>
               <div class="yt-search-info">
                 ${topResultBadge}
-                <div class="yt-search-title">\( {data.titleName} \){typeLabel}</div>
+                <div class="yt-search-title">${data.titleName}${typeLabel}</div>
                 <div class="yt-search-sub">${data.artistName}</div>
               </div>
               <span style="font-size:18px;padding:0 4px;color:#1db954">${data.itemType === 'track' ? '▶' : '📂'}</span>
@@ -303,18 +299,15 @@
           div.onclick = async () => {
               if (data.itemType === 'playlist') {
                   showToast(`📂 Loading Playlist...`);
-                  playMode = 'playlist';
                   const tracks = await fetchPlaylistTracks(data.itemId);
                   renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), resDiv, "");
               } else if (data.itemType === 'album') {
                   showToast(`📂 Loading Album...`);
-                  playMode = 'playlist';
                   const tracks = await fetchAlbumTracks(data.itemId);
                   renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), resDiv, "");
               } else if (data.itemType === 'artist') {
                   showToast(`👤 Artist Profiles cannot be played directly.`);
               } else {
-                  playMode = 'vibe';
                   queue = []; currentIdx = 0; 
                   addToQueue({ type: 'youtube_audio', title: data.titleName, artist: data.artistName, spId: data.itemId, thumb: data.thumb, isZeroxify: true });
                   showToast('🎵 Playing Track!');
@@ -327,7 +320,7 @@
   /* ── Fetchers for Playlists/Albums (Direct API) ── */
   async function fetchPlaylistTracks(playlistId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/playlist_tracks?id= \){playlistId}&offset=0&limit=100&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://${SP81_HOST}/playlist_tracks?id=${playlistId}&offset=0&limit=100&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
           const data = await res.json();
           return (data.items || []).filter(i => i.track && !i.track.is_local).map(i => ({
               id: i.track.id, title: i.track.name, artist: i.track.artists[0]?.name || "Unknown", image: i.track.album?.images[0]?.url || ""
@@ -337,7 +330,7 @@
 
   async function fetchAlbumTracks(albumId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/album_tracks?id= \){albumId}&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://${SP81_HOST}/album_tracks?id=${albumId}&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
           const data = await res.json();
           let albumImg = (data.album && data.album.images) ? data.album.images[0].url : "";
           return (data.album?.tracks?.items || []).map(i => ({
@@ -348,36 +341,23 @@
 
   async function fetchPremiumAudio(spId) {
       try {
-          const res = await fetch(`https://\( {SP81_HOST}/download_track?q= \){spId}&onlyLinks=true`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+          const res = await fetch(`https://${SP81_HOST}/download_track?q=${spId}&onlyLinks=true`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
           const result = await res.json();
           return Array.isArray(result) ? (result[0]?.url || result[0]?.link) : (result.url || result.link || result.downloadUrl);
       } catch (error) { return null; }
   }
 
-  /* ── Title normalization (stops same-song repeats) ── */
-  function normalizeTitle(str) {
-      return (str || '').toLowerCase()
-          .replace(/\(.*?\)|\[.*?\]|official|video|audio|lyrics|feat\.?|ft\.?|remix|version|cover|live/gi, '')
-          .replace(/[^a-z0-9\s]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-  }
 
   /* ── 8. 🎹 QUEUE & CORE RENDERER ENGINE ─────────────────── */
-  function addToQueue(item) {
-      if (playMode === 'vibe' && queue.length === 0) avoidTracks.clear();
-      queue.push(item);
-      renderQueue();
-      playQueueItem(queue.length - 1);
-  }
+  function addToQueue(item) { queue.push(item); renderQueue(); playQueueItem(queue.length - 1); }
 
   function renderQueue() {
       if (queue.length === 0) { queueList.innerHTML = '<p class="mp-empty">Queue empty.</p>'; return; }
       queueList.innerHTML = '';
       queue.forEach((item, i) => {
           const el = document.createElement('div'); el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
-          let icon = (item.type === 'youtube_audio' || item.type === 'youtube') ? '🎧' : (item.type === 'stream' ? '☁️' : '🎬'); 
-          el.innerHTML = `<span class="qi-type">\( {icon}</span><span class="qi-title"> \){item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
+          let icon = item.type === 'youtube_audio' ? '🎧' : (item.type === 'stream' ? '☁️' : '🎬'); 
+          el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del" data-i="${i}">✕</button>`;
           el.onclick = (e) => { if (e.target.classList.contains('qi-del')) { queue.splice(i, 1); renderQueue(); return; } playQueueItem(i); };
           queueList.appendChild(el);
       });
@@ -390,54 +370,44 @@
       renderMedia(item);
   }
 
-  function renderMedia(item) {
+
+        function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
       isPlaying = false; updatePlayBtn();
       
       if (item.type === 'youtube') {
-          activeType = 'youtube';
-          spotifyMode.classList.add('hidden');
-          cinemaMode.classList.remove('hidden');
+          activeType = 'youtube'; spotifyMode.classList.add('hidden'); cinemaMode.classList.remove('hidden');
           ytFrameWrap.style.display = 'block';
-          if (isYtReady) ytPlayer.loadVideoById(item.ytId);
-          else setTimeout(() => renderMedia(item), 500);
-          setTrackInfo(item.title, item.artist || 'YouTube Cinema Mode');
+          if (isYtReady) ytPlayer.loadVideoById(item.ytId); else setTimeout(() => renderMedia(item), 500);
+          setTrackInfo(item.title, 'YouTube Cinema Mode');
           setupMediaSession(item);
       } 
       else if (item.type === 'youtube_audio') {
-          activeType = 'youtube_audio';
-          cinemaMode.classList.add('hidden');
-          spotifyMode.classList.remove('hidden');
-          ensureVisualizer(item);
-          setTrackInfo(item.title, 'Fetching Fresh Audio...');
+          activeType = 'youtube_audio'; cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
+          ensureVisualizer(item); setTrackInfo(item.title, 'Fetching Fresh Audio...');
           fetchPremiumAudio(item.spId).then(audioLink => {
               if(audioLink) {
                   setTrackInfo(item.title, item.artist || 'ZeroX Audio API');
-                  setupMediaSession(item);
-                  nativeAudio.src = audioLink;
+                  setupMediaSession(item); nativeAudio.src = audioLink;
                   nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
               } else {
-                  setTrackInfo(item.title, 'Audio Fetch Failed');
-                  showToast('API Error: Could not extract Audio.');
-                  setTimeout(playNext, 2000);
+                  setTrackInfo(item.title, 'Audio Fetch Failed'); showToast('API Error: Could not extract Audio.'); setTimeout(playNext, 2000);
               }
           });
       }
       else if (item.type === 'stream') {
-          activeType = 'stream';
-          cinemaMode.classList.add('hidden');
-          spotifyMode.classList.remove('hidden');
-          ensureVisualizer(item);
-          setupMediaSession(item);
+          activeType = 'stream'; cinemaMode.classList.add('hidden'); spotifyMode.classList.remove('hidden');
+          ensureVisualizer(item); setupMediaSession(item);
           nativeAudio.src = item.url; 
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
           setTrackInfo(item.title, '☁️ Cloud Audio');
       }
 
-      if (autoPlayEnabled && (item.type === 'youtube_audio' || item.type === 'stream')) {
-          setTimeout(() => preFetchNextVibe(item), 5000);
+      // ✅ ADDED: Background Engine Trigger
+      if (autoPlayEnabled && item.spId) {
+          preFetchNextVibe(item.spId);
       }
   }
 
@@ -465,122 +435,177 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     🚀 ZEROX VIBE ENGINE — FIXED (PRO 3.3)
-     • Single song → true similar mood/vibe (YouTube)
-     • Playlist/Album → strict playlist order
-     • Zero delay on Next
-     • No same-song repeats (strong normalization)
+     🚀 ZEROX VIBE ENGINE — Zero-Gap Auto-play
+     
+     HOW IT WORKS:
+     • Uses SP81 /search API only (no /recommendations endpoint)
+     • While current track plays, silently pre-fetches next vibe
+     • Detects Hindi/Bollywood via script + keywords + artist name
+     • Pulls from TWO search strategies and merges results:
+         1. Same artist's other tracks  → stays in same vibe
+         2. Genre-tagged search         → stays in same genre
+     • Deduplicates against current queue so no repeat plays
+     • Fallback chain: artist search → genre search → bollywood top
+     • isFetching flag prevents parallel fetches on Android
   ══════════════════════════════════════════════════════════ */
 
-  let isFetchingVibe = false;
-  window._pendingVibes = [];
+  let isFetchingVibe = false;   // Android freeze guard
 
-  function buildVibeQuery(track) {
-      const artist = (track.artist || '').trim();
-      const title  = (track.title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
-      const titleWords = title.split(' ').filter(w => w.length > 2).slice(0, 4).join(' ');
-
-      if (artist && titleWords) return `${artist} \( {titleWords} similar songs - \){title}`;
-      if (artist) return `\( {artist} similar songs - \){title}`;
-      return `${titleWords} songs`;
+  /* ── Detect if track is Bollywood / Hindi ── */
+  function isHindiTrack(track) {
+    const title  = (track.title  || '').toLowerCase();
+    const artist = (track.artist || '').toLowerCase();
+    const devanagari = /[\u0900-\u097F]/.test(track.title || '');
+    const hindiKeywords = [
+      'hindi','bollywood','filmi','arijit','armaan','jubin','pritam',
+      'atif','neha','shreya','kumar sanu','udit','lata','kishore',
+      'sonu nigam','mohit','darshan','anuv','vishal','shekhar',
+      'shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman',
+      'amit trivedi','sachin jigar','tanishk','benny dayal','badshah',
+      'honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'
+    ];
+    return devanagari || hindiKeywords.some(k => title.includes(k) || artist.includes(k));
   }
 
-  async function fetchVibes(track) {
-      const seenYtIds = new Set(queue.map(q => q.ytId).filter(Boolean));
-      let results = [];
+  /* ── Build search queries for vibe matching ── */
+  function buildVibeQueries(track) {
+    const artist = (track.artist || '').trim();
+    const isHindi = isHindiTrack(track);
+    const queries = [];
 
-      const currentKey = normalizeTitle(track.title) + '|' + normalizeTitle(track.artist || '');
-      avoidTracks.add(currentKey);
-
-      try {
-          const q = buildVibeQuery(track);
-          const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=\( {encodeURIComponent(q)}&type=video&videoCategoryId=10&key= \){YOUTUBE_API_KEY}`;
-          const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-          const data = await res.json();
-
-          if (data.items?.length) {
-              results = data.items
-                .filter(v => {
-                  if (!v.id?.videoId || seenYtIds.has(v.id.videoId)) return false;
-                  const key = normalizeTitle(v.snippet.title) + '|' + normalizeTitle(v.snippet.channelTitle);
-                  return !avoidTracks.has(key);
-                })
-                .map(v => ({
-                  type:      'youtube',                    // instant playback (zero delay)
-                  title:     v.snippet.title,
-                  artist:    v.snippet.channelTitle,
-                  ytId:      v.id.videoId,
-                  thumb:     v.snippet.thumbnails.high?.url || v.snippet.thumbnails.medium?.url || '',
-                  _vibeFrom: track.title
-                }));
-          }
-      } catch (e) {
-          console.warn('[vibe] fetch error', e.message);
-      }
-
-      return results.slice(0, 5);
-  }
-
-  async function preFetchNextVibe(track) {
-      if (currentIdx < queue.length - 1) return;
-      if (isFetchingVibe) return;
-      isFetchingVibe = true;
-      try {
-          const vibes = await fetchVibes(track);
-          if (vibes.length > 0 && currentIdx >= queue.length - 1) {
-              queue = [...queue, vibes[0]];
-              window._pendingVibes = vibes.slice(1);
-              renderQueue();
-              console.log(`[vibe] Pre-loaded: "${vibes[0].title}"`);
-          }
-      } catch { /* silent */ }
-      finally { isFetchingVibe = false; }
-  }
-
-  async function playNext() {
-      if (playMode === 'playlist' && currentIdx < queue.length - 1) {
-          playQueueItem(currentIdx + 1);
-          return;
-      }
-      if (currentIdx < queue.length - 1) {
-          playQueueItem(currentIdx + 1);
-          return;
-      }
-      if (!autoPlayEnabled) { showToast('End of queue.'); return; }
-
-      const last = queue[currentIdx];
-      if (!last) { showToast('End of queue.'); return; }
-
-      if (window._pendingVibes?.length > 0) {
-          const next = window._pendingVibes.shift();
-          queue = [...queue, next];
-          renderQueue();
-          playQueueItem(currentIdx + 1);
-          preFetchNextVibe(next);
-          return;
-      }
-
-      showToast('✨ Finding similar vibes…');
-      const vibes = await fetchVibes(last);
-      if (vibes.length > 0) {
-          vibes.forEach(v => { queue = [...queue, v]; });
-          window._pendingVibes = [];
-          renderQueue();
-          playQueueItem(currentIdx + 1);
+    if (artist) {
+      if (isHindi) {
+        // Same artist, explicitly Bollywood context
+        queries.push(`artist:"${artist}" bollywood`);
+        queries.push(`artist:"${artist}" hindi songs`);
       } else {
-          showToast('No more vibes found.');
+        queries.push(`artist:"${artist}" popular`);
+        queries.push(`artist:"${artist}"`);
       }
+    }
+
+    // Genre fallback
+    if (isHindi) {
+      queries.push('top bollywood hits 2024');
+      queries.push('hindi love songs popular');
+    } else {
+      // Use title words as genre hint
+      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
+      if (words) queries.push(`${words} popular`);
+      queries.push('top hits popular');
+    }
+
+    return queries;
+  }
+
+  /* ── Fetch tracks from one search query ── */
+  async function searchTracks(query, limit = 12) {
+    const res = await fetch(
+      `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=IN`,
+      { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
+    );
+    const data = await res.json();
+    return data.tracks?.items || [];
+  }
+
+  /* ── Format raw SP track into queue item ── */
+  function formatVibeTrack(t) {
+    return {
+      type:   'youtube_audio',
+      title:  t.name,
+      artist: t.artists?.[0]?.name || 'Artist',
+      spId:   t.id,
+      thumb:  t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+    };
+  }
+
+  /* ── Core: fetch next vibes using search (not recommendations) ── */
+  async function fetchVibes(trackId) {
+    const track    = queue[currentIdx];
+    const queries  = buildVibeQueries(track);
+    const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
+    let   results  = [];
+
+    for (const q of queries) {
+      try {
+        const tracks = await searchTracks(q, 15);
+        const fresh  = tracks
+          .filter(t => t.id && !seenIds.has(t.id))
+          .map(formatVibeTrack);
+        // Merge — deduplicate as we go
+        for (const t of fresh) {
+          if (!results.find(r => r.spId === t.spId)) {
+            results.push(t);
+            seenIds.add(t.spId);
+          }
+        }
+        if (results.length >= 5) break; // enough — stop early
+      } catch { /* try next query */ }
+    }
+
+    return results.slice(0, 5);
+  }
+
+  /* ── Background pre-fetch: runs during current track ── */
+  async function preFetchNextVibe(trackId) {
+    // Skip if queue already has tracks ahead, or already fetching
+    if (currentIdx < queue.length - 1) return;
+    if (isFetchingVibe) return;
+    isFetchingVibe = true;
+    try {
+      const vibes = await fetchVibes(trackId);
+      if (vibes.length > 0 && currentIdx >= queue.length - 1) {
+        // Only push first one silently — rest added if needed
+        queue = [...queue, vibes[0]];
+        if (vibes.length > 1) window._pendingVibes = vibes.slice(1);
+        renderQueue();
+      }
+    } catch { /* silent */ }
+    finally { isFetchingVibe = false; }
+  }
+
+  /* ── playNext: instant if pre-fetched, otherwise fetch now ── */
+  async function playNext() {
+    if (currentIdx < queue.length - 1) {
+      playQueueItem(currentIdx + 1);
+      return;
+    }
+    if (!autoPlayEnabled) { showToast('End of queue.'); return; }
+
+    const last = queue[currentIdx];
+    if (!last || !last.spId) { showToast('End of queue.'); return; }
+
+    // Check if we have pending vibes from last pre-fetch
+    if (window._pendingVibes && window._pendingVibes.length > 0) {
+      const next = window._pendingVibes.shift();
+      queue = [...queue, next];
+      renderQueue();
+      playQueueItem(currentIdx + 1);
+      // Refill pending vibes in background
+      preFetchNextVibe(next.spId);
+      return;
+    }
+
+    showToast('✨ Finding next vibe...');
+    const vibes = await fetchVibes(last.spId);
+    if (vibes.length > 0) {
+      vibes.forEach(v => { queue = [...queue, v]; });
+      renderQueue();
+      playQueueItem(currentIdx + 1);
+    } else {
+      showToast('No more vibes found.');
+    }
   }
 
   function playPrev() {
-      if (currentIdx > 0) playQueueItem(currentIdx - 1);
-      else showToast('This is the first song!');
+    if (currentIdx > 0) playQueueItem(currentIdx - 1);
+    else showToast('This is the first song!');
   }
 
   mpNexts.forEach(b => b.addEventListener('click', playNext));
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
 
-  /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK (100% ORIGINAL) ────── */
+  /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream' || activeType === 'youtube_audio') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
       else if (activeType === 'youtube' && ytPlayer) { if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); }
@@ -642,21 +667,23 @@
       }
   };
 
-  /* ── 10. SPOTIFY EVENT LISTENERS (100% ORIGINAL) ────────── */
+    /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
   if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = async () => { 
       const id = spInput.value.trim(); if(!id) return;
       showToast("📂 Fetching Playlist Details...");
       const tracks = await fetchPlaylistTracks(id);
-      playMode = 'playlist';
       renderSpotifyUI(tracks.map(t => ({ titleName: t.title, artistName: t.artist, itemType: 'track', itemId: t.id, thumb: t.image })), spSearchResults, "");
       spInput.value = ''; 
   };
 
+  // ✅ POINT 4: Auto-Play Toggle Logic
   const autoPlayBtn = document.getElementById('autoPlayToggle');
   if (autoPlayBtn) {
+      // Initial state set karna
       if (autoPlayEnabled) autoPlayBtn.classList.add('active');
+
       autoPlayBtn.onclick = () => {
           autoPlayEnabled = !autoPlayEnabled;
           autoPlayBtn.classList.toggle('active', autoPlayEnabled);
@@ -674,6 +701,7 @@
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
+  // Sab kuch set karne ke baad initial queue render
   renderQueue();
-  console.log('%c✅ ZEROX HUB player.js (PRO 3.3 VIBE FIXED + STABILITY RESTORED) loaded successfully', 'color:#1db954;font-weight:bold');
+
 })();
