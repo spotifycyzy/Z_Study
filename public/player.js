@@ -1,9 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
    ZEROX HUB — player.js (PRO 3.1 FINAL BUILD + HYBRID VIBE UPGRADE)
-   💥 MAJOR FIX: 0% Duplicate Variables, 100% Bracket Safe
-   🔥 UPGRADE: Multi-Results (Tracks, Playlists, Albums) + Smart Sort
-   ✅ FULL LOGIC: Cinema Mode, Cloud Audio, Sync Network, Visualizer
-   🚀 VIBE ENGINE UPGRADE: YouTube-to-Spotify Hybrid (YT v3 alt + SP3 + SP81)
+   💥 FIXED: Main YouTube search restored (Google API) + Vibe Engine only upgraded
+   🔥 UPGRADE: YouTube-to-Spotify Hybrid Vibe Engine (YT v3 alt + SP3 + SP81)
+   ✅ Original working parts untouched (Cinema, Cloud Audio, Sync, Visualizer, Search)
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -64,6 +63,7 @@
   const SP81_HOST = 'spotify81.p.rapidapi.com';
   const SP3_HOST = 'spotify-web-api3.p.rapidapi.com';
   const YT_ALT_HOST = 'youtube-v3-alternative.p.rapidapi.com';
+  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
 
   /* ── 3. STATE VARIABLES ────────────────────────────────── */
   let queue = [];
@@ -150,7 +150,7 @@
       else if (event.data === YT.PlayerState.ENDED) { playNext(); }
   }
 
-  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC (YT v3 Alternative) ───────────────────── */
+  /* ── 6. 🔍 YOUTUBE SEARCH & URL LOGIC (RESTORED ORIGINAL GOOGLE API) ───────────────────── */
   function searchYouTube(query, targetResultsDiv, mediaType) {
       if (!query) return;
       const resDiv = document.getElementById(targetResultsDiv);
@@ -158,24 +158,17 @@
       resDiv.innerHTML = '<p class="mp-empty">🔍 Searching YouTube Library...</p>';
       if(targetResultsDiv === 'ytSearchResults') episodesOverlayYt.classList.remove('hidden');
 
-      fetch(`https://\( {YT_ALT_HOST}/search?query= \){encodeURIComponent(query)}&geo=IN&lang=hi&type=video&sort_by=relevance`, {
-          headers: {
-              'x-rapidapi-key': RAPID_API_KEY,
-              'x-rapidapi-host': YT_ALT_HOST
-          }
-      })
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=\( {encodeURIComponent(query)}&type=video&key= \){YOUTUBE_API_KEY}`)
           .then(res => res.json())
           .then(data => {
               resDiv.innerHTML = '';
-              const items = data.data || [];
-              if(items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-              items.forEach(vid => {
+              if(!data.items || data.items.length === 0) { resDiv.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
+              data.items.forEach(vid => {
                   const div = document.createElement('div'); div.className = 'yt-search-item';
-                  const thumb = vid.thumbnail && vid.thumbnail[0] ? vid.thumbnail[0].url : 'https://i.imgur.com/8Q5FqWj.jpeg';
-                  div.innerHTML = `<img src="\( {thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title"> \){vid.title}</div><div class="yt-search-sub">${vid.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
+                  div.innerHTML = `<img src="\( {vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title"> \){vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:18px;padding:0 4px;color:#E8436A">▶</span>`;
                   div.onclick = () => {
                       queue = []; currentIdx = 0;
-                      addToQueue({ type: mediaType, title: vid.title, ytId: vid.videoId, thumb: thumb });
+                      addToQueue({ type: mediaType, title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url });
                       showToast('🎵 Playing Selection!');
                   };
                   resDiv.appendChild(div);
@@ -326,7 +319,7 @@
       });
   }
 
-  /* ── Fetchers for Playlists/Albums (SP81) ── */
+  /* ── Fetchers for Playlists/Albums/Audio (SP81) ── */
   async function fetchPlaylistTracks(playlistId) {
       try {
           const res = await fetch(`https://\( {SP81_HOST}/playlist_tracks?id= \){playlistId}&offset=0&limit=100`, { 
@@ -456,63 +449,8 @@
     const title  = (track.title  || '').toLowerCase();
     const artist = (track.artist || '').toLowerCase();
     const devanagari = /[\u0900-\u097F]/.test(track.title || '');
-    const hindiKeywords = [
-      'hindi','bollywood','filmi','arijit','armaan','jubin','pritam',
-      'atif','neha','shreya','kumar sanu','udit','lata','kishore',
-      'sonu nigam','mohit','darshan','anuv','vishal','shekhar',
-      'shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman',
-      'amit trivedi','sachin jigar','tanishk','benny dayal','badshah',
-      'honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'
-    ];
+    const hindiKeywords = ['hindi','bollywood','filmi','arijit','armaan','jubin','pritam','atif','neha','shreya','kumar sanu','udit','lata','kishore','sonu nigam','mohit','darshan','anuv','vishal','shekhar','shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman','amit trivedi','sachin jigar','tanishk','benny dayal','badshah','honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'];
     return devanagari || hindiKeywords.some(k => title.includes(k) || artist.includes(k));
-  }
-
-  function buildVibeQueries(track) {
-    const artist = (track.artist || '').split(',')[0].trim();
-    const isHindi = isHindiTrack(track);
-    const queries = [];
-
-    if (artist && artist !== 'Unknown') {
-      if (isHindi) {
-        queries.push(`${artist} bollywood hits`);
-        queries.push(`${artist} hindi songs`);
-        queries.push(`${artist} best songs`);
-      } else {
-        queries.push(`${artist} popular`);
-        queries.push(`${artist} top tracks`);
-      }
-    }
-
-    if (isHindi) {
-      queries.push('top bollywood hits 2026');
-      queries.push('latest hindi movie songs');
-      queries.push('trending bollywood playlist');
-    } else {
-      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
-      if (words) queries.push(`${words} popular`);
-      queries.push('top global hits popular');
-    }
-
-    return queries;
-  }
-
-  async function searchTracks(query, limit = 12) {
-    const res = await fetch(
-      `https://\( {SP81_HOST}/search?q= \){encodeURIComponent(query)}&type=track&limit=${limit}&market=IN`,
-      { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-    );
-    const data = await res.json();
-    return data.tracks?.items || [];
-  }
-
-  function formatVibeTrack(t) {
-    return {
-      type:   'youtube_audio',
-      title:  t.name,
-      artist: t.artists?.[0]?.name || 'Artist',
-      spId:   t.id,
-      thumb:  t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-    };
   }
 
   async function fetchVibes(trackId) {
@@ -520,33 +458,45 @@
     const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
     let   results  = [];
 
-    // YouTube-to-Spotify Hybrid Vibe Engine (YT v3 alt + SP3 + SP81)
     const searchQuery = `songs like ${track.title || 'hit song'} ${track.artist || ''}`.trim();
 
     try {
-      // 1. Search YouTube using YT v3 Alternative
+      // 1. YouTube v3 Alternative (only used in Vibe Engine)
       const ytRes = await fetch(`https://\( {YT_ALT_HOST}/search?query= \){encodeURIComponent(searchQuery)}&geo=IN&lang=hi&type=video&sort_by=relevance`, {
-          headers: {
-              'x-rapidapi-key': RAPID_API_KEY,
-              'x-rapidapi-host': YT_ALT_HOST
-          }
+          headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': YT_ALT_HOST }
       });
       const ytData = await ytRes.json();
       const ytSongTitles = (ytData.data || [])
         .map(item => item.title || '')
         .filter(title => title && title.length > 15 && !title.toLowerCase().includes('live') && !title.toLowerCase().includes('cover') && !title.toLowerCase().includes('official video'));
 
-      // 2. Bridge each YouTube title → Spotify SP3 search for clean track data
+      // 2. Bridge to SP3 for clean Spotify metadata
       for (const ytTitle of ytSongTitles) {
         if (results.length >= 5) break;
         try {
-          const spTracks = await searchTracks(ytTitle, 8);
-          const fresh = spTracks
-            .filter(t => t.id && !seenIds.has(t.id))
-            .map(formatVibeTrack);
+          const spRes = await fetch(`https://${SP3_HOST}/v1/social/spotify/searchall`, {
+              method: "POST",
+              headers: {
+                  "x-rapidapi-key": RAPID_API_KEY,
+                  "x-rapidapi-host": SP3_HOST,
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ terms: ytTitle, limit: 8 })
+          });
+          const spData = await spRes.json();
+          const spTracks = (spData?.data?.searchV2?.tracks?.items || spData?.data?.searchV2?.tracksV2?.items || []).map(item => {
+              const t = item?.item?.data || item?.data || item;
+              return t ? {
+                type: 'youtube_audio',
+                title: t.name,
+                artist: t.artists?.items?.[0]?.profile?.name || 'Artist',
+                spId: t.id || t.uri?.split(':')[2],
+                thumb: t.albumOfTrack?.coverArt?.sources?.[0]?.url || t.coverArt?.sources?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
+              } : null;
+          }).filter(Boolean);
 
-          for (const t of fresh) {
-            if (!results.find(r => r.spId === t.spId)) {
+          for (const t of spTracks) {
+            if (t.spId && !seenIds.has(t.spId)) {
               results.push(t);
               seenIds.add(t.spId);
             }
@@ -554,7 +504,7 @@
         } catch (spErr) {}
       }
     } catch (e) {
-      console.error("YouTube-to-Spotify Hybrid Vibe Error:", e);
+      console.error("Hybrid Vibe Error:", e);
     }
 
     return results.slice(0, 5);
@@ -562,7 +512,6 @@
 
   async function preFetchNextVibe(trackId) {
     if (currentIdx < queue.length - 1 || isFetchingVibe) return;
-    
     isFetchingVibe = true;
     try {
       const vibes = await fetchVibes(trackId);
