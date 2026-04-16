@@ -347,7 +347,6 @@
       } catch (error) { return null; }
   }
 
-
   /* ── 8. 🎹 QUEUE & CORE RENDERER ENGINE ─────────────────── */
   function addToQueue(item) { queue.push(item); renderQueue(); playQueueItem(queue.length - 1); }
 
@@ -370,8 +369,7 @@
       renderMedia(item);
   }
 
-
-        function renderMedia(item) {
+  function renderMedia(item) {
       nativeAudio.style.display = 'none'; ytFrameWrap.style.display = 'none';
       nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null;
       if (ytPlayer && isYtReady && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
@@ -404,11 +402,6 @@
           nativeAudio.play().then(() => { isPlaying = true; updatePlayBtn(); }).catch(() => showToast("Tap ▶ to play"));
           setTrackInfo(item.title, '☁️ Cloud Audio');
       }
-
-      // ✅ ADDED: Background Engine Trigger
-      if (autoPlayEnabled && item.spId) {
-          preFetchNextVibe(item.spId);
-      }
   }
 
   function ensureVisualizer(item) {
@@ -434,178 +427,21 @@
       }
   }
 
-  /* ══════════════════════════════════════════════════════════
-     🚀 ZEROX VIBE ENGINE — Zero-Gap Auto-play
-     
-     HOW IT WORKS:
-     • Uses SP81 /search API only (no /recommendations endpoint)
-     • While current track plays, silently pre-fetches next vibe
-     • Detects Hindi/Bollywood via script + keywords + artist name
-     • Pulls from TWO search strategies and merges results:
-         1. Same artist's other tracks  → stays in same vibe
-         2. Genre-tagged search         → stays in same genre
-     • Deduplicates against current queue so no repeat plays
-     • Fallback chain: artist search → genre search → bollywood top
-     • isFetching flag prevents parallel fetches on Android
-  ══════════════════════════════════════════════════════════ */
-
-  let isFetchingVibe = false;   // Android freeze guard
-
-  /* ── Detect if track is Bollywood / Hindi ── */
-  function isHindiTrack(track) {
-    const title  = (track.title  || '').toLowerCase();
-    const artist = (track.artist || '').toLowerCase();
-    const devanagari = /[\u0900-\u097F]/.test(track.title || '');
-    const hindiKeywords = [
-      'hindi','bollywood','filmi','arijit','armaan','jubin','pritam',
-      'atif','neha','shreya','kumar sanu','udit','lata','kishore',
-      'sonu nigam','mohit','darshan','anuv','vishal','shekhar',
-      'shankar ehsaan loy','javed ali','rahat','rekha','a.r.rahman',
-      'amit trivedi','sachin jigar','tanishk','benny dayal','badshah',
-      'honey singh','yo yo','nucleya','diljit','guru','hardy','sidhu'
-    ];
-    return devanagari || hindiKeywords.some(k => title.includes(k) || artist.includes(k));
-  }
-
-  /* ── Build search queries for vibe matching ── */
-  function buildVibeQueries(track) {
-    const artist = (track.artist || '').trim();
-    const isHindi = isHindiTrack(track);
-    const queries = [];
-
-    if (artist) {
-      if (isHindi) {
-        // Same artist, explicitly Bollywood context
-        queries.push(`artist:"${artist}" bollywood`);
-        queries.push(`artist:"${artist}" hindi songs`);
-      } else {
-        queries.push(`artist:"${artist}" popular`);
-        queries.push(`artist:"${artist}"`);
-      }
-    }
-
-    // Genre fallback
-    if (isHindi) {
-      queries.push('top bollywood hits 2024');
-      queries.push('hindi love songs popular');
-    } else {
-      // Use title words as genre hint
-      const words = (track.title || '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
-      if (words) queries.push(`${words} popular`);
-      queries.push('top hits popular');
-    }
-
-    return queries;
-  }
-
-  /* ── Fetch tracks from one search query ── */
-  async function searchTracks(query, limit = 12) {
-    const res = await fetch(
-      `https://${SP81_HOST}/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=IN`,
-      { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-    );
-    const data = await res.json();
-    return data.tracks?.items || [];
-  }
-
-  /* ── Format raw SP track into queue item ── */
-  function formatVibeTrack(t) {
-    return {
-      type:   'youtube_audio',
-      title:  t.name,
-      artist: t.artists?.[0]?.name || 'Artist',
-      spId:   t.id,
-      thumb:  t.album?.images?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg'
-    };
-  }
-
-  /* ── Core: fetch next vibes using search (not recommendations) ── */
-  async function fetchVibes(trackId) {
-    const track    = queue[currentIdx];
-    const queries  = buildVibeQueries(track);
-    const seenIds  = new Set([...queue.map(q => q.spId), trackId].filter(Boolean));
-    let   results  = [];
-
-    for (const q of queries) {
-      try {
-        const tracks = await searchTracks(q, 15);
-        const fresh  = tracks
-          .filter(t => t.id && !seenIds.has(t.id))
-          .map(formatVibeTrack);
-        // Merge — deduplicate as we go
-        for (const t of fresh) {
-          if (!results.find(r => r.spId === t.spId)) {
-            results.push(t);
-            seenIds.add(t.spId);
-          }
-        }
-        if (results.length >= 5) break; // enough — stop early
-      } catch { /* try next query */ }
-    }
-
-    return results.slice(0, 5);
-  }
-
-  /* ── Background pre-fetch: runs during current track ── */
-  async function preFetchNextVibe(trackId) {
-    // Skip if queue already has tracks ahead, or already fetching
-    if (currentIdx < queue.length - 1) return;
-    if (isFetchingVibe) return;
-    isFetchingVibe = true;
-    try {
-      const vibes = await fetchVibes(trackId);
-      if (vibes.length > 0 && currentIdx >= queue.length - 1) {
-        // Only push first one silently — rest added if needed
-        queue = [...queue, vibes[0]];
-        if (vibes.length > 1) window._pendingVibes = vibes.slice(1);
-        renderQueue();
-      }
-    } catch { /* silent */ }
-    finally { isFetchingVibe = false; }
-  }
-
-  /* ── playNext: instant if pre-fetched, otherwise fetch now ── */
-  async function playNext() {
-    if (currentIdx < queue.length - 1) {
-      playQueueItem(currentIdx + 1);
-      return;
-    }
-    if (!autoPlayEnabled) { showToast('End of queue.'); return; }
-
-    const last = queue[currentIdx];
-    if (!last || !last.spId) { showToast('End of queue.'); return; }
-
-    // Check if we have pending vibes from last pre-fetch
-    if (window._pendingVibes && window._pendingVibes.length > 0) {
-      const next = window._pendingVibes.shift();
-      queue = [...queue, next];
-      renderQueue();
-      playQueueItem(currentIdx + 1);
-      // Refill pending vibes in background
-      preFetchNextVibe(next.spId);
-      return;
-    }
-
-    showToast('✨ Finding next vibe...');
-    const vibes = await fetchVibes(last.spId);
-    if (vibes.length > 0) {
-      vibes.forEach(v => { queue = [...queue, v]; });
-      renderQueue();
-      playQueueItem(currentIdx + 1);
-    } else {
-      showToast('No more vibes found.');
-    }
+  /* ── 9. ⏭️ PLAYBACK CONTROLS ────────────────────────────── */
+  function playNext() {
+      if (currentIdx < queue.length - 1) playQueueItem(currentIdx + 1);
+      else showToast('End of queue.');
   }
 
   function playPrev() {
-    if (currentIdx > 0) playQueueItem(currentIdx - 1);
-    else showToast('This is the first song!');
+      if (currentIdx > 0) playQueueItem(currentIdx - 1);
+      else showToast('This is the first song!');
   }
 
   mpNexts.forEach(b => b.addEventListener('click', playNext));
   mpPrevs.forEach(b => b.addEventListener('click', playPrev));
 
-  /* ── 9. 🎛️ CONTROLLER & SYNC NETWORK ─────────────────────── */
+  /* ── 10. 🎛️ CONTROLLER & SYNC NETWORK ───────────────────── */
   mpPlays.forEach(btn => btn.addEventListener('click', () => {
       if (activeType === 'stream' || activeType === 'youtube_audio') { if (isPlaying) nativeAudio.pause(); else nativeAudio.play().catch(()=>{}); } 
       else if (activeType === 'youtube' && ytPlayer) { if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); }
@@ -667,7 +503,7 @@
       }
   };
 
-    /* ── 10. SPOTIFY EVENT LISTENERS ────────────────────────── */
+  /* ── 11. SPOTIFY EVENT LISTENERS ────────────────────────── */
   if(spInput) spInput.addEventListener('keydown', e => { if(e.key==='Enter' && spSearchSongBtn) spSearchSongBtn.click(); });
   if(spSearchSongBtn) spSearchSongBtn.onclick = () => { searchSpotifyAlt(spInput.value.trim(), 'spSearchResults'); spInput.value = ''; };
   if(spSearchPlaylistBtn) spSearchPlaylistBtn.onclick = async () => { 
@@ -678,12 +514,10 @@
       spInput.value = ''; 
   };
 
-  // ✅ POINT 4: Auto-Play Toggle Logic
+  /* ── 12. AUTO-PLAY TOGGLE ────────────────────────────────── */
   const autoPlayBtn = document.getElementById('autoPlayToggle');
   if (autoPlayBtn) {
-      // Initial state set karna
       if (autoPlayEnabled) autoPlayBtn.classList.add('active');
-
       autoPlayBtn.onclick = () => {
           autoPlayEnabled = !autoPlayEnabled;
           autoPlayBtn.classList.toggle('active', autoPlayEnabled);
@@ -691,6 +525,7 @@
       };
   }
 
+  /* ── 13. FULLSCREEN STATE ────────────────────────────────── */
   function toggleFullscreenState() {
       if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) { 
           document.body.classList.add('is-fullscreen'); 
@@ -701,7 +536,7 @@
   document.addEventListener('fullscreenchange', toggleFullscreenState);
   document.addEventListener('webkitfullscreenchange', toggleFullscreenState);
 
-  // Sab kuch set karne ke baad initial queue render
+  // Initial queue render
   renderQueue();
 
 })();
