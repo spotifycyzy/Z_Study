@@ -14,7 +14,6 @@
 <body>
 <div id="blossomContainer"></div>
 
-<!-- ── MINI HANDLE BAR ── -->
 <div id="zxHandle">
   <div class="mini-controls">
     <button class="mp-btn" id="miniPrev">⏮</button>
@@ -38,59 +37,90 @@
   <div class="handle-bar-line"></div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     ZX PANEL — UPGRADED MUSIC HUB
-══════════════════════════════════════════════ -->
 <div id="zxPanel" class="zx-closed">
   <div id="closeHandle"><div class="close-bar-line"></div></div>
 
   <div class="music-panel-inner">
-
-    <!-- Header: Logo + Sync -->
-    <div class="zx-header" style="padding: 0 0 15px 0;">
+    <div class="zx-header">
       <span class="zx-logo">ZeroX <span>Hub</span></span>
       <div style="display:flex;gap:8px;align-items:center">
         <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
-        <button class="mp-btn" id="mpSyncBtn">Sync 🔗</button>
-        <div class="mp-sync-info" id="mpSyncInfo" style="display:none">
-          <span style="font-size:12px;color:#7ADB8A">🔗 Synced</span>
-          <button class="mp-btn" id="mpUnsyncBtn" style="padding:4px 8px;font-size:11px">Leave</button>
-        </div>
+        <button class="mp-sync-toggle-btn" id="mpSyncToggleBtn">Sync 🔗</button>
+      </div>
+      <div class="zx-header-right">
+        <button class="autoplay-toggle-btn" id="autoPlayToggle" title="Auto Play">
+          <span class="ap-icon">∞</span>
+          <span class="ap-label">Auto</span>
+        </button>
       </div>
     </div>
 
-    <!-- Player Display Section -->
-    <div id="zxPlayerSection" class="mode-cinema">
+    <!-- TABS: local/url | yt | yt music | spotify | queue -->
+    <div class="mp-tabs" id="mpTabs">
+      <button class="mp-tab active" data-tab="url">📁 Local/URL</button>
+      <button class="mp-tab" data-tab="youtube">▶ YT</button>
+      <button class="mp-tab" data-tab="ytmusic">🎵 YT Music</button>
+      <button class="mp-tab" data-tab="spotify">🌐 Spotify</button>
+      <button class="mp-tab" data-tab="queue">📋 Queue</button>
+    </div>
+
+    <!-- PLAYER DISPLAY AREA -->
+    <div id="zxPlayerSection">
+      <!-- Cinema (YouTube Video) -->
       <div id="cinemaMode">
         <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
-        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden; position:relative; padding-bottom:56.25%; height:0; background:#000;">
-          <!-- YouTube player injected here by YT API -->
-        </div>
+        <div id="ytFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;"></div>
         <div id="spFrameWrap" style="display:none; width:100%; border-radius:12px; overflow:hidden;">
           <iframe id="spFrame" style="width:100%;height:152px" src="" frameborder="0" allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy" playsinline></iframe>
         </div>
       </div>
 
-      <!-- ── PREMIUM AUDIO PLAYER UI (Spotify + YT Music) ── -->
+      <!-- Premium Music Card (YT Music / Spotify) -->
+      <div id="premiumMusicCard" class="hidden">
+        <div class="pmc-bg-blur" id="pmcBgBlur"></div>
+        <div class="pmc-inner">
+          <div class="pmc-artwork-wrap">
+            <div class="pmc-artwork-ring"></div>
+            <img class="pmc-artwork" id="pmcArtwork" src="https://i.imgur.com/8Q5FqWj.jpeg" alt="cover"/>
+            <div class="pmc-artwork-glow" id="pmcGlow"></div>
+          </div>
+          <div class="pmc-info">
+            <div class="pmc-source-badge" id="pmcSourceBadge">🎵 YT Music</div>
+            <div class="pmc-title" id="pmcTitle">Ready to Play</div>
+            <div class="pmc-artist" id="pmcArtist">Search a song below</div>
+          </div>
+          <div class="pmc-visualizer" id="pmcVisualizer">
+            <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
+            <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
+            <div class="pmc-bar"></div><div class="pmc-bar"></div>
+          </div>
+          <div class="pmc-progress-wrap">
+            <span class="pmc-time" id="pmcCurrentTime">0:00</span>
+            <div class="pmc-progress-bar" id="pmcProgressBar">
+              <div class="pmc-progress-fill" id="pmcProgressFill"></div>
+              <div class="pmc-progress-thumb" id="pmcProgressThumb"></div>
+            </div>
+            <span class="pmc-time" id="pmcDuration">0:00</span>
+          </div>
+          <div class="pmc-controls">
+            <button class="pmc-btn pmc-prev" id="pmcPrev">⏮</button>
+            <button class="pmc-btn pmc-play-main" id="pmcPlayMain">▶</button>
+            <button class="pmc-btn pmc-next" id="pmcNext">⏭</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vinyl (stream / old spotify embed fallback) -->
       <div id="spotifyMode" class="hidden">
-        <div class="vinyl-record" id="vinylRecord" style="display:none;"></div>
-        <div class="music-info" style="display:none;">
+        <div class="vinyl-record" id="vinylRecord"></div>
+        <div class="music-info">
           <h2 id="musicTitle">Loading...</h2>
           <p id="musicArtist">Global Audio Stream</p>
         </div>
       </div>
     </div>
 
-    <!-- ── 5 TABS: Local/URL | YT | YT Music | Spotify | Queue ── -->
-    <div class="mp-tabs">
-      <button class="mp-tab active" data-tab="url">Local/URL</button>
-      <button class="mp-tab" data-tab="youtube">YT</button>
-      <button class="mp-tab" data-tab="ytmusic">YT Music</button>
-      <button class="mp-tab" data-tab="spotify">Spotify</button>
-      <button class="mp-tab" data-tab="queue">Queue <span class="tab-badge" id="queueTabBadge" style="display:none;">0</span></button>
-    </div>
-
-    <!-- TAB 1: LOCAL / URL -->
+    <!-- TAB CONTENTS -->
     <div class="mp-tab-content active" id="tab-url">
       <div class="mp-input-row">
         <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
@@ -111,7 +141,6 @@
       </div>
     </div>
 
-    <!-- TAB 2: YOUTUBE CINEMA -->
     <div class="mp-tab-content" id="tab-youtube">
       <div class="mp-input-row">
         <input id="ytInput" class="mp-input" type="text" placeholder="Search YouTube or Paste link..."/>
@@ -128,146 +157,43 @@
       </div>
     </div>
 
-    <!-- TAB 3: YT MUSIC (NEW) -->
+    <!-- YT MUSIC TAB -->
     <div class="mp-tab-content" id="tab-ytmusic">
-      <!-- Search bar -->
-      <div class="mp-input-row ytm-search-wrap" style="margin-bottom:14px;">
-        <input id="ytmInput" class="mp-input" type="text" placeholder="Search song on YT Music…"/>
-        <button class="mp-add-btn" id="ytmPlayBtn" style="background:linear-gradient(135deg,#c40000,#ff0000);">▶ Play</button>
+      <div class="ytm-search-row">
+        <input id="ytmInput" class="mp-input ytm-search-input" type="text" placeholder="Search songs, artists…"/>
+        <button class="mp-add-btn ytm-search-btn" id="ytmSearchBtn">🔍</button>
       </div>
-
-      <!-- Premium Player UI for YT Music -->
-      <div class="player-ambient" id="ytmPlayerAmbient">
-        <div class="artwork-container">
-          <div class="artwork-ring" id="ytmArtworkRing"></div>
-          <img class="premium-thumb" id="ytmThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" alt="artwork"/>
-        </div>
-
-        <div class="player-song-info">
-          <div class="player-song-title" id="ytmSongTitle">YT Music</div>
-          <div class="player-song-artist" id="ytmSongArtist">Search a song above</div>
-          <div class="player-source-badge" id="ytmSourceBadge">▶ YouTube Music</div>
-          <div class="next-loading-badge" id="nextLoadingBadge">⚡ Prefetching next<span>.</span><span>.</span><span>.</span></div>
-        </div>
-
-        <!-- Visualizer -->
-        <div class="music-visualizer" id="ytmVisualizer">
-          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-          <div class="bar"></div>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="player-progress-wrap">
-          <div style="position:relative;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;" id="ytmProgressTrack">
-            <div class="player-progress-fill" id="ytmProgressFill" style="width:0%;"></div>
-          </div>
-          <input type="range" class="player-progress-range" id="ytmProgressRange" min="0" max="100" value="0" style="position:absolute;opacity:0;width:100%;top:0;left:0;cursor:pointer;margin:0;padding:0;"/>
-          <div class="player-time-row">
-            <span class="player-time-current">0:00</span>
-            <span class="player-time-total">0:00</span>
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="player-controls">
-          <button class="ctrl-btn ctrl-btn-prev" title="Previous">⏮</button>
-          <button class="ctrl-btn ctrl-btn-main ctrl-btn-play" title="Play/Pause">▶</button>
-          <button class="ctrl-btn ctrl-btn-next" title="Next">⏭</button>
-        </div>
-
-        <!-- Autoplay toggle -->
-        <div class="autoplay-row">
-          <button class="autoplay-toggle-btn active" title="Toggle Autoplay">
-            <div class="ap-dot"></div>
-            <span class="ap-label">Autoplay ON</span>
-          </button>
+      <div id="ytmSearchResults" class="ytm-results-area">
+        <div class="ytm-empty-state">
+          <div class="ytm-empty-icon">🎵</div>
+          <p>Search any song to play instantly</p>
         </div>
       </div>
     </div>
 
-    <!-- TAB 4: SPOTIFY / GLOBAL MUSIC -->
+    <!-- SPOTIFY TAB -->
     <div class="mp-tab-content" id="tab-spotify">
-      <!-- Search bar -->
-      <div class="mp-input-row" style="margin-bottom:8px;">
-        <input id="spInput" class="mp-input" type="text" placeholder="Search Global Music…"/>
+      <div class="sp-search-row">
+        <input id="spInput" class="mp-input sp-search-input" type="text" placeholder="Search Global Music…"/>
         <div class="split-btn-wrap">
           <button class="mp-add-btn split-left" id="spSearchSongBtn">🎵 Song</button>
           <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 List</button>
         </div>
       </div>
-      <div class="action-buttons-row" style="justify-content:flex-end; margin-bottom:12px;">
-        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Results</button>
-      </div>
-
-      <!-- Premium Player UI for Spotify -->
-      <div class="player-ambient" id="spPlayerAmbient">
-        <div class="artwork-container">
-          <div class="artwork-ring" id="spArtworkRing"></div>
-          <img class="premium-thumb" id="spThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" alt="artwork"/>
-        </div>
-
-        <div class="player-song-info">
-          <div class="player-song-title" id="spSongTitle">Global Music</div>
-          <div class="player-song-artist" id="spSongArtist">Search a song above</div>
-          <div class="player-source-badge" id="spSourceBadge">🎵 via ZeroX Audio</div>
-        </div>
-
-        <!-- Visualizer -->
-        <div class="music-visualizer" id="spVisualizer">
-          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-          <div class="bar"></div>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="player-progress-wrap">
-          <div style="position:relative;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;" id="spProgressTrack">
-            <div class="player-progress-fill" id="spProgressFill" style="width:0%;"></div>
-          </div>
-          <input type="range" class="player-progress-range" id="spProgressRange" min="0" max="100" value="0" style="position:absolute;opacity:0;width:100%;top:0;left:0;cursor:pointer;margin:0;padding:0;"/>
-          <div class="player-time-row">
-            <span class="player-time-current">0:00</span>
-            <span class="player-time-total">0:00</span>
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="player-controls">
-          <button class="ctrl-btn ctrl-btn-prev" title="Previous">⏮</button>
-          <button class="ctrl-btn ctrl-btn-main ctrl-btn-play" title="Play/Pause">▶</button>
-          <button class="ctrl-btn ctrl-btn-next" title="Next">⏭</button>
-        </div>
-
-        <!-- Autoplay toggle -->
-        <div class="autoplay-row">
-          <button class="autoplay-toggle-btn active" title="Toggle Autoplay">
-            <div class="ap-dot"></div>
-            <span class="ap-label">Autoplay ON</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Results overlay -->
-      <div id="episodesOverlaySp" class="episodes-container hidden">
-        <div class="ep-header">Global Music Results</div>
-        <div class="yt-search-results active" id="spSearchResults">
-          <p class="mp-empty">Search a track. Plays in background.</p>
+      <div id="spSearchResults" class="sp-results-area">
+        <div class="sp-empty-state">
+          <div class="sp-empty-icon">🌐</div>
+          <p>Search global music tracks</p>
         </div>
       </div>
     </div>
 
-    <!-- TAB 5: QUEUE -->
     <div class="mp-tab-content" id="tab-queue">
       <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
     </div>
+  </div>
+</div>
 
-  </div><!-- /music-panel-inner -->
-</div><!-- /zxPanel -->
-
-<!-- ══════════════════════════════════════════════
-     STUDY SITE (unchanged structure)
-══════════════════════════════════════════════ -->
 <div id="studySite">
   <nav class="study-nav">
     <div class="nav-brand"><span class="brand-icon">📚</span><span class="brand-name" id="brandName">StudyVault</span></div>
@@ -285,20 +211,14 @@
         <div class="stat"><span class="stat-n">∞</span><span class="stat-l">Notes</span></div>
       </div>
     </div>
-    <div class="hero-visual" aria-hidden="true">
-      <div class="book-stack">
-        <div class="book b1"></div><div class="book b2"></div>
-        <div class="book b3"></div><div class="book b4"></div>
-      </div>
-    </div>
+    <div class="hero-visual" aria-hidden="true"><div class="book-stack"><div class="book b1"></div><div class="book b2"></div><div class="book b3"></div><div class="book b4"></div></div></div>
   </section>
   <section class="study-subjects" id="subjects"><h2 class="section-title">Subjects</h2><div class="subjects-grid" id="subjectsGrid"></div></section>
   <section class="study-recent" id="recent"><h2 class="section-title">Recently Viewed</h2><div class="recent-list" id="recentList"></div></section>
   <section class="study-bookmarks" id="bookmarks"><h2 class="section-title">Saved Notes</h2><div id="bookmarksList"></div></section>
-  <footer class="study-footer">© 2025 StudyVault · All notes private &amp; encrypted</footer>
+  <footer class="study-footer">© 2025 StudyVault · All notes private & encrypted</footer>
 </div>
 
-<!-- NOTES VIEWER (unchanged) -->
 <div id="notesViewer" class="hidden">
   <div class="notes-header">
     <button class="notes-back" id="notesBack">← Back</button>
@@ -313,7 +233,6 @@
 
 <canvas id="gestureCanvas"></canvas>
 
-<!-- CHAT APP (unchanged structure) -->
 <div id="chatApp" class="hidden">
   <div id="chatBlossoms"></div>
   <div id="unlockScreen" class="unlock-screen">
@@ -357,53 +276,7 @@
     </div>
   </div>
 </div>
-
-<div class="call-overlay hidden" id="callOverlay">
-  <div class="call-avatar" id="callAvatar">?</div>
-  <div class="call-name" id="callName">Calling…</div>
-  <div class="call-status" id="callStatus">connecting…</div>
-  <div class="call-actions">
-    <button class="call-btn mute" id="callMute">🎤</button>
-    <button class="call-btn end" id="callEnd">📵</button>
-  </div>
-</div>
-
-<!-- SEEK BAR OVERLAY FIX — applies range input over visual bar -->
-<style>
-  /* Seek range overlay on progress bars */
-  #tab-ytmusic .player-progress-wrap,
-  #tab-spotify .player-progress-wrap {
-    position: relative;
-  }
-  #tab-ytmusic .player-progress-wrap > div:first-child,
-  #tab-spotify .player-progress-wrap > div:first-child {
-    position: relative; z-index: 1;
-  }
-  .player-progress-range {
-    position: absolute; top: -5px; left: 0;
-    width: 100%; height: 14px;
-    opacity: 0; cursor: pointer; z-index: 2;
-    -webkit-appearance: none; margin: 0;
-  }
-
-  /* Premium player section full-width */
-  .player-ambient {
-    width: 100%;
-    box-sizing: border-box;
-  }
-  #tab-ytmusic .artwork-container,
-  #tab-spotify .artwork-container {
-    margin-bottom: 14px;
-  }
-
-  /* mp-empty style */
-  .mp-empty {
-    color: rgba(255,181,200,0.4);
-    font-size: 13px;
-    text-align: center;
-    padding: 16px 0;
-  }
-</style>
+<div class="call-overlay hidden" id="callOverlay"><div class="call-avatar" id="callAvatar">?</div><div class="call-name" id="callName">Calling…</div><div class="call-status" id="callStatus">connecting…</div><div class="call-actions"><button class="call-btn mute" id="callMute">🎤</button><button class="call-btn end" id="callEnd">📵</button></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 <script src="config.js"></script>
