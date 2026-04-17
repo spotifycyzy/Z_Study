@@ -56,7 +56,7 @@
 
     <!-- TABS: local/url | yt | yt music | spotify | queue -->
     <div class="mp-tabs" id="mpTabs">
-      <button class="mp-tab active" data-tab="url">📁 Local/URL</button>
+      <button class="mp-tab active" data-tab="url">🎬 ZeroFlix</button>
       <button class="mp-tab" data-tab="youtube">▶ YT</button>
       <button class="mp-tab" data-tab="ytmusic">🎵 YT Music</button>
       <button class="mp-tab" data-tab="spotify">🌐 Spotify</button>
@@ -80,6 +80,7 @@
         <div class="pmc-inner">
           <div class="pmc-artwork-wrap">
             <div class="pmc-artwork-ring"></div>
+            <div class="pmc-artwork-outline"></div>
             <img class="pmc-artwork" id="pmcArtwork" src="https://i.imgur.com/8Q5FqWj.jpeg" alt="cover"/>
             <div class="pmc-artwork-glow" id="pmcGlow"></div>
           </div>
@@ -125,12 +126,13 @@
         <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
         <button class="mp-add-btn" id="urlAddBtn">Play</button>
       </div>
-      <div class="action-buttons-row">
-        <label class="mp-file-label">
-          <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
-          <span>📁 Play Local File</span>
-        </label>
-        <button id="toggleListBtnUrl" class="mp-ep-btn">📑 View Episodes</button>
+      <!-- hidden file input kept for compat -->
+      <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none"/>
+      <div class="results-header-strip" id="urlStripRow">
+        <div class="results-glow-strip" id="urlGlowStrip"></div>
+        <button class="results-toggle-btn" id="toggleListBtnUrl" title="Toggle results">
+          <span class="rta">▼</span>
+        </button>
       </div>
       <div id="episodesOverlayUrl" class="episodes-container hidden">
         <div class="ep-header">Librarian Results</div>
@@ -145,12 +147,15 @@
         <input id="ytInput" class="mp-input" type="text" placeholder="Search YouTube or Paste link..."/>
         <button class="mp-add-btn" id="ytAddBtn">Search</button>
       </div>
-      <div class="action-buttons-row" style="justify-content:flex-end">
-        <button id="toggleListBtnYt" class="mp-ep-btn">📑 View Results</button>
+      <div class="results-header-strip" id="ytStripRow">
+        <div class="results-glow-strip" id="ytGlowStrip"></div>
+        <button class="results-toggle-btn hidden" id="toggleListBtnYt" title="Toggle results">
+          <span class="rta">▼</span>
+        </button>
       </div>
       <div id="episodesOverlayYt" class="episodes-container hidden">
         <div class="ep-header">YouTube Search Results</div>
-        <div class="yt-search-results active" id="ytSearchResults">
+        <div class="yt-search-results" id="ytSearchResults">
           <p class="mp-empty">Type something above and hit search.</p>
         </div>
       </div>
@@ -162,7 +167,13 @@
         <input id="ytmInput" class="mp-input ytm-search-input" type="text" placeholder="Search songs, artists…"/>
         <button class="mp-add-btn ytm-search-btn" id="ytmSearchBtn">🔍</button>
       </div>
-      <div id="ytmSearchResults" class="ytm-results-area">
+      <div class="results-header-strip" id="ytmStripRow">
+        <div class="results-glow-strip" id="ytmGlowStrip"></div>
+        <button class="results-toggle-btn hidden" id="toggleListBtnYtm" title="Toggle results">
+          <span class="rta">▼</span>
+        </button>
+      </div>
+      <div id="ytmSearchResults" class="ytm-results-area hidden">
         <div class="ytm-empty-state">
           <div class="ytm-empty-icon">🎵</div>
           <p>Search any song to play instantly</p>
@@ -176,10 +187,16 @@
         <input id="spInput" class="mp-input sp-search-input" type="text" placeholder="Search Global Music…"/>
         <div class="split-btn-wrap">
           <button class="mp-add-btn split-left" id="spSearchSongBtn">🎵 Song</button>
-          <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 List</button>
+          <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 Lists</button>
         </div>
       </div>
-      <div id="spSearchResults" class="sp-results-area">
+      <div class="results-header-strip" id="spStripRow">
+        <div class="results-glow-strip" id="spGlowStrip"></div>
+        <button class="results-toggle-btn hidden" id="toggleListBtnSp" title="Toggle results">
+          <span class="rta">▼</span>
+        </button>
+      </div>
+      <div id="spSearchResults" class="sp-results-area hidden">
         <div class="sp-empty-state">
           <div class="sp-empty-icon">🌐</div>
           <p>Search global music tracks</p>
