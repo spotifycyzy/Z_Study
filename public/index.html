@@ -14,32 +14,18 @@
 <body>
 <div id="blossomContainer"></div>
 
-<!-- ═══ MINI HANDLE BAR ═══ -->
 <div id="zxHandle">
-  <div class="mini-left-section">
-    <div class="mini-thumb-wrap">
-      <img id="miniThumb" src="" alt="" class="mini-thumb-img"/>
-      <div class="mini-thumb-placeholder" id="miniThumbPlaceholder">🎵</div>
-    </div>
-    <div class="mini-info">
-      <div class="mini-title-wrap">
-        <span id="miniTitle">Swipe down to open ZeroX Hub</span>
-      </div>
-      <div class="mini-artist-wrap">
-        <span id="miniArtist"></span>
-      </div>
-    </div>
-  </div>
-  <div class="mini-controls-center">
+  <div class="mini-controls">
     <button class="mp-btn" id="miniPrev">⏮</button>
     <button class="mp-btn mp-play" id="miniPlay">▶</button>
     <button class="mp-btn" id="miniNext">⏭</button>
   </div>
+  <div class="mini-info">
+    <div class="mini-title-wrap">
+      <span id="miniTitle">Swipe down to open ZeroX Hub</span>
+    </div>
+  </div>
   <div class="mini-right">
-    <button id="autoPlayToggle" class="auto-play-btn active" title="Auto Play">
-      <span class="auto-icon">🔁</span>
-      <span class="auto-label">AUTO</span>
-    </button>
     <button id="panelToggleBtn" class="z-trigger-btn" title="Open Hub">
       <div class="z-merged-logo">
         <span class="zm-h">🎧</span>
@@ -51,12 +37,10 @@
   <div class="handle-bar-line"></div>
 </div>
 
-<!-- ═══ ZX PANEL ═══ -->
 <div id="zxPanel" class="zx-closed">
   <div id="closeHandle"><div class="close-bar-line"></div></div>
 
   <div class="music-panel-inner">
-    <!-- Header -->
     <div class="zx-header" style="padding: 0 0 15px 0;">
       <span class="zx-logo">ZeroX <span>Hub</span></span>
       <div style="display:flex;gap:8px;align-items:center">
@@ -69,7 +53,6 @@
       </div>
     </div>
 
-    <!-- Player Section -->
     <div id="zxPlayerSection" class="mode-cinema">
       <div id="cinemaMode">
         <video id="nativeAudio" controls playsinline style="width:100%; max-height:220px; border-radius:12px; background:#000; display:none;"></video>
@@ -79,103 +62,22 @@
         </div>
       </div>
       <div id="spotifyMode" class="hidden">
-        <!-- Premium Now Playing Card -->
-        <div class="premium-now-playing-card" id="premiumCard">
-          <div class="pnp-bg-blur" id="pnpBgBlur"></div>
-        <div class="pnp-content">
-          <!-- Row 1: Thumb + Info + Controls -->
-          <div class="pnp-top-row">
-            <img class="pnp-thumb" id="pnpThumb" src="https://i.imgur.com/8Q5FqWj.jpeg" alt=""/>
-            <div class="pnp-info">
-              <div class="pnp-title" id="pnpTitle">Select a song</div>
-              <div class="pnp-artist" id="pnpArtist">ZeroX Hub</div>
-            </div>
-          </div>
-          <!-- Row 2: Controls -->
-          <div class="pnp-controls">
-            <button class="pnp-ctrl-btn" id="pnpPrev">⏮</button>
-            <button class="pnp-ctrl-btn pnp-play-btn" id="pnpPlay">▶</button>
-            <button class="pnp-ctrl-btn" id="pnpNext">⏭</button>
-          </div>
-          <!-- Row 3: Visualizer -->
-          <div class="music-visualizer" id="visualizer">
-            <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-            <div class="bar"></div><div class="bar"></div>
-          </div>
-        </div>
-        </div>
-        <!-- Hidden vinyl for compatibility -->
-        <div class="vinyl-record hidden" id="vinylRecord"></div>
-        <div class="music-info hidden">
+        <div class="vinyl-record" id="vinylRecord"></div>
+        <div class="music-info">
           <h2 id="musicTitle">Loading...</h2>
           <p id="musicArtist">Global Audio Stream</p>
         </div>
       </div>
     </div>
 
-    <!-- Tabs: YT Music | Spotify | Cinema | URL | Queue -->
     <div class="mp-tabs">
-      <button class="mp-tab active" data-tab="ytmusic">🎵 YT Music</button>
-      <button class="mp-tab" data-tab="spotify">🎧 Spotify</button>
-      <button class="mp-tab" data-tab="youtube">🎬 Cinema</button>
-      <button class="mp-tab" data-tab="url">🔗 URL</button>
-      <button class="mp-tab" data-tab="queue">📋 Queue</button>
+      <button class="mp-tab active" data-tab="url">Library/URL</button>
+      <button class="mp-tab" data-tab="youtube">YouTube</button>
+      <button class="mp-tab" data-tab="spotify">Global Music</button>
+      <button class="mp-tab" data-tab="queue">Queue</button>
     </div>
 
-    <!-- ═══ TAB: YT MUSIC ═══ -->
-    <div class="mp-tab-content active" id="tab-ytmusic">
-      <div class="ytm-search-row">
-        <div class="ytm-input-wrap">
-          <span class="ytm-search-icon">🎵</span>
-          <input id="ytmInput" class="ytm-input" type="text" placeholder="Search song name..."/>
-        </div>
-        <button class="ytm-play-btn" id="ytmPlayBtn">▶</button>
-      </div>
-      <!-- YT Music Now Playing + Results -->
-      <div id="ytmResultsBox" class="ytm-results-box hidden">
-        <div class="ytm-results-list" id="ytmResultsList"></div>
-      </div>
-    </div>
-
-    <!-- ═══ TAB: SPOTIFY ═══ -->
-    <div class="mp-tab-content" id="tab-spotify">
-      <div class="mp-input-row" style="margin-bottom: 8px;">
-        <input id="spInput" class="mp-input" type="text" placeholder="Search Spotify…"/>
-        <div class="split-btn-wrap">
-          <button class="mp-add-btn split-left" id="spSearchSongBtn">🎵 Song</button>
-          <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 List</button>
-        </div>
-      </div>
-      <div class="action-buttons-row" style="justify-content:flex-end">
-        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Results</button>
-      </div>
-      <div id="episodesOverlaySp" class="episodes-container hidden">
-        <div class="ep-header">Spotify Results</div>
-        <div class="yt-search-results active" id="spSearchResults">
-          <p class="mp-empty">Search a track. Plays in background.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ TAB: CINEMA (YouTube) ═══ -->
-    <div class="mp-tab-content" id="tab-youtube">
-      <div class="mp-input-row">
-        <input id="ytInput" class="mp-input" type="text" placeholder="Search YouTube or Paste link..."/>
-        <button class="mp-add-btn" id="ytAddBtn">Search</button>
-      </div>
-      <div class="action-buttons-row" style="justify-content:flex-end">
-        <button id="toggleListBtnYt" class="mp-ep-btn">📑 View Results</button>
-      </div>
-      <div id="episodesOverlayYt" class="episodes-container hidden">
-        <div class="ep-header">YouTube Search Results</div>
-        <div class="yt-search-results active" id="ytSearchResults">
-          <p class="mp-empty">Type something above and hit search.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ TAB: URL / LIBRARY ═══ -->
-    <div class="mp-tab-content" id="tab-url">
+    <div class="mp-tab-content active" id="tab-url">
       <div class="mp-input-row">
         <input id="urlInput" class="mp-input" type="text" placeholder="Search Librarian Bot or Paste URL…"/>
         <button class="mp-add-btn" id="urlAddBtn">Play</button>
@@ -195,15 +97,47 @@
       </div>
     </div>
 
-    <!-- ═══ TAB: QUEUE ═══ -->
+    <div class="mp-tab-content" id="tab-youtube">
+      <div class="mp-input-row">
+        <input id="ytInput" class="mp-input" type="text" placeholder="Search YouTube or Paste link..."/>
+        <button class="mp-add-btn" id="ytAddBtn">Search</button>
+      </div>
+      <div class="action-buttons-row" style="justify-content:flex-end">
+        <button id="toggleListBtnYt" class="mp-ep-btn">📑 View Results</button>
+      </div>
+      <div id="episodesOverlayYt" class="episodes-container hidden">
+        <div class="ep-header">YouTube Search Results</div>
+        <div class="yt-search-results active" id="ytSearchResults">
+          <p class="mp-empty">Type something above and hit search.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mp-tab-content" id="tab-spotify">
+      <div class="mp-input-row" style="margin-bottom: 8px;">
+        <input id="spInput" class="mp-input" type="text" placeholder="Search Global Music…"/>
+        <div class="split-btn-wrap">
+          <button class="mp-add-btn split-left" id="spSearchSongBtn">🎵 Song</button>
+          <button class="mp-add-btn split-right" id="spSearchPlaylistBtn">💽 List</button>
+        </div>
+      </div>
+      <div class="action-buttons-row" style="justify-content:flex-end">
+        <button id="toggleListBtnSp" class="mp-ep-btn">📑 View Results</button>
+      </div>
+      <div id="episodesOverlaySp" class="episodes-container hidden">
+        <div class="ep-header">Global Music Results</div>
+        <div class="yt-search-results active" id="spSearchResults">
+          <p class="mp-empty">Search a track. Plays in background.</p>
+        </div>
+      </div>
+    </div>
+
     <div class="mp-tab-content" id="tab-queue">
       <div class="mp-queue-list" id="queueList"><p class="mp-empty">Queue empty.</p></div>
     </div>
+  </div>
+</div>
 
-  </div><!-- end music-panel-inner -->
-</div><!-- end zxPanel -->
-
-<!-- ═══ STUDY SITE ═══ -->
 <div id="studySite">
   <nav class="study-nav">
     <div class="nav-brand"><span class="brand-icon">📚</span><span class="brand-name" id="brandName">StudyVault</span></div>
@@ -229,7 +163,6 @@
   <footer class="study-footer">© 2025 StudyVault · All notes private & encrypted</footer>
 </div>
 
-<!-- ═══ NOTES VIEWER ═══ -->
 <div id="notesViewer" class="hidden">
   <div class="notes-header">
     <button class="notes-back" id="notesBack">← Back</button>
@@ -244,7 +177,6 @@
 
 <canvas id="gestureCanvas"></canvas>
 
-<!-- ═══ CHAT APP ═══ -->
 <div id="chatApp" class="hidden">
   <div id="chatBlossoms"></div>
   <div id="unlockScreen" class="unlock-screen">
