@@ -87,7 +87,7 @@
   ══════════════════════════════════════════ */
   const RAPID_API_KEY = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   const SP81_HOST     = 'spotify81.p.rapidapi.com';
-  const YOUTUBE_API_KEY = 'AIzaSyA08-IfGc_Y2ssVCi_UarNxG-XizSkMMyY';
+  const YOUTUBE_API_KEY = 'AIzaSyALPopj_0RGYjIR6RczniDbF3RCZI3BmOA';
 
   /* ══════════════════════════════════════════
      3. STATE
