@@ -43,11 +43,10 @@
   <div class="music-panel-inner">
     <div class="zx-header">
       <span class="zx-logo">ZeroX <span>Hub</span></span>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="zx-header-spacer"></div>
+      <div class="zx-header-right">
         <span class="mp-sync-badge" id="mpSyncBadge">🔴 Solo</span>
         <button class="mp-sync-toggle-btn" id="mpSyncToggleBtn">Sync 🔗</button>
-      </div>
-      <div class="zx-header-right">
         <button class="autoplay-toggle-btn" id="autoPlayToggle" title="Auto Play">
           <span class="ap-icon">∞</span>
           <span class="ap-label">Auto</span>
@@ -75,7 +74,7 @@
         </div>
       </div>
 
-      <!-- Premium Music Card (YT Music / Spotify) -->
+      <!-- Premium Music Card — Compact Rectangular: cover LEFT, controls RIGHT -->
       <div id="premiumMusicCard" class="hidden">
         <div class="pmc-bg-blur" id="pmcBgBlur"></div>
         <div class="pmc-inner">
@@ -88,25 +87,25 @@
             <div class="pmc-source-badge" id="pmcSourceBadge">🎵 YT Music</div>
             <div class="pmc-title" id="pmcTitle">Ready to Play</div>
             <div class="pmc-artist" id="pmcArtist">Search a song below</div>
-          </div>
-          <div class="pmc-visualizer" id="pmcVisualizer">
-            <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
-            <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
-            <div class="pmc-bar"></div><div class="pmc-bar"></div>
-          </div>
-          <div class="pmc-progress-wrap">
-            <span class="pmc-time" id="pmcCurrentTime">0:00</span>
-            <div class="pmc-progress-bar" id="pmcProgressBar">
-              <div class="pmc-progress-fill" id="pmcProgressFill"></div>
-              <div class="pmc-progress-thumb" id="pmcProgressThumb"></div>
+            <div class="pmc-visualizer" id="pmcVisualizer">
+              <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
+              <div class="pmc-bar"></div><div class="pmc-bar"></div><div class="pmc-bar"></div>
+              <div class="pmc-bar"></div><div class="pmc-bar"></div>
             </div>
-            <span class="pmc-time" id="pmcDuration">0:00</span>
           </div>
           <div class="pmc-controls">
             <button class="pmc-btn pmc-prev" id="pmcPrev">⏮</button>
             <button class="pmc-btn pmc-play-main" id="pmcPlayMain">▶</button>
             <button class="pmc-btn pmc-next" id="pmcNext">⏭</button>
           </div>
+        </div>
+        <div class="pmc-progress-row">
+          <span class="pmc-time" id="pmcCurrentTime">0:00</span>
+          <div class="pmc-progress-bar" id="pmcProgressBar">
+            <div class="pmc-progress-fill" id="pmcProgressFill"></div>
+            <div class="pmc-progress-thumb" id="pmcProgressThumb"></div>
+          </div>
+          <span class="pmc-time right" id="pmcDuration">0:00</span>
         </div>
       </div>
 
