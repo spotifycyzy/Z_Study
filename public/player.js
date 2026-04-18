@@ -90,6 +90,8 @@
   let autoPlayFetching = false;
   const prefetchCache = new Map();
   const playedKeys    = new Set();
+  // Clear session tracking when user picks a new song manually
+  function clearSessionKeys() { playedKeys.clear(); }
 
   function setRemoteAction() {
     isRemoteAction = true;
@@ -199,9 +201,24 @@
     document.addEventListener(ev, () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
       document.body.classList.toggle('is-fullscreen', isFs);
-      if (isFs && ytFrameWrap) {
-        const iframe = ytFrameWrap.querySelector('iframe');
+      const iframe = ytFrameWrap ? ytFrameWrap.querySelector('iframe') : null;
+      if (isFs) {
         if (iframe) { iframe.style.width = '100vw'; iframe.style.height = '100vh'; }
+      } else {
+        // FIX: Restore iframe to container on exit — prevents black screen
+        if (iframe) {
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          // Force GPU repaint — the key to eliminating the black screen
+          iframe.style.display = 'none';
+          // eslint-disable-next-line no-unused-expressions
+          iframe.offsetHeight; // trigger reflow
+          iframe.style.display = '';
+        }
+        // Also re-show the panel wrap correctly
+        if (ytFrameWrap) {
+          ytFrameWrap.style.display = 'block';
+        }
       }
     });
   });
@@ -232,7 +249,7 @@
           const thumb = vid.thumbnail?.[1]?.url || vid.thumbnail?.[0]?.url || '';
           const div = document.createElement('div'); div.className = 'yt-search-item';
           div.innerHTML = `<img src="${thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${vid.title||''}</div><div class="yt-search-sub">${vid.channelTitle||''}</div></div><span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>`;
-          div.onclick = () => { queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.title||'', ytId: vid.videoId, thumb }); showToast('▶ Playing!'); };
+          div.onclick = () => { clearSessionKeys(); queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.title||'', ytId: vid.videoId, thumb }); showToast('▶ Playing!'); };
           ytSearchResultsEl.appendChild(div);
         });
       }).catch(() => { if (ytSearchResultsEl) ytSearchResultsEl.innerHTML = '<p class="mp-empty">Error fetching results.</p>'; });
@@ -244,26 +261,29 @@
   if (urlAddBtn) urlAddBtn.addEventListener('click', () => {
     const v = urlInput.value.trim(); if (!v) return;
     if (isYouTubeUrl(v)) { loadYouTube(v); urlInput.value = ''; }
-    else if (v.startsWith('http')) { queue = []; currentIdx = 0; addToQueue({ type: 'stream', title: 'Cloud Media', url: v }); urlInput.value = ''; }
+    else if (v.startsWith('http')) { clearSessionKeys(); queue = []; currentIdx = 0; addToQueue({ type: 'stream', title: 'Cloud Media', url: v }); urlInput.value = ''; }
   });
   if (fileInput) fileInput.addEventListener('change', () => {
     const file = fileInput.files[0]; if (!file) return;
-    queue = []; currentIdx = 0; addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
+    clearSessionKeys(); queue = []; currentIdx = 0; addToQueue({ type: 'stream', title: file.name, url: URL.createObjectURL(file) });
   });
 
   function isYouTubeUrl(url) { return /youtu\.?be|youtube\.com/.test(url); }
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
-  function loadYouTube(url) { const id = extractYouTubeId(url); if (!id) { showToast('❌ Invalid YouTube link!'); return; } queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id }); }
+  function loadYouTube(url) { const id = extractYouTubeId(url); if (!id) { showToast('❌ Invalid YouTube link!'); return; } clearSessionKeys(); queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id }); }
 
   /* ═══════════════════════ 9. AUDIO EXTRACTION ═══════════════════════ */
   async function fetchPremiumAudio(spId) {
+    dbg('SP81', 'Fetching Spotify audio for spId: ' + spId, '#1db954');
     try {
       const res = await fetch(`https://${SP81_HOST}/download_track?q=${spId}&onlyLinks=true`, {
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
       });
       const result = await res.json();
-      return Array.isArray(result) ? (result[0]?.url || result[0]?.link) : (result.url || result.link || result.downloadUrl);
-    } catch { return null; }
+      const url = Array.isArray(result) ? (result[0]?.url || result[0]?.link) : (result.url || result.link || result.downloadUrl);
+      dbg('SP81', url ? '✅ Got URL: ' + url.slice(0,50) + '…' : '❌ No URL returned', url ? '#7ADB8A' : '#ff4444');
+      return url;
+    } catch(e) { dbg('SP81', '❌ Exception: ' + e.message, '#ff4444'); return null; }
   }
 
   async function searchYTMusicAudio(query) {
@@ -282,6 +302,7 @@
   }
 
   async function extractYTAudioUrl(ytId) {
+    dbg('YTAUDIO', 'Extractor1: ytstream for ytId ' + ytId, '#ff9944');
     try {
       const res = await fetch(`https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${ytId}`, {
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'ytstream-download-youtube-videos.p.rapidapi.com' }
@@ -369,7 +390,9 @@
 
   async function triggerAutoPlayLoad(title, artist) {
     if (autoPlayFetching) return;
-    autoPlayFetching = true; showToast('🎵 Loading next vibes…');
+    autoPlayFetching = true;
+    dbg('AUTOPLAY', 'Fetching vibes for: ' + title + ' – ' + (artist||''), '#ffaa44');
+    showToast('🎵 Loading next vibes…');
     const songs = await fetchVibeNextSongs(title, artist, 5);
     if (!songs.length) { autoPlayFetching = false; return; }
     songs.forEach(song => {
@@ -456,7 +479,7 @@
         } else if (isArtist) {
           showToast('👤 Artist profile — search a track name instead');
         } else {
-          activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
+          activeSrcTab = 'spotify'; clearSessionKeys(); queue = []; currentIdx = 0;
           addToQueue({ type: 'spotify_yt', title: data.name, artist: data.artist, spId: data.iId, thumb: data.thumb, key: k });
           document.querySelectorAll('.sp-list-item').forEach(c => c.classList.remove('playing'));
           div.classList.add('playing'); showToast('🎵 Preparing stream...');
@@ -516,7 +539,7 @@
           <span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>
         `;
         div.onclick = () => {
-          activeSrcTab = 'ytmusic'; queue = []; currentIdx = 0;
+          activeSrcTab = 'ytmusic'; clearSessionKeys(); queue = []; currentIdx = 0;
           addToQueue({ type: 'ytmusic', title: t, artist: a, ytId, thumb, key: k });
           document.querySelectorAll('.ytm-list-item').forEach(c => c.classList.remove('playing'));
           div.classList.add('playing'); showToast('🎵 Preparing stream...');
@@ -571,6 +594,7 @@
   }
 
   function renderMedia(item) {
+    dbg('RENDER', 'renderMedia → type:' + item.type + ' title:' + item.title.slice(0,30), '#B450FF');
     nativeAudio.pause(); nativeAudio.removeAttribute('src'); nativeAudio.srcObject = null; nativeAudio.style.display='none';
     ytFrameWrap.style.display = 'none';
     if (ytPlayer&&isYtReady&&typeof ytPlayer.pauseVideo==='function') ytPlayer.pauseVideo();
@@ -719,6 +743,87 @@
   };
 
   /* ═══════════════════════ INIT ═══════════════════════ */
+
+  /* ── DEBUG PANEL ── */
+  const MAX_DBG = 60;
+  const dbgLines = [];
+  let dbgVisible = false;
+
+  function dbg(tag, msg, color) {
+    const now = new Date();
+    const ts = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+    const entry = { ts, tag: tag || 'INFO', msg: String(msg), color: color || '#FFB5C8' };
+    dbgLines.push(entry);
+    if (dbgLines.length > MAX_DBG) dbgLines.shift();
+    renderDbg();
+    console.log(`[ZX ${entry.tag}] ${entry.msg}`);
+  }
+
+  function renderDbg() {
+    const el = document.getElementById('zxDebugLog');
+    if (!el || !dbgVisible) return;
+    el.innerHTML = dbgLines.slice().reverse().map(e =>
+      `<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)">` +
+      `<span style="color:rgba(255,255,255,0.3);font-size:9px;margin-right:5px">${e.ts}</span>` +
+      `<span style="color:rgba(180,80,255,0.8);font-size:9px;margin-right:4px">[${e.tag}]</span>` +
+      `<span style="color:${e.color};font-size:10px;word-break:break-all">${e.msg}</span>` +
+      `</div>`
+    ).join('');
+  }
+
+  // Inject debug panel into DOM
+  (function injectDebugPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'zxDebugPanel';
+    panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99998;background:rgba(5,0,8,0.97);border-top:1px solid rgba(180,80,255,0.25);font-family:JetBrains Mono,monospace;max-height:0;transition:max-height 0.3s ease;overflow:hidden;';
+    panel.innerHTML = `
+      <div id="zxDebugToggle" style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px;cursor:pointer;border-bottom:1px solid rgba(180,80,255,0.12);">
+        <span style="font-size:10px;font-weight:700;color:rgba(180,80,255,0.7);letter-spacing:0.1em;">🛠 DEBUG LOG</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="zxDebugCount" style="font-size:9px;color:rgba(255,255,255,0.3)">0 entries</span>
+          <button id="zxDebugClear" style="font-size:9px;background:rgba(232,67,106,0.12);border:1px solid rgba(232,67,106,0.25);border-radius:4px;color:#E8436A;cursor:pointer;padding:1px 6px">clear</button>
+          <span id="zxDebugArrow" style="font-size:10px;color:rgba(255,255,255,0.4)">▲</span>
+        </div>
+      </div>
+      <div id="zxDebugLog" style="padding:6px 10px;max-height:200px;overflow-y:auto;"></div>
+    `;
+    document.body.appendChild(panel);
+
+    const toggle = document.getElementById('zxDebugToggle');
+    const arrow = document.getElementById('zxDebugArrow');
+    const count = document.getElementById('zxDebugCount');
+    const clearBtn = document.getElementById('zxDebugClear');
+
+    toggle.addEventListener('click', (e) => {
+      if (e.target === clearBtn || clearBtn.contains(e.target)) return;
+      dbgVisible = !dbgVisible;
+      panel.style.maxHeight = dbgVisible ? '240px' : '0';
+      arrow.textContent = dbgVisible ? '▼' : '▲';
+      if (dbgVisible) { renderDbg(); }
+    });
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dbgLines.length = 0;
+      const el = document.getElementById('zxDebugLog');
+      if (el) el.innerHTML = '';
+    });
+
+    // Keep count updated
+    setInterval(() => {
+      if (count) count.textContent = dbgLines.length + ' entries';
+    }, 500);
+  })();
+
+  // Patch audio events to log
+  nativeAudio.addEventListener('play',  () => dbg('AUDIO', '▶ play — src: ' + (nativeAudio.src ? nativeAudio.src.slice(0,60) + '…' : 'none'), '#7ADB8A'));
+  nativeAudio.addEventListener('pause', () => dbg('AUDIO', '⏸ paused at ' + nativeAudio.currentTime.toFixed(1) + 's', '#FFB5C8'));
+  nativeAudio.addEventListener('ended', () => dbg('AUDIO', '⏹ ended', '#aaa'));
+  nativeAudio.addEventListener('error', () => dbg('AUDIO', '❌ error: ' + (nativeAudio.error?.message || 'unknown'), '#ff4444'));
+  nativeAudio.addEventListener('stalled', () => dbg('AUDIO', '⚠️ stalled (network slow?)', '#ffaa44'));
+  nativeAudio.addEventListener('waiting', () => dbg('AUDIO', '⏳ waiting/buffering', '#ffaa44'));
+
+  dbg('INIT', 'ZeroX Hub loaded ✓', '#7ADB8A');
+
   renderQueue();
 
 })();
