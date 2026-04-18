@@ -325,7 +325,8 @@ function handleIncoming(msg) {
       break;
 
     case 'musicSync':
-      if (window._zxReceiveSync) window._zxReceiveSync(msg);
+      // Forward all musicSync messages to the player
+      if (typeof window._zxReceiveSync === 'function') window._zxReceiveSync(msg);
       break;
 
     case 'callRequest': handleIncomingCall(msg); break;
@@ -834,7 +835,11 @@ callMute.addEventListener('click', () => {
 /* ════════════════════════════════════════════════════════
    MUSIC SYNC
 ════════════════════════════════════════════════════════ */
-window._zxSendSync = data => send(data);  
+// _zxSendSync: always available — queues if WS not ready
+window._zxSendSync = data => {
+  if (connected) send(data);
+  // If not connected, silently drop (sync will re-request on reconnect)
+};
 
 /* ════════════════════════════════════════════════════════
    UTILS
