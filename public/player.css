@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.css (v7)
+   ZEROX HUB — player.css (v8)
    ✅ Fix 1: YTM/Spotify search bars = pixel-identical to YT bar
    ✅ Fix 2: Auto-play plays immediately (JS fix, CSS unchanged)
    ✅ Fix 3: Spotify best-match order + playlist cover images
    ✅ Fix 4: Background audio debug improvements
    ✅ Debug panel always visible at bottom
+   ✅ Fix 5: YTM & Spotify search row/button fully unified with YT
 ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. MINI HANDLE BAR ── */
@@ -232,23 +233,24 @@
 .mp-tab-content.active { display: block; }
 
 /* ══════════════════════════════════════════════════════════
-   FIX 1 — UNIFORM SEARCH BAR ROW
-   All three sections (YT, YTM, Spotify) use the EXACT same
-   visual spec: full-width input + single pink button on right.
-   The Spotify split-btn is the same height and colour family.
+   UNIFIED SEARCH BAR ROW — YT / YTM / Spotify
+   All three sections use the EXACT same layout:
+   [  input field (flex: 1)  ][  button(s) flush right  ]
+   Height locked to 42px. No gaps. Borders join cleanly.
 ══════════════════════════════════════════════════════════ */
 
-/* Container row — identical for all sections */
+/* ── Container row — identical for ALL sections ── */
 .mp-input-row {
   display: flex;
-  gap: 0;                   /* no gap — button is flush with input */
+  gap: 0;
   margin-bottom: 8px;
   align-items: stretch;
   width: 100%;
-  height: 42px;             /* locked height */
+  height: 42px;
+  box-sizing: border-box;
 }
 
-/* Text input — same across all sections */
+/* ── Text input — same across YT / YTM / Spotify ── */
 .mp-input {
   flex: 1;
   min-width: 0;
@@ -256,7 +258,7 @@
   padding: 0 12px;
   background: rgba(30,0,18,0.6);
   border: 1px solid rgba(232,67,106,0.22);
-  border-right: none;       /* no right border — button is adjacent */
+  border-right: none;
   border-radius: 11px 0 0 11px;
   color: #fff;
   outline: none;
@@ -264,6 +266,9 @@
   font-size: 13px;
   transition: border-color 0.2s;
   box-sizing: border-box;
+  /* Reset any margin/padding that could shift row height */
+  margin: 0;
+  vertical-align: top;
 }
 .mp-input:focus {
   border-color: #E8436A;
@@ -271,7 +276,25 @@
 }
 .mp-input::placeholder { color: rgba(255,181,200,0.35); }
 
-/* Primary button (YT & YTM) — pink gradient, flush right */
+/* ── YTM input colour tint (keep accent, same geometry) ── */
+.ytm-input.mp-input {
+  border-color: rgba(255,55,55,0.22);
+}
+.ytm-input.mp-input:focus {
+  border-color: #ff4444;
+  border-right: none;
+}
+
+/* ── Spotify input colour tint ── */
+.sp-input.mp-input {
+  border-color: rgba(29,185,84,0.22);
+}
+.sp-input.mp-input:focus {
+  border-color: #1db954;
+  border-right: none;
+}
+
+/* ── Primary single button — YT & YTM ── */
 .mp-add-btn {
   flex-shrink: 0;
   height: 42px;
@@ -291,30 +314,41 @@
   justify-content: center;
   transition: filter 0.15s, transform 0.1s;
   box-sizing: border-box;
+  margin: 0;
+  line-height: 1;
 }
 .mp-add-btn:hover  { filter: brightness(1.12); }
 .mp-add-btn:active { transform: scale(0.97); }
 
+/* ── YTM single button colour override ── */
+.ytm-add-btn.mp-add-btn {
+  background: linear-gradient(135deg, #ff4444, #cc0000);
+  border-color: rgba(255,55,55,0.5);
+}
+
 /* ── Spotify split-button (Song | Playlist) ──
-   Same height and position as the single YT/YTM button.
-   Left half = pink (song search), right half = green (playlist).
-   Together they occupy the same slot as mp-add-btn.          */
+   Sits in the SAME slot as mp-add-btn.
+   The wrapper is flex so both halves share 42px height.      */
 .split-btn-wrap {
   display: flex;
   flex-shrink: 0;
   height: 42px;
   border-radius: 0 11px 11px 0;
-  overflow: hidden;         /* clip inner border-radii */
+  overflow: hidden;
+  margin: 0;
+  box-sizing: border-box;
 }
 
+/* Left half — Song search (pink, matches YT palette) */
 .split-left {
+  flex-shrink: 0;
   height: 42px;
-  padding: 0 12px;
+  padding: 0 13px;
   background: linear-gradient(135deg, #E8436A, #C2005F);
   border: 1px solid rgba(232,67,106,0.5);
   border-left: none;
   border-right: 1px solid rgba(255,255,255,0.18);
-  border-radius: 0;         /* parent clips corners */
+  border-radius: 0;
   color: #fff;
   font-weight: 700;
   font-family: 'Sora', sans-serif;
@@ -326,12 +360,17 @@
   justify-content: center;
   transition: filter 0.15s;
   box-sizing: border-box;
+  line-height: 1;
+  margin: 0;
 }
 .split-left:hover  { filter: brightness(1.12); }
+.split-left:active { filter: brightness(0.92); }
 
+/* Right half — Playlist search (Spotify green) */
 .split-right {
+  flex-shrink: 0;
   height: 42px;
-  padding: 0 12px;
+  padding: 0 13px;
   background: linear-gradient(135deg, #1db954, #148f40);
   border: 1px solid rgba(29,185,84,0.5);
   border-left: none;
@@ -347,8 +386,11 @@
   justify-content: center;
   transition: filter 0.15s;
   box-sizing: border-box;
+  line-height: 1;
+  margin: 0;
 }
-.split-right:hover { filter: brightness(1.12); }
+.split-right:hover  { filter: brightness(1.12); }
+.split-right:active { filter: brightness(0.92); }
 
 /* ── RESULTS HEADER STRIP + TOGGLE ── */
 .results-header-strip {
