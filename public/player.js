@@ -81,7 +81,7 @@
   /* ═══════════════════════ 2. API CONFIG ═══════════════════════ */
   const RAPID_API_KEY   = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   const SP81_HOST       = 'spotify81.p.rapidapi.com';
-  const YOUTUBE_API_KEY = 'AIzaSyALPopj_0RGYjIR6RczniDbF3RCZI3BmOA'; // updated key
+  // YouTube API replaced by youtube-v3-alternative RapidAPI
 
   /* ═══════════════════════ 3. STATE ═══════════════════════ */
   let queue          = [];
@@ -121,11 +121,14 @@
     if (isPanelOpen) return; isPanelOpen = true;
     panel.classList.add('zx-open'); document.body.style.overflow = 'hidden';
     if (panelToggleBtn) panelToggleBtn.classList.add('active');
+    // Pause heavy background animations while player is open
+    document.getElementById('chatApp')?.classList.add('player-open');
   }
   function closePanel() {
     if (!isPanelOpen) return; isPanelOpen = false;
     panel.classList.remove('zx-open'); document.body.style.overflow = '';
     if (panelToggleBtn) panelToggleBtn.classList.remove('active');
+    document.getElementById('chatApp')?.classList.remove('player-open');
   }
   handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
   handle.addEventListener('touchmove',  e => { if (!isPanelOpen && e.touches[0].clientY - startY > 15) openPanel(); }, { passive: true });
@@ -245,19 +248,23 @@
     if (episodesOverlayYt) showResultsArea(episodesOverlayYt, toggleListBtnYt);
     if (toggleListBtnYt) toggleListBtnYt.classList.remove('hidden');
 
-    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`)
+    fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query)}&geo=IN&lang=en&type=video`, {
+        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' }
+      })
       .then(r => r.json())
       .then(data => {
         if (!ytSearchResultsEl) return;
         ytSearchResultsEl.innerHTML = '';
-        if (!data.items || data.items.length === 0) { ytSearchResultsEl.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
-        data.items.forEach(vid => {
+        const items = data.data || [];
+        if (!items.length) { ytSearchResultsEl.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
+        items.forEach(vid => {
+          const thumb = vid.thumbnail?.[1]?.url || vid.thumbnail?.[0]?.url || '';
           const div = document.createElement('div'); div.className = 'yt-search-item';
-          div.innerHTML = `<img src="${vid.snippet.thumbnails.medium.url}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${vid.snippet.title}</div><div class="yt-search-sub">${vid.snippet.channelTitle}</div></div><span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>`;
-          div.onclick = () => { queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.snippet.title, ytId: vid.id.videoId, thumb: vid.snippet.thumbnails.high?.url || vid.snippet.thumbnails.medium.url }); showToast('▶ Playing!'); };
+          div.innerHTML = `<img src="${thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${vid.title||''}</div><div class="yt-search-sub">${vid.channelTitle||''}</div></div><span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>`;
+          div.onclick = () => { queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.title||'', ytId: vid.videoId, thumb }); showToast('▶ Playing!'); };
           ytSearchResultsEl.appendChild(div);
         });
-      }).catch(() => { if (ytSearchResultsEl) ytSearchResultsEl.innerHTML = '<p class="mp-empty">Error. Check API quota.</p>'; });
+      }).catch(() => { if (ytSearchResultsEl) ytSearchResultsEl.innerHTML = '<p class="mp-empty">Error fetching results.</p>'; });
   }
 
   if (ytAddBtn) ytAddBtn.onclick = () => { const v = ytInput.value.trim(); if (!v) return; if (isYouTubeUrl(v)) { loadYouTube(v); ytInput.value = ''; return; } searchYouTube(v); ytInput.value = ''; };
@@ -290,18 +297,19 @@
     } catch { return null; }
   }
 
-  // Search YT for audio-only video (music category, medium duration = no shorts)
+  // Search YT using alternative API (no quota issues)
   async function searchYTMusicAudio(query) {
     try {
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&q=${encodeURIComponent(query + ' official audio')}&type=video&videoCategoryId=10&videoDuration=medium&key=${YOUTUBE_API_KEY}`);
+      const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query + ' official audio')}&geo=IN&lang=en&type=video`, {
+        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' }
+      });
       const d = await r.json();
-      if (!d.items?.length) return null;
-      const items = d.items.filter(i => {
-        const t = (i.snippet.title || '').toLowerCase();
+      const items = (d.data || []).filter(i => {
+        const t = (i.title || '').toLowerCase();
         return !t.includes('#short') && !t.includes('shorts') && !t.includes('m4a') && !t.includes('reels');
       });
       if (!items.length) return null;
-      return { ytId: items[0].id.videoId, title: items[0].snippet.title, channel: items[0].snippet.channelTitle, thumb: items[0].snippet.thumbnails.high?.url || items[0].snippet.thumbnails.medium.url };
+      return { ytId: items[0].videoId, title: items[0].title, channel: items[0].channelTitle || '', thumb: items[0].thumbnail?.[1]?.url || items[0].thumbnail?.[0]?.url || '' };
     } catch { return null; }
   }
 
@@ -410,11 +418,13 @@
     for (const q of queries) {
       if (collected.length >= count*2) break;
       try {
-        const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(q)}&type=video&videoCategoryId=10&videoDuration=medium&key=${YOUTUBE_API_KEY}`);
+        const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(q)}&geo=IN&lang=en&type=video`, {
+          headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' }
+        });
         const d = await r.json();
-        if (!d.items) continue;
-        for (const item of d.items) {
-          const t2 = item.snippet.title, a2 = item.snippet.channelTitle;
+        if (!d.data) continue;
+        for (const item of d.data) {
+          const t2 = item.title||'', a2 = item.channelTitle||'';
           const tl = t2.toLowerCase();
           if (tl.includes('#short')||tl.includes('shorts')||tl.includes('m4a')||tl.includes('reels')||a2.toLowerCase().includes('- topic')) continue;
           const k = songKey(t2, a2);
@@ -423,7 +433,8 @@
           const t2clean  = t2.toLowerCase().replace(/\s+/g,' ').replace(/\(.*?\)/g,'').trim();
           if (t2clean.includes(curClean.split(' ')[0]) && curClean.includes(t2clean.split(' ')[0])) continue;
           seenKeys.add(k);
-          collected.push({ ytId: item.id.videoId, title: t2, artist: a2, thumb: item.snippet.thumbnails.high?.url||item.snippet.thumbnails.medium.url, key: k });
+          const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
+          collected.push({ ytId: item.videoId, title: t2, artist: a2, thumb, key: k });
           if (collected.length >= count*2) break;
         }
       } catch { /* skip */ }
@@ -609,16 +620,19 @@
     if (toggleListBtnYtm) toggleListBtnYtm.classList.remove('hidden');
 
     try {
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${encodeURIComponent(query+' song')}&type=video&videoCategoryId=10&videoDuration=medium&key=${YOUTUBE_API_KEY}`);
+      const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query+' song')}&geo=IN&lang=en&type=video`, {
+        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' }
+      });
       const d = await r.json();
       ytmResultsArea.innerHTML = '';
-      if (!d.items?.length) { ytmResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
-      d.items.forEach(item => {
-        const t = item.snippet.title, a = item.snippet.channelTitle;
+      const items2 = d.data || [];
+      if (!items2.length) { ytmResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
+      items2.forEach(item => {
+        const t = item.title||'', a = item.channelTitle||'';
         const tl = t.toLowerCase();
         if (tl.includes('#short')||tl.includes('m4a')||tl.includes('reels')) return;
-        const thumb = item.snippet.thumbnails.high?.url||item.snippet.thumbnails.medium.url;
-        const ytId = item.id.videoId, k = songKey(t, a);
+        const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
+        const ytId = item.videoId, k = songKey(t, a);
         const card = document.createElement('div'); card.className = 'ytm-card'; card.dataset.key = k;
         card.innerHTML = `
           <img src="${thumb}" class="ytm-card-thumb" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
