@@ -1,15 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (v4 — Final 2026)
-   ✅ New YouTube API key
-   ✅ Audio fetch fixed — multi-fallback chain (no more "failed" skip loop)
-   ✅ Spotify Lists button shows ONLY playlists
-   ✅ Results hidden by default, show on search, arrow toggles
-   ✅ Glowing colour-cycling strip per section
-   ✅ YT fullscreen — no black gaps
-   ✅ Sync works for YT Music + Spotify
-   ✅ Rotating ring removed, glow outline only
-   ✅ ZeroFlix tab (was Local/URL)
-   ✅ All original features preserved
+   ZEROX HUB — player.js (v5 — UI Clean & Background Fix)
+   ✅ Background Audio Alive (Media Session Playback State)
+   ✅ Clean List Format for YT Music & Spotify Results
+   ✅ No overlap issues, fully responsive
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -81,7 +74,6 @@
   /* ═══════════════════════ 2. API CONFIG ═══════════════════════ */
   const RAPID_API_KEY   = '48b3796227msh11226a69f8bf139p15da4bjsnb39e7e99f0be';
   const SP81_HOST       = 'spotify81.p.rapidapi.com';
-  // YouTube API replaced by youtube-v3-alternative RapidAPI
 
   /* ═══════════════════════ 3. STATE ═══════════════════════ */
   let queue          = [];
@@ -121,7 +113,6 @@
     if (isPanelOpen) return; isPanelOpen = true;
     panel.classList.add('zx-open'); document.body.style.overflow = 'hidden';
     if (panelToggleBtn) panelToggleBtn.classList.add('active');
-    // Pause heavy background animations while player is open
     document.getElementById('chatApp')?.classList.add('player-open');
   }
   function closePanel() {
@@ -158,7 +149,6 @@
     document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  /* ═══════════════════════ 5b. RESULTS TOGGLE LOGIC ═══════════════════════ */
   function setupToggleBtn(btn, area) {
     if (!btn || !area) return;
     btn.addEventListener('click', e => {
@@ -167,29 +157,16 @@
       btn.classList.toggle('results-open', !nowHidden);
     });
   }
-
   function showResultsArea(area, btn) {
     if (!area) return;
     area.classList.remove('hidden');
     if (btn) btn.classList.add('results-open');
   }
 
-  // Wire URL toggle
-  if (toggleListBtnUrl && episodesOverlayUrl) {
-    setupToggleBtn(toggleListBtnUrl, episodesOverlayUrl);
-  }
-  // Wire YT toggle — shown only after search
-  if (toggleListBtnYt && episodesOverlayYt) {
-    setupToggleBtn(toggleListBtnYt, episodesOverlayYt);
-  }
-  // Wire YTM toggle
-  if (toggleListBtnYtm && ytmResultsArea) {
-    setupToggleBtn(toggleListBtnYtm, ytmResultsArea);
-  }
-  // Wire Spotify toggle
-  if (toggleListBtnSp && spResultsArea) {
-    setupToggleBtn(toggleListBtnSp, spResultsArea);
-  }
+  if (toggleListBtnUrl && episodesOverlayUrl) setupToggleBtn(toggleListBtnUrl, episodesOverlayUrl);
+  if (toggleListBtnYt && episodesOverlayYt) setupToggleBtn(toggleListBtnYt, episodesOverlayYt);
+  if (toggleListBtnYtm && ytmResultsArea) setupToggleBtn(toggleListBtnYtm, ytmResultsArea);
+  if (toggleListBtnSp && spResultsArea) setupToggleBtn(toggleListBtnSp, spResultsArea);
 
   /* ═══════════════════════ 6. SYNC ═══════════════════════ */
   if (mpSyncToggleBtn) {
@@ -218,18 +195,13 @@
     });
   };
 
-  // Fullscreen fix — listen for fullscreen change and adjust body class
   ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach(ev => {
     document.addEventListener(ev, () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
       document.body.classList.toggle('is-fullscreen', isFs);
-      // Force iframe to fill screen
       if (isFs && ytFrameWrap) {
         const iframe = ytFrameWrap.querySelector('iframe');
-        if (iframe) {
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-        }
+        if (iframe) { iframe.style.width = '100vw'; iframe.style.height = '100vh'; }
       }
     });
   });
@@ -244,7 +216,6 @@
   function searchYouTube(query) {
     if (!query) return;
     if (ytSearchResultsEl) ytSearchResultsEl.innerHTML = '<div class="mp-loading-pulse">Searching…</div>';
-    // Show the area + toggle btn
     if (episodesOverlayYt) showResultsArea(episodesOverlayYt, toggleListBtnYt);
     if (toggleListBtnYt) toggleListBtnYt.classList.remove('hidden');
 
@@ -284,9 +255,7 @@
   function extractYouTubeId(url) { const m = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; }
   function loadYouTube(url) { const id = extractYouTubeId(url); if (!id) { showToast('❌ Invalid YouTube link!'); return; } queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: 'YouTube Video', ytId: id }); }
 
-  /* ═══════════════════════ 9. AUDIO EXTRACTION — FIXED ═══════════════════════ */
-
-  // SP81 premium audio (Spotify track download)
+  /* ═══════════════════════ 9. AUDIO EXTRACTION ═══════════════════════ */
   async function fetchPremiumAudio(spId) {
     try {
       const res = await fetch(`https://${SP81_HOST}/download_track?q=${spId}&onlyLinks=true`, {
@@ -297,7 +266,6 @@
     } catch { return null; }
   }
 
-  // Search YT using alternative API (no quota issues)
   async function searchYTMusicAudio(query) {
     try {
       const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query + ' official audio')}&geo=IN&lang=en&type=video`, {
@@ -313,9 +281,7 @@
     } catch { return null; }
   }
 
-  // Extract audio URL from YouTube video ID — multi-fallback, no m4a limit issues
   async function extractYTAudioUrl(ytId) {
-    // ── Method 1: ytstream RapidAPI ──
     try {
       const res = await fetch(`https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${ytId}`, {
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'ytstream-download-youtube-videos.p.rapidapi.com' }
@@ -323,92 +289,54 @@
       const data = await res.json();
       if (data.formats) {
         const fmts = Object.values(data.formats);
-        // Prefer audio-only formats
         const audioOnly = fmts.filter(f => f.url && (f.mimeType?.includes('audio') || (f.audioQuality && !f.qualityLabel)));
-        if (audioOnly.length) {
-          audioOnly.sort((a, b) => parseInt(b.bitrate || 0) - parseInt(a.bitrate || 0));
-          return audioOnly[0].url;
-        }
-        // Fallback to any format with url
-        const any = fmts.find(f => f.url);
-        if (any) return any.url;
+        if (audioOnly.length) { audioOnly.sort((a, b) => parseInt(b.bitrate || 0) - parseInt(a.bitrate || 0)); return audioOnly[0].url; }
+        const any = fmts.find(f => f.url); if (any) return any.url;
       }
       if (data.url) return data.url;
-    } catch { /* try next */ }
+    } catch { /* skip */ }
 
-    // ── Method 2: SP81 m4a extractor (still alive) ──
     try {
-      const res2 = await fetch(`https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true`, {
-        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST }
-      });
-      const d2 = await res2.json();
-      const url2 = Array.isArray(d2) ? (d2[0]?.url || d2[0]?.link) : (d2.url || d2.link);
+      const res2 = await fetch(`https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
+      const d2 = await res2.json(); const url2 = Array.isArray(d2) ? (d2[0]?.url || d2[0]?.link) : (d2.url || d2.link);
       if (url2) return url2;
-    } catch { /* try next */ }
+    } catch { /* skip */ }
 
-    // ── Method 3: yt-download via different rapid host ──
     try {
-      const res3 = await fetch(`https://yt-api.p.rapidapi.com/dl?id=${ytId}`, {
-        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'yt-api.p.rapidapi.com' }
-      });
+      const res3 = await fetch(`https://yt-api.p.rapidapi.com/dl?id=${ytId}`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'yt-api.p.rapidapi.com' } });
       const d3 = await res3.json();
       if (d3.formats) {
         const af = Object.values(d3.formats).filter(f => f.url && f.mimeType?.includes('audio'));
         if (af.length) return af[0].url;
-        const any = Object.values(d3.formats).find(f => f.url);
-        if (any) return any.url;
+        const any = Object.values(d3.formats).find(f => f.url); if (any) return any.url;
       }
       if (d3.url) return d3.url;
-    } catch { /* try next */ }
-
-    // ── Method 4: Fallback — use YouTube iframe directly in nativeAudio via embed trick ──
-    // Return null and let caller use iframe fallback
+    } catch { /* skip */ }
     return null;
   }
 
-  // If audio URL fails, fallback to YT iframe (video embedded, audio plays)
   async function playWithIframeFallback(item) {
-    // Show YT iframe as fallback for ytmusic/spotify when audio url fails
-    showCinemaMode();
-    ytFrameWrap.style.display = 'block';
+    showCinemaMode(); ytFrameWrap.style.display = 'block';
     if (item.ytId) {
       if (isYtReady) ytPlayer.loadVideoById(item.ytId);
       else setTimeout(() => { if (isYtReady) ytPlayer.loadVideoById(item.ytId); }, 800);
-      setTrackInfo(item.title, item.artist || 'Audio');
-      setupMediaSession(item);
-      showToast('🎵 Playing via YT fallback');
+      setTrackInfo(item.title, item.artist || 'Audio'); setupMediaSession(item);
+      showToast('⚠️ Playing via Video fallback (Background pause likely)');
     }
   }
 
-  function songKey(title, artist) {
-    return (title + '__' + (artist || '')).toLowerCase().replace(/\s+/g,' ').replace(/\(.*?\)/g,'').replace(/\[.*?\]/g,'').trim();
-  }
+  function songKey(title, artist) { return (title + '__' + (artist || '')).toLowerCase().replace(/\s+/g,' ').replace(/\(.*?\)/g,'').replace(/\[.*?\]/g,'').trim(); }
 
-  /* ═══════════════════════ 10. SMART AUTO-PLAY 2026 ═══════════════════════ */
+  /* ═══════════════════════ 10. SMART AUTO-PLAY ═══════════════════════ */
   function buildVibeQueries(title, artist) {
     const clean = s => s.replace(/\(.*?\)|\[.*?\]/g,'').replace(/ft\.?.*/i,'').trim();
     const t = clean(title), a = clean(artist || ''), full = (t+' '+a).toLowerCase();
     const isBoll = /hindi|bollywood|punjabi|haryanvi|desi|filmi/i.test(full);
     const isLoFi = /lo.?fi|chill|relax|study|sleep/i.test(full);
-    const isSad  = /sad|broken|alone|pain|cry|tears|dard|tanha|judai|akela|yaad/i.test(full);
-    const isParty= /party|dance|night|club|festival|beat|bhangra/i.test(full);
-    const isRom  = /love|pyaar|romance|mohabbat|dil|heart|tere|ishq/i.test(full);
-    const isRap  = /rap|hip.?hop|trap|drill|freestyle/i.test(full);
-    const isSufi = /ghazal|sufi|qawwali|nazm/i.test(full);
-    const yr = '2025 2026';
-    let q = [];
-    if (isSufi)              q.push(`${a} ghazal`, `sufi songs playlist`, `best qawwali ${yr}`);
-    else if (isBoll&&isSad)  q.push(`${a} sad songs`, `hindi sad songs ${yr}`, `bollywood heartbreak ${yr}`);
-    else if (isBoll&&isRom)  q.push(`${a} romantic hits`, `hindi love songs ${yr}`, `bollywood romantic ${yr}`);
-    else if (isBoll&&isParty)q.push(`${a} party songs`, `punjabi hits ${yr}`, `bollywood dance ${yr}`);
-    else if (isBoll)         q.push(`${a} top songs`, `hindi hits ${yr}`, `bollywood ${yr}`);
-    else if (isLoFi)         q.push(`lofi chill mix ${yr}`, `chill beats study`, `relaxing lofi songs`);
-    else if (isSad)          q.push(`${a} sad songs`, `emotional songs ${yr}`, `sad pop ${yr}`);
-    else if (isParty)        q.push(`${a} party hits`, `dance songs ${yr}`, `party music ${yr}`);
-    else if (isRom)          q.push(`${a} love songs`, `romantic pop ${yr}`, `love songs ${yr}`);
-    else if (isRap)          q.push(`${a} rap songs`, `best rap ${yr}`, `hip hop ${yr}`);
-    else                     q.push(`${a} top songs`, `songs like ${t}`, `popular music ${yr}`);
-    q.push(`trending songs ${yr}`);
+    const yr = '2025 2026'; let q = [];
+    if (isBoll) q.push(`${a} top songs`, `hindi hits ${yr}`, `bollywood ${yr}`);
+    else if (isLoFi) q.push(`lofi chill mix ${yr}`, `chill beats study`);
+    else q.push(`${a} top songs`, `songs like ${t}`, `trending songs ${yr}`);
     return q.slice(0,3);
   }
 
@@ -429,9 +357,6 @@
           if (tl.includes('#short')||tl.includes('shorts')||tl.includes('m4a')||tl.includes('reels')||a2.toLowerCase().includes('- topic')) continue;
           const k = songKey(t2, a2);
           if (playedKeys.has(k)||seenKeys.has(k)) continue;
-          const curClean = title.toLowerCase().replace(/\s+/g,' ').replace(/\(.*?\)/g,'').trim();
-          const t2clean  = t2.toLowerCase().replace(/\s+/g,' ').replace(/\(.*?\)/g,'').trim();
-          if (t2clean.includes(curClean.split(' ')[0]) && curClean.includes(t2clean.split(' ')[0])) continue;
           seenKeys.add(k);
           const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
           collected.push({ ytId: item.videoId, title: t2, artist: a2, thumb, key: k });
@@ -442,40 +367,16 @@
     return collected.slice(0, count);
   }
 
-  async function prefetchSongs(songs) {
-    for (const song of songs) {
-      if (prefetchCache.has(song.key)) continue;
-      try {
-        const url = await extractYTAudioUrl(song.ytId);
-        if (url) { prefetchCache.set(song.key, { ...song, audioUrl: url }); markQueuePrefetched(song.key); }
-      } catch { /* skip */ }
-    }
-  }
-
-  function markQueuePrefetched(key) {
-    queue.forEach((item, i) => {
-      const k = songKey(item.title, item.artist||'');
-      if (k !== key) return;
-      const el = queueList.querySelectorAll('.mp-queue-item')[i];
-      if (el && !el.querySelector('.qi-prefetched')) {
-        const dot = document.createElement('span'); dot.className = 'qi-prefetched'; dot.textContent = '●'; el.appendChild(dot);
-      }
-    });
-    document.querySelectorAll('.ytm-card,.sp-card').forEach(c => { if (c.dataset.key === key) c.classList.add('prefetched'); });
-  }
-
   async function triggerAutoPlayLoad(title, artist) {
     if (autoPlayFetching) return;
-    autoPlayFetching = true;
-    showToast('🎵 Loading next vibes…');
+    autoPlayFetching = true; showToast('🎵 Loading next vibes…');
     const songs = await fetchVibeNextSongs(title, artist, 5);
     if (!songs.length) { autoPlayFetching = false; return; }
     songs.forEach(song => {
       const type = activeSrcTab === 'spotify' ? 'spotify_yt' : 'ytmusic';
       queue.push({ type, title: song.title, artist: song.artist, ytId: song.ytId, thumb: song.thumb, key: song.key, isAutoPlay: true });
     });
-    renderQueue();
-    prefetchSongs(songs).finally(() => { autoPlayFetching = false; });
+    renderQueue(); autoPlayFetching = false;
   }
 
   /* ═══════════════════════ 11. SPOTIFY SEARCH ═══════════════════════ */
@@ -488,15 +389,11 @@
     try {
       const res = await fetch('https://spotify-web-api3.p.rapidapi.com/v1/social/spotify/searchall?market=IN&country=IN', {
         method: 'POST',
-        headers: {
-          'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify-web-api3.p.rapidapi.com',
-          'Content-Type': 'application/json', 'Accept-Language': 'en-IN,en;q=0.9'
-        },
+        headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'spotify-web-api3.p.rapidapi.com', 'Content-Type': 'application/json' },
         body: JSON.stringify({ terms: query, limit: 20, country: 'IN', market: 'IN' })
       });
       const resp = await res.json();
-      const sd = resp?.data?.searchV2 || resp;
-      let raw = [];
+      const sd = resp?.data?.searchV2 || resp; let raw = [];
       if (!playlistsOnly) {
         (sd?.topResults?.items || sd?.topResultsV2?.itemsV2 || []).forEach(i => raw.push({ ...i, isTop: true }));
         (sd?.tracksV2?.items || sd?.tracks?.items || []).forEach(i => raw.push(i));
@@ -507,8 +404,7 @@
       const seen = new Set(); let items = [];
       raw.forEach(w => {
         const item = w?.item?.data || w?.data || w;
-        if (!item?.uri || seen.has(item.uri)) return;
-        seen.add(item.uri);
+        if (!item?.uri || seen.has(item.uri)) return; seen.add(item.uri);
         const parts = item.uri.split(':'), iType = parts[1], iId = item.id || parts[2];
         if (playlistsOnly && iType !== 'playlist') return;
         const name = item.name || item.profile?.name || 'Unknown';
@@ -518,26 +414,12 @@
         else if (iType === 'artist') artist = 'Artist';
         let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
         if (item.albumOfTrack?.coverArt?.sources?.[0]?.url) thumb = item.albumOfTrack.coverArt.sources[0].url;
-        else if (item.coverArt?.sources?.[0]?.url) thumb = item.coverArt.sources[0].url;
         else if (item.images?.items?.[0]?.sources?.[0]?.url) thumb = item.images.items[0].sources[0].url;
-        else if (item.visuals?.avatarImage?.sources?.[0]?.url) thumb = item.visuals.avatarImage.sources[0].url;
         items.push({ name, artist, iType, iId, thumb, isTop: w.isTop });
       });
 
-      const lq = query.toLowerCase();
-      items.sort((a,b) => {
-        const at = a.name.toLowerCase(), bt = b.name.toLowerCase();
-        if (at===lq&&bt!==lq) return -1; if (bt===lq&&at!==lq) return 1;
-        if (at.includes(lq)&&!bt.includes(lq)) return -1; if (bt.includes(lq)&&!at.includes(lq)) return 1;
-        if (a.isTop&&!b.isTop) return -1; if (b.isTop&&!a.isTop) return 1;
-        return 0;
-      });
-
-      renderSpotifyCards(items, lq);
-    } catch (e) {
-      console.error(e);
-      spResultsArea.innerHTML = '<p class="mp-empty">🚨 API Error!</p>';
-    }
+      renderSpotifyCards(items, query.toLowerCase());
+    } catch (e) { spResultsArea.innerHTML = '<p class="mp-empty">🚨 API Error!</p>'; }
   }
 
   function renderSpotifyCards(items, lq) {
@@ -545,32 +427,24 @@
     if (!items.length) { spResultsArea.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
     items.forEach((data, idx) => {
       const isTop = data.isTop || (idx === 0 && lq && data.name.toLowerCase().includes(lq.split(' ')[0]));
-      const imgR = data.iType === 'artist' ? '50%' : '7px';
+      const isPlaylist = data.iType === 'playlist', isAlbum = data.iType === 'album', isArtist = data.iType === 'artist';
       const k = songKey(data.name, data.artist);
-      const isPlaylist = data.iType === 'playlist';
-      const isAlbum    = data.iType === 'album';
-      const isArtist   = data.iType === 'artist';
-
-      const card = document.createElement('div');
-      card.className = 'sp-card'; card.dataset.key = k;
-      const typeExtra = (isPlaylist||isAlbum||isArtist)
-        ? `<span class="sp-playlist-badge">${data.iType.toUpperCase()}</span>` : '';
-      card.innerHTML = `
-        <img src="${data.thumb}" class="sp-card-thumb" style="border-radius:${imgR}" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
-        <div class="sp-card-info">
-          ${isTop ? '<div class="sp-best-badge">🏆 Best Match</div>' : ''}
-          <div class="sp-card-title">${data.name}${typeExtra}</div>
-          <div class="sp-card-sub">${data.artist}</div>
+      
+      const div = document.createElement('div');
+      div.className = 'yt-search-item sp-list-item'; // Exact clean list layout
+      const typeExtra = (isPlaylist||isAlbum||isArtist) ? `<span class="sp-playlist-badge">${data.iType.toUpperCase()}</span>` : '';
+      const topBadge = isTop ? `<span class="sp-best-badge">🏆 BEST MATCH</span><br>` : '';
+      
+      div.innerHTML = `
+        <img src="${data.thumb}" class="yt-search-thumb" style="border-radius:${isArtist?'50%':'7px'}" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
+        <div class="yt-search-info">
+          ${topBadge}<span class="yt-search-title">${data.name}</span> ${typeExtra}
+          <div class="yt-search-sub">${data.artist}</div>
         </div>
-        <div class="sp-card-mini-viz">
-          <div class="sp-mini-bar"></div><div class="sp-mini-bar"></div><div class="sp-mini-bar"></div>
-        </div>
-        <div class="sp-card-prefetch-dot"></div>
-        <button class="sp-card-play-btn">${isArtist ? '👤' : isPlaylist||isAlbum ? '📂' : '▶'}</button>
+        <span style="font-size:15px;color:#1db954;flex-shrink:0">${isArtist ? '👤' : isPlaylist||isAlbum ? '📂' : '▶'}</span>
       `;
-      if (prefetchCache.has(k)) card.classList.add('prefetched');
 
-      card.onclick = async () => {
+      div.onclick = async () => {
         if (isPlaylist) {
           showToast('📂 Loading Playlist…');
           const tracks = await fetchPlaylistTracks(data.iId);
@@ -584,27 +458,24 @@
         } else {
           activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
           addToQueue({ type: 'spotify_yt', title: data.name, artist: data.artist, spId: data.iId, thumb: data.thumb, key: k });
-          document.querySelectorAll('.sp-card').forEach(c => c.classList.remove('playing'));
-          card.classList.add('playing');
+          document.querySelectorAll('.sp-list-item').forEach(c => c.classList.remove('playing'));
+          div.classList.add('playing'); showToast('🎵 Preparing stream...');
         }
       };
-      spResultsArea.appendChild(card);
+      spResultsArea.appendChild(div);
     });
   }
 
   async function fetchPlaylistTracks(id) {
     try {
       const r = await fetch(`https://${SP81_HOST}/playlist_tracks?id=${id}&offset=0&limit=100&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
-      const d = await r.json();
-      return (d.items||[]).filter(i=>i.track&&!i.track.is_local).map(i=>({ id:i.track.id, title:i.track.name, artist:i.track.artists[0]?.name||'Unknown', image:i.track.album?.images[0]?.url||'' }));
+      const d = await r.json(); return (d.items||[]).filter(i=>i.track&&!i.track.is_local).map(i=>({ id:i.track.id, title:i.track.name, artist:i.track.artists[0]?.name||'Unknown', image:i.track.album?.images[0]?.url||'' }));
     } catch { return []; }
   }
   async function fetchAlbumTracks(id) {
     try {
       const r = await fetch(`https://${SP81_HOST}/album_tracks?id=${id}&market=IN`, { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } });
-      const d = await r.json();
-      const img = d.album?.images?.[0]?.url || '';
-      return (d.album?.tracks?.items||[]).map(i=>({ id:i.id, title:i.name, artist:i.artists[0]?.name||'Unknown', image:img }));
+      const d = await r.json(); const img = d.album?.images?.[0]?.url || ''; return (d.album?.tracks?.items||[]).map(i=>({ id:i.id, title:i.name, artist:i.artists[0]?.name||'Unknown', image:img }));
     } catch { return []; }
   }
 
@@ -625,31 +496,32 @@
       });
       const d = await r.json();
       ytmResultsArea.innerHTML = '';
-      const items2 = d.data || [];
-      if (!items2.length) { ytmResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
-      items2.forEach(item => {
+      const items = d.data || [];
+      if (!items.length) { ytmResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
+      items.forEach(item => {
         const t = item.title||'', a = item.channelTitle||'';
-        const tl = t.toLowerCase();
-        if (tl.includes('#short')||tl.includes('m4a')||tl.includes('reels')) return;
+        const tl = t.toLowerCase(); if (tl.includes('#short')||tl.includes('m4a')||tl.includes('reels')) return;
         const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
         const ytId = item.videoId, k = songKey(t, a);
-        const card = document.createElement('div'); card.className = 'ytm-card'; card.dataset.key = k;
-        card.innerHTML = `
-          <img src="${thumb}" class="ytm-card-thumb" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
-          <div class="ytm-card-info"><div class="ytm-card-title">${t}</div><div class="ytm-card-sub">${a}</div></div>
-          <div class="ytm-card-mini-viz"><div class="ytm-mini-bar"></div><div class="ytm-mini-bar"></div><div class="ytm-mini-bar"></div></div>
-          <div class="ytm-card-prefetch-dot"></div>
-          <button class="ytm-card-play-btn">▶</button>
+        
+        // Exact clean list layout
+        const div = document.createElement('div');
+        div.className = 'yt-search-item ytm-list-item'; 
+        div.innerHTML = `
+          <img src="${thumb}" class="yt-search-thumb" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
+          <div class="yt-search-info">
+            <div class="yt-search-title">${t}</div>
+            <div class="yt-search-sub">${a}</div>
+          </div>
+          <span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>
         `;
-        if (prefetchCache.has(k)) card.classList.add('prefetched');
-        card.onclick = () => {
+        div.onclick = () => {
           activeSrcTab = 'ytmusic'; queue = []; currentIdx = 0;
           addToQueue({ type: 'ytmusic', title: t, artist: a, ytId, thumb, key: k });
-          document.querySelectorAll('.ytm-card').forEach(c => c.classList.remove('playing'));
-          card.classList.add('playing');
-          showToast('🎵 Loading…');
+          document.querySelectorAll('.ytm-list-item').forEach(c => c.classList.remove('playing'));
+          div.classList.add('playing'); showToast('🎵 Preparing stream...');
         };
-        ytmResultsArea.appendChild(card);
+        ytmResultsArea.appendChild(div);
       });
     } catch { ytmResultsArea.innerHTML = '<p class="mp-empty">Error. Check API.</p>'; }
   }
@@ -669,8 +541,7 @@
     queue.forEach((item,i) => {
       const el = document.createElement('div'); el.className = 'mp-queue-item'+(i===currentIdx?' playing':'');
       const icon = {youtube:'🎬',youtube_audio:'🎧',ytmusic:'🎵',spotify_yt:'🌐',stream:'☁️'}[item.type]||'🎵';
-      const isPre = item.key && prefetchCache.has(item.key);
-      el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}${isPre?'<span class="qi-prefetched"> ●</span>':''}</span><button class="qi-del">✕</button>`;
+      el.innerHTML = `<span class="qi-type">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del">✕</button>`;
       el.querySelector('.qi-del').onclick = e => { e.stopPropagation(); queue.splice(i,1); if (currentIdx>=queue.length) currentIdx=queue.length-1; renderQueue(); };
       el.onclick = e => { if (e.target.classList.contains('qi-del')) return; playQueueItem(i); };
       queueList.appendChild(el);
@@ -679,8 +550,7 @@
 
   function playQueueItem(i) {
     if (i<0||i>=queue.length) return;
-    currentIdx = i; renderQueue();
-    const item = queue[i];
+    currentIdx = i; renderQueue(); const item = queue[i];
     const isBlob = item.url?.startsWith('blob:');
     if (synced && !isRemoteAction && !isBlob) broadcastSync({ action: 'change_song', item });
     playedKeys.add(item.key||songKey(item.title,item.artist||''));
@@ -690,23 +560,14 @@
 
   /* ═══════════════════════ 14. MEDIA RENDERER ═══════════════════════ */
   function showCinemaMode() {
-    cinemaMode.classList.remove('hidden');
-    premiumMusicCard.classList.add('hidden');
-    spotifyMode.classList.add('hidden');
+    cinemaMode.classList.remove('hidden'); premiumMusicCard.classList.add('hidden'); spotifyMode.classList.add('hidden');
     premiumMusicCard.classList.remove('playing','source-ytm','source-sp');
   }
   function showPremiumCard(src) {
-    cinemaMode.classList.add('hidden');
-    premiumMusicCard.classList.remove('hidden');
-    spotifyMode.classList.add('hidden');
+    cinemaMode.classList.add('hidden'); premiumMusicCard.classList.remove('hidden'); spotifyMode.classList.add('hidden');
     premiumMusicCard.classList.remove('source-ytm','source-sp');
-    if (src==='spotify') {
-      pmcSourceBadge.textContent = '🌐 Spotify'; pmcSourceBadge.className = 'pmc-source-badge sp';
-      premiumMusicCard.classList.add('source-sp');
-    } else {
-      pmcSourceBadge.textContent = '🎵 YT Music'; pmcSourceBadge.className = 'pmc-source-badge ytm';
-      premiumMusicCard.classList.add('source-ytm');
-    }
+    if (src==='spotify') { pmcSourceBadge.textContent = '🌐 Spotify'; pmcSourceBadge.className = 'pmc-source-badge sp'; premiumMusicCard.classList.add('source-sp'); } 
+    else { pmcSourceBadge.textContent = '🎵 YT Music'; pmcSourceBadge.className = 'pmc-source-badge ytm'; premiumMusicCard.classList.add('source-ytm'); }
   }
 
   function renderMedia(item) {
@@ -716,96 +577,48 @@
     isPlaying = false; updatePlayBtn(); updateProgressBar(0,0);
 
     if (item.type==='youtube') {
-      activeType = 'youtube'; showCinemaMode();
-      ytFrameWrap.style.display = 'block';
-      if (isYtReady) ytPlayer.loadVideoById(item.ytId);
-      else setTimeout(()=>renderMedia(item), 600);
+      activeType = 'youtube'; showCinemaMode(); ytFrameWrap.style.display = 'block';
+      if (isYtReady) ytPlayer.loadVideoById(item.ytId); else setTimeout(()=>renderMedia(item), 600);
       setTrackInfo(item.title,'YouTube'); setupMediaSession(item);
     }
     else if (item.type==='ytmusic') {
-      activeType='ytmusic'; activeSrcTab='ytmusic';
-      showPremiumCard('ytmusic');
-      setPMCInfo(item.title, item.artist||'YouTube Music', item.thumb);
-      setTrackInfo(item.title, item.artist||'YouTube Music');
-      showToast('🎵 Loading audio…');
-      const k = item.key||songKey(item.title,item.artist||'');
-      const cached = prefetchCache.get(k);
-      if (cached?.audioUrl) {
-        nativeAudio.src = cached.audioUrl;
-        nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
-        setupMediaSession(item);
-      } else {
-        extractYTAudioUrl(item.ytId).then(async url => {
-          if (url) {
-            prefetchCache.set(k,{...item,audioUrl:url});
-            nativeAudio.src=url;
-            nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
-            setupMediaSession(item);
-          } else {
-            // Fallback: play as YT video
-            showToast('⚠️ Direct audio failed, using video…');
-            await playWithIframeFallback(item);
-          }
-        });
-      }
+      activeType='ytmusic'; activeSrcTab='ytmusic'; showPremiumCard('ytmusic');
+      setPMCInfo(item.title, item.artist||'YouTube Music', item.thumb); setTrackInfo(item.title, item.artist||'YouTube Music');
+      showToast('🎵 Loading audio stream…');
+      extractYTAudioUrl(item.ytId).then(async url => {
+        if (url) {
+          nativeAudio.src = url;
+          nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
+          setupMediaSession(item);
+        } else {
+          await playWithIframeFallback(item);
+        }
+      });
     }
     else if (item.type==='spotify_yt') {
-      activeType='spotify_yt'; activeSrcTab='spotify';
-      showPremiumCard('spotify');
-      setPMCInfo(item.title, item.artist||'Global Music', item.thumb);
-      setTrackInfo(item.title, item.artist||'Global Music');
-      showToast('🌐 Loading…');
-      const k = item.key||songKey(item.title,item.artist||'');
-
+      activeType='spotify_yt'; activeSrcTab='spotify'; showPremiumCard('spotify');
+      setPMCInfo(item.title, item.artist||'Global Music', item.thumb); setTrackInfo(item.title, item.artist||'Global Music');
+      showToast('🌐 Requesting stream…');
       (async () => {
-        const cached = prefetchCache.get(k);
-        if (cached?.audioUrl) {
-          nativeAudio.src=cached.audioUrl;
-          nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
-          setupMediaSession(item); return;
-        }
-        // Try SP81 direct
         if (item.spId) {
           const spUrl = await fetchPremiumAudio(item.spId);
           if (spUrl) {
-            prefetchCache.set(k,{...item,audioUrl:spUrl});
-            nativeAudio.src=spUrl;
-            nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
-            setupMediaSession(item); return;
+            nativeAudio.src=spUrl; nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>{}); setupMediaSession(item); return;
           }
         }
-        // Search YT
         const ytRes = await searchYTMusicAudio(item.title+' '+(item.artist||''));
         if (ytRes) {
           const ytUrl = await extractYTAudioUrl(ytRes.ytId);
           if (ytUrl) {
-            prefetchCache.set(k,{...item,audioUrl:ytUrl});
-            nativeAudio.src=ytUrl;
-            nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play'));
-            setupMediaSession(item); return;
+            nativeAudio.src=ytUrl; nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>{}); setupMediaSession(item); return;
           }
-          // Fallback to iframe
-          showToast('⚠️ Direct audio failed, using video…');
-          item.ytId = ytRes.ytId;
-          await playWithIframeFallback(item);
-          return;
+          item.ytId = ytRes.ytId; await playWithIframeFallback(item); return;
         }
-        showToast('⚠️ No audio found, skipping…');
-        setTimeout(playNext, 2500);
+        showToast('⚠️ Audio unavailable, skipping…'); setTimeout(playNext, 2500);
       })();
     }
-    else if (item.type==='youtube_audio') {
-      activeType='youtube_audio'; showPremiumCard(activeSrcTab);
-      setPMCInfo(item.title,item.artist||'ZeroX',item.thumb);
-      setTrackInfo(item.title,'Fetching…');
-      fetchPremiumAudio(item.spId).then(url=>{
-        if (url) { nativeAudio.src=url; nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); premiumMusicCard.classList.add('playing'); }).catch(()=>showToast('Tap ▶ to play')); setupMediaSession(item); }
-        else { showToast('API Error'); setTimeout(playNext,2000); }
-      });
-    }
     else if (item.type==='stream') {
-      activeType='stream';
-      cinemaMode.classList.add('hidden'); premiumMusicCard.classList.add('hidden'); spotifyMode.classList.remove('hidden');
+      activeType='stream'; cinemaMode.classList.add('hidden'); premiumMusicCard.classList.add('hidden'); spotifyMode.classList.remove('hidden');
       nativeAudio.src=item.url; nativeAudio.play().then(()=>{ isPlaying=true; updatePlayBtn(); }).catch(()=>showToast('Tap ▶ to play'));
       setTrackInfo(item.title,'☁️ Cloud'); setupMediaSession(item);
     }
@@ -836,7 +649,7 @@
   if (pmcPrev) pmcPrev.addEventListener('click',playPrev);
   if (pmcNext) pmcNext.addEventListener('click',playNext);
 
-  /* ═══════════════════════ 16. MEDIA SESSION ═══════════════════════ */
+  /* ═══════════════════════ 16. MEDIA SESSION (BACKGROUND FIX) ═══════════════════════ */
   function setupMediaSession(item) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({ title:item.title, artist:item.artist||'ZeroX Hub', artwork:[{src:item.thumb||'https://i.imgur.com/8Q5FqWj.jpeg',sizes:'512x512',type:'image/jpeg'}] });
@@ -864,6 +677,11 @@
     if (isPlaying&&['stream','youtube_audio','ytmusic','spotify_yt'].includes(activeType)) {
       vinylRecord?.classList.add('playing'); premiumMusicCard?.classList.add('playing');
     } else { vinylRecord?.classList.remove('playing'); if(!isPlaying)premiumMusicCard?.classList.remove('playing'); }
+    
+    // Background Play Fix: Update OS media state
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    }
   }
   function setTrackInfo(title,sub) { if(musicTitle)musicTitle.textContent=title; if(musicArtist)musicArtist.textContent=sub; if(miniTitle)miniTitle.textContent=`${title} • ${sub}`; }
 
