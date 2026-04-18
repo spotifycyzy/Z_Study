@@ -494,7 +494,7 @@ body.yt-fullscreen #zxPanel {
 
 /* ── YT MUSIC RESULTS ── */
 .ytm-search-row { display: flex; gap: 8px; margin-bottom: 6px; }
-.ytm-results-area { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.ytm-results-area { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
 .ytm-results-area::-webkit-scrollbar { width: 3px; }
 .ytm-results-area::-webkit-scrollbar-thumb { background: rgba(255,60,60,0.3); border-radius: 4px; }
 .ytm-empty-state, .sp-empty-state {
@@ -505,18 +505,18 @@ body.yt-fullscreen #zxPanel {
 
 /* YT Music result rows */
 .ytm-card {
-  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
-  border-radius: 10px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 12px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
   position: relative; overflow: hidden;
-  border: 1px solid rgba(255,55,55,0.12);
+  border: 1px solid rgba(255,55,55,0.15);
   background: rgba(255,55,55,0.05);
 }
-.ytm-card:hover { background: rgba(255,55,55,0.12); border-color: rgba(255,55,55,0.38); }
-.ytm-card.playing { border-color: rgba(255,55,55,0.65); background: rgba(255,55,55,0.11); box-shadow: 0 0 10px rgba(255,55,55,0.18); }
-.ytm-card-thumb { width: 42px; height: 42px; border-radius: 7px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 7px rgba(0,0,0,0.5); }
+.ytm-card:hover { background: rgba(255,55,55,0.12); border-color: rgba(255,55,55,0.4); box-shadow: 0 2px 12px rgba(255,55,55,0.12); }
+.ytm-card.playing { border-color: rgba(255,55,55,0.65); background: rgba(255,55,55,0.11); box-shadow: 0 0 12px rgba(255,55,55,0.2); }
+.ytm-card-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.6); }
 .ytm-card-info { flex: 1; overflow: hidden; }
-.ytm-card-title { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ytm-card-sub { font-size: 10px; color: rgba(255,181,200,0.5); margin-top: 1px; }
+.ytm-card-title { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ytm-card-sub { font-size: 11px; color: rgba(255,181,200,0.55); margin-top: 2px; }
 
 /* Mini viz bars */
 .ytm-card-mini-viz { display: flex; align-items: flex-end; gap: 2px; height: 16px; opacity: 0; transition: opacity 0.3s; margin-right: 4px; }
@@ -531,19 +531,19 @@ body.yt-fullscreen #zxPanel {
 
 /* ── UPGRADED PLAY BUTTON (YTM) ── */
 .ytm-card-play-btn {
-  width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
-  background: linear-gradient(135deg, #ff4444, #aa0000);
-  color: #fff; font-size: 13px;
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #ff4444, #cc0000);
+  color: #fff; font-size: 15px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px rgba(255,60,60,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+  box-shadow: 0 3px 12px rgba(255,60,60,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
   transition: transform 0.18s, box-shadow 0.18s; flex-shrink: 0;
   position: relative; overflow: hidden;
 }
 .ytm-card-play-btn::before {
   content: ''; position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.2), transparent 65%);
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.22), transparent 65%);
 }
-.ytm-card-play-btn:hover { transform: scale(1.12); box-shadow: 0 4px 14px rgba(255,60,60,0.65); }
+.ytm-card-play-btn:hover { transform: scale(1.12); box-shadow: 0 5px 18px rgba(255,60,60,0.7); }
 
 .ytm-card-prefetch-dot {
   position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%;
@@ -553,23 +553,23 @@ body.yt-fullscreen #zxPanel {
 
 /* ── SPOTIFY RESULTS ── */
 .sp-search-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: stretch; }
-.sp-results-area { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.sp-results-area { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
 .sp-results-area::-webkit-scrollbar { width: 3px; }
 .sp-results-area::-webkit-scrollbar-thumb { background: rgba(29,185,84,0.3); border-radius: 4px; }
 
 .sp-card {
-  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
-  border-radius: 10px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 12px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
   position: relative; overflow: hidden;
-  border: 1px solid rgba(29,185,84,0.1);
+  border: 1px solid rgba(29,185,84,0.12);
   background: rgba(29,185,84,0.05);
 }
-.sp-card:hover { background: rgba(29,185,84,0.12); border-color: rgba(29,185,84,0.42); }
-.sp-card.playing { border-color: rgba(29,185,84,0.7); background: rgba(29,185,84,0.11); box-shadow: 0 0 10px rgba(29,185,84,0.16); }
-.sp-card-thumb { width: 42px; height: 42px; border-radius: 7px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 7px rgba(0,0,0,0.5); }
+.sp-card:hover { background: rgba(29,185,84,0.12); border-color: rgba(29,185,84,0.45); box-shadow: 0 2px 12px rgba(29,185,84,0.12); }
+.sp-card.playing { border-color: rgba(29,185,84,0.7); background: rgba(29,185,84,0.11); box-shadow: 0 0 12px rgba(29,185,84,0.18); }
+.sp-card-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.6); }
 .sp-card-info { flex: 1; overflow: hidden; }
-.sp-card-title { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sp-card-sub { font-size: 10px; color: rgba(122,219,138,0.6); margin-top: 1px; }
+.sp-card-title { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-card-sub { font-size: 11px; color: rgba(122,219,138,0.65); margin-top: 2px; }
 .sp-card-type-badge { font-size: 8px; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: rgba(29,185,84,0.16); color: #1db954; display: inline-block; margin-top: 2px; }
 
 .sp-card-mini-viz { display: flex; align-items: flex-end; gap: 2px; height: 16px; opacity: 0; transition: opacity 0.3s; margin-right: 4px; }
@@ -583,19 +583,19 @@ body.yt-fullscreen #zxPanel {
 
 /* ── UPGRADED PLAY BUTTON (Spotify) ── */
 .sp-card-play-btn {
-  width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
   background: linear-gradient(135deg, #1db954, #0d7a36);
-  color: #fff; font-size: 13px;
+  color: #fff; font-size: 15px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px rgba(29,185,84,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+  box-shadow: 0 3px 12px rgba(29,185,84,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
   transition: transform 0.18s, box-shadow 0.18s; flex-shrink: 0;
   position: relative; overflow: hidden;
 }
 .sp-card-play-btn::before {
   content: ''; position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.2), transparent 65%);
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.22), transparent 65%);
 }
-.sp-card-play-btn:hover { transform: scale(1.12); box-shadow: 0 4px 14px rgba(29,185,84,0.65); }
+.sp-card-play-btn:hover { transform: scale(1.12); box-shadow: 0 5px 18px rgba(29,185,84,0.7); }
 
 .sp-card-prefetch-dot {
   position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%;
