@@ -121,11 +121,14 @@
     if (isPanelOpen) return; isPanelOpen = true;
     panel.classList.add('zx-open'); document.body.style.overflow = 'hidden';
     if (panelToggleBtn) panelToggleBtn.classList.add('active');
+    // Pause heavy chat bg animations while player is open (prevents lag)
+    document.getElementById('chatApp')?.classList.add('player-open');
   }
   function closePanel() {
     if (!isPanelOpen) return; isPanelOpen = false;
     panel.classList.remove('zx-open'); document.body.style.overflow = '';
     if (panelToggleBtn) panelToggleBtn.classList.remove('active');
+    document.getElementById('chatApp')?.classList.remove('player-open');
   }
   handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
   handle.addEventListener('touchmove',  e => { if (!isPanelOpen && e.touches[0].clientY - startY > 15) openPanel(); }, { passive: true });
@@ -148,42 +151,22 @@
     document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  // FIX 1: UI Fix for Missing Toggle Button
+  /* ── Toggle buttons: rectangular glow-outlined, CSS-driven ── */
   function setupToggleBtn(btn, area) {
     if (!btn || !area) return;
-    
-    // Forcing CSS to align the button on the right end of the glowing strip
-    btn.style.position = 'absolute';
-    btn.style.right = '12px';
-    btn.style.top = '50%';
-    btn.style.transform = 'translateY(-50%)';
-    btn.style.background = 'transparent';
-    btn.style.border = 'none';
-    btn.style.color = '#fff';
-    btn.style.fontSize = '16px';
-    btn.style.cursor = 'pointer';
-    btn.style.zIndex = '10';
-    btn.style.padding = '5px';
-    
-    btn.textContent = area.classList.contains('hidden') ? '▼' : '▲';
-    
+    // Initial state driven by CSS + class, not inline style
+    btn.classList.toggle('results-open', !area.classList.contains('hidden'));
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const nowHidden = area.classList.toggle('hidden');
-      btn.textContent = nowHidden ? '▼' : '▲';
       btn.classList.toggle('results-open', !nowHidden);
     });
-    
-    // Ensure parent has position relative so absolute positioning works
-    if (btn.parentElement && window.getComputedStyle(btn.parentElement).position === 'static') {
-      btn.parentElement.style.position = 'relative';
-    }
   }
 
   function showResultsArea(area, btn) {
     if (!area) return;
     area.classList.remove('hidden');
-    if (btn) btn.textContent = '▲';
+    if (btn) btn.classList.add('results-open');
   }
 
   setupToggleBtn(toggleListBtnUrl, episodesOverlayUrl);
@@ -328,11 +311,20 @@
     const artistQuery = artist ? artist.replace(/\(.*?\)|\[.*?\]/g,'').trim() : '';
     const cleanTitle = title.replace(/\(.*?\)|\[.*?\]/g,'').trim();
 
+    // 5 rotating query templates as specified
+    const allQueryTemplates = [
+      `similar mood songs as ${cleanTitle}`,
+      `more tracks like ${cleanTitle}`,
+      `tracks to play after ${cleanTitle}`,
+      `latest tracks by ${artistQuery}`,
+      `trending tracks of ${artistQuery}`
+    ];
+    // Rotate: pick 3 different ones each call using a counter
+    const qOffset = (autoPlayHistory.size) % 5;
     const queries = [
-      `${artistQuery} top hits radio`,
-      `songs similar to ${cleanTitle} by ${artistQuery}`,
-      `${artistQuery} best tracks`,
-      `trending top charts`
+      allQueryTemplates[qOffset % 5],
+      allQueryTemplates[(qOffset + 1) % 5],
+      allQueryTemplates[(qOffset + 2) % 5]
     ];
 
     const collected = [];
@@ -442,6 +434,21 @@
       // Finally append Playlists
       (sd?.playlists?.items || []).forEach(i => addSpItem('playlist', i.data));
 
+      // Sort: exact matches on top, then contains, then rest
+      const queryLower = query.toLowerCase().trim();
+      items.sort((a, b) => {
+        const na = (a.data.name || '').toLowerCase(), nb = (b.data.name || '').toLowerCase();
+        const aExact = na === queryLower, bExact = nb === queryLower;
+        const aContains = na.includes(queryLower), bContains = nb.includes(queryLower);
+        // Tracks before playlists/albums for exact matches
+        const aTrack = a.iType === 'track', bTrack = b.iType === 'track';
+        if (aExact && aTrack && !(bExact && bTrack)) return -1;
+        if (bExact && bTrack && !(aExact && aTrack)) return 1;
+        if (aExact && !bExact) return -1; if (bExact && !aExact) return 1;
+        if (aContains && !bContains) return -1; if (bContains && !aContains) return 1;
+        return 0;
+      });
+
       spResultsArea.innerHTML = '';
       if (!items.length) { spResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
 
@@ -451,20 +458,30 @@
         const artist = d.artists?.items?.[0]?.profile?.name || d.ownerV2?.data?.name || 'Spotify';
         const thumb = d.albumOfTrack?.coverArt?.sources?.[0]?.url || d.images?.items?.[0]?.sources?.[0]?.url || d.coverArt?.sources?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
         const spId = d.id || d.uri?.split(':').pop();
+        const isExact = name.toLowerCase() === queryLower;
 
         const div = document.createElement('div');
-        div.className = 'yt-search-item sp-list-item';
+        div.className = 'yt-search-item sp-list-item' + (isPlaylist||isAlbum ? ' sp-folder-item' : '');
+        // Tracks get ▶ play button; playlists/albums get 📂 folder icon (no play)
+        const rightIcon = (isPlaylist||isAlbum)
+          ? `<span class="sp-folder-btn" title="Open ${isAlbum?'album':'playlist'}">📂</span>`
+          : `<span class="sp-play-btn">▶</span>`;
+        const badge = isExact ? `<span class="sp-best-badge">★</span>` : '';
+        const typeTag = isPlaylist ? `<span class="sp-playlist-badge">PLAYLIST</span>` : isAlbum ? `<span class="sp-playlist-badge" style="background:rgba(255,160,0,0.2);color:#ffaa00">ALBUM</span>` : '';
         div.innerHTML = `
           <img src="${thumb}" class="yt-search-thumb"/>
-          <div class="yt-search-info"><div class="yt-search-title">${name} ${isPlaylist||isAlbum?'📂':''}</div><div class="yt-search-sub">${artist}</div></div>
-          <span style="font-size:15px;color:#1db954;flex-shrink:0">▶</span>
+          <div class="yt-search-info">
+            <div class="yt-search-title">${badge}${name}${typeTag}</div>
+            <div class="yt-search-sub">${artist}</div>
+          </div>
+          ${rightIcon}
         `;
         div.onclick = async () => {
           if (isPlaylist) {
-            const tr = await fetchPlaylistTracks(spId); 
+            const tr = await fetchPlaylistTracks(spId);
             spResultsArea.innerHTML = ''; tr.forEach(t => addToSpResults(t));
           } else if (isAlbum) {
-            const tr = await fetchAlbumTracks(spId); 
+            const tr = await fetchAlbumTracks(spId);
             spResultsArea.innerHTML = ''; tr.forEach(t => addToSpResults(t));
           } else {
             activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
@@ -635,9 +652,77 @@
     navigator.mediaSession.setActionHandler('nexttrack', playNext);
   }
 
-  /* ═══════════════════════ 15. DEBUG LOG ═══════════════════════ */
-  function broadcastSync(data) { if(window._zxSendSync) window._zxSendSync({type:'musicSync',...data}); }
-  window._zxReceiveSync = function(data) { /* sync */ };
+  /* ═══════════════════════ 15. SYNC ENGINE (FIXED) ═══════════════════════ */
+  function broadcastSync(data) {
+    if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
+  }
+
+  // Full sync receiver — handles all sync actions from remote peers
+  window._zxReceiveSync = function(data) {
+    if (!synced) return;
+    setRemoteAction();
+
+    switch (data.action) {
+      case 'request_sync': {
+        // Peer joined — send them current state
+        if (queue.length > 0) {
+          const cur = queue[currentIdx];
+          broadcastSync({ action: 'change_song', item: cur, queueSnapshot: queue });
+          setTimeout(() => {
+            const t = (activeType === 'youtube' && ytPlayer && isYtReady)
+              ? ytPlayer.getCurrentTime() : nativeAudio.currentTime || 0;
+            broadcastSync({ action: isPlaying ? 'play' : 'pause', time: t });
+          }, 1200);
+        }
+        break;
+      }
+      case 'change_song': {
+        // Restore full queue if sent
+        if (data.queueSnapshot && data.queueSnapshot.length > 0) {
+          queue = data.queueSnapshot;
+        }
+        // Find or add the item
+        let idx = queue.findIndex(q => q.title === data.item?.title);
+        if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
+        currentIdx = idx;
+        renderQueue();
+        renderMedia(queue[currentIdx]);
+        break;
+      }
+      case 'play': {
+        if (activeType === 'youtube' && ytPlayer && isYtReady) {
+          if (data.time != null && Math.abs(ytPlayer.getCurrentTime() - data.time) > 1.5) ytPlayer.seekTo(data.time, true);
+          ytPlayer.playVideo();
+        } else {
+          if (data.time != null && Math.abs(nativeAudio.currentTime - data.time) > 1.5) nativeAudio.currentTime = data.time;
+          nativeAudio.play().catch(() => {});
+        }
+        break;
+      }
+      case 'pause': {
+        if (activeType === 'youtube' && ytPlayer && isYtReady) {
+          ytPlayer.pauseVideo();
+          if (data.time != null) ytPlayer.seekTo(data.time, true);
+        } else {
+          nativeAudio.pause();
+          if (data.time != null) nativeAudio.currentTime = data.time;
+        }
+        break;
+      }
+      case 'seek': {
+        if (activeType === 'youtube' && ytPlayer && isYtReady) ytPlayer.seekTo(data.time, true);
+        else if (data.time != null) nativeAudio.currentTime = data.time;
+        break;
+      }
+      case 'next': { playNext(); break; }
+      case 'prev':  { playPrev(); break; }
+    }
+  };
+
+  // Also broadcast seek when native audio is seeked
+  nativeAudio.addEventListener('seeked', () => {
+    if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
+  });
   function dbg(tag, msg, color) { console.log(`[ZX ${tag}] ${msg}`); } 
 
   dbg('INIT', 'ZeroX Hub v8 Loaded ✓', '#7ADB8A');
