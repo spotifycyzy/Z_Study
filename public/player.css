@@ -218,14 +218,14 @@
 .mp-tab-content.active { display: block; }
 
 /* Inputs */
-.mp-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.mp-input-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: stretch; }
 .mp-input { flex: 1; padding: 10px 12px; background: rgba(30,0,18,0.6); border: 1px solid rgba(232,67,106,0.16); border-radius: 11px; color: #fff; outline: none; min-width: 0; font-family: 'Sora', sans-serif; font-size: 13px; transition: border-color 0.2s; }
 .mp-input:focus { border-color: #E8436A; }
-.mp-add-btn { padding: 0 14px; background: linear-gradient(135deg, #E8436A, #C2005F); border: none; border-radius: 11px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: 'Sora', sans-serif; font-size: 13px; transition: transform 0.15s; }
+.mp-add-btn { padding: 0 14px; background: linear-gradient(135deg, #E8436A, #C2005F); border: none; border-radius: 11px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: 'Sora', sans-serif; font-size: 13px; transition: transform 0.15s; align-self: stretch; }
 .mp-add-btn:hover { transform: scale(1.02); }
-.split-btn-wrap { display: flex; }
-.split-left { border-top-right-radius: 0; border-bottom-right-radius: 0; padding: 0 10px; border-right: 1px solid rgba(255,255,255,0.16); }
-.split-right { border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 10px; background: linear-gradient(135deg,#1db954,#148f40); }
+.split-btn-wrap { display: flex; flex-shrink: 0; }
+.split-left { border-top-right-radius: 0; border-bottom-right-radius: 0; padding: 0 11px; border-right: 1px solid rgba(255,255,255,0.16); font-size: 12px; height: 100%; }
+.split-right { border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 11px; background: linear-gradient(135deg,#1db954,#148f40); font-size: 12px; height: 100%; }
 
 /* Glowing Colour-Cycling Strip + Arrow Toggle */
 .results-header-strip { display: flex; align-items: center; justify-content: flex-end; position: relative; height: 18px; margin-bottom: 5px; }
@@ -296,7 +296,12 @@
 /* FULLSCREEN NATIVE FLOW PRESERVATION (Black Screen Bug Fixed) */
 body.is-fullscreen #chatApp, body.is-fullscreen #zxHandle { display: none !important; }
 body.is-fullscreen #zxPanel { background: transparent !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; transform: none !important; }
-/* Note: The old iframe:-webkit-full-screen hacks were removed here to allow the browser to natively resize and restore without glitching */
+
+/* FIX: After exiting fullscreen, force the iframe container to repaint cleanly */
+#ytFrameWrap { contain: layout; }
+#ytPlayerInner { transform: translateZ(0); will-change: transform; }
+/* Ensure iframe never collapses after fullscreen exit */
+#ytFrameWrap iframe { min-width: 100%; min-height: 100%; display: block; }
 
 body { padding-top: 50px; }
 #chatApp, #notesViewer { top: 50px; }
@@ -309,3 +314,36 @@ body { padding-top: 50px; }
 .vinyl-record { width: 110px; height: 110px; border-radius: 50%; background: #1a001a; box-shadow: 0 0 0 3px rgba(232,67,106,0.3), 0 8px 24px rgba(0,0,0,0.7); }
 .vinyl-record.playing { animation: spinRecord 4s linear infinite; }
 @keyframes spinRecord { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+/* ── DEBUG PANEL ── */
+#zxDebugPanel {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99998;
+  background: rgba(5,0,8,0.97);
+  border-top: 1px solid rgba(180,80,255,0.25);
+  font-family: 'JetBrains Mono', monospace;
+  max-height: 0;
+  transition: max-height 0.3s cubic-bezier(0.25,1,0.5,1);
+  overflow: hidden;
+}
+#zxDebugToggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 10px; cursor: pointer;
+  border-bottom: 1px solid rgba(180,80,255,0.12);
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+#zxDebugToggle:hover { background: rgba(180,80,255,0.05); }
+#zxDebugLog {
+  padding: 5px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#zxDebugLog::-webkit-scrollbar { width: 3px; }
+#zxDebugLog::-webkit-scrollbar-thumb { background: rgba(180,80,255,0.3); border-radius: 3px; }
+#zxDebugClear {
+  font-size: 9px; background: rgba(232,67,106,0.12);
+  border: 1px solid rgba(232,67,106,0.25); border-radius: 4px;
+  color: #E8436A; cursor: pointer; padding: 1px 6px;
+  font-family: 'Sora', sans-serif;
+}
+#zxDebugClear:hover { background: rgba(232,67,106,0.22); }
