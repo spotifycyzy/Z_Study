@@ -1,10 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (v7 — The Beast Upgrade)
-   ✅ New RapidAPI Key Integrated
-   ✅ Smart Background Prefetching (Zero Delay Next)
-   ✅ Advanced Auto-Play (5 Tracks at End of Queue)
-   ✅ Universal Block Removed (Play anything anytime)
-   ✅ Strict Vibe-Match & Duplicate Prevention (Title-based)
+   ZEROX HUB — player.js (v8 — The Ultimate Fix)
+   ✅ Hide/Unhide Toggle Button Restored & Placed Right
+   ✅ Ultra-Strict Auto-Play (Blocks exact & similar titles)
+   ✅ Spotify Best Matches Sorted on Top
+   ✅ Smart Background Prefetching & Universal Play
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -13,7 +12,6 @@
   /* ═══════════════════════ 1. DOM ═══════════════════════ */
   const panel          = document.getElementById('zxPanel');
   const handle         = document.getElementById('zxHandle');
-  const closeHandle    = document.getElementById('closeHandle');
   const panelToggleBtn = document.getElementById('panelToggleBtn');
 
   const nativeAudio   = document.getElementById('nativeAudio');
@@ -35,17 +33,12 @@
   const pmcPrev       = document.getElementById('pmcPrev');
   const pmcNext       = document.getElementById('pmcNext');
 
-  const vinylRecord   = document.getElementById('vinylRecord');
   const musicTitle    = document.getElementById('musicTitle');
-  const musicArtist   = document.getElementById('musicArtist');
   const miniTitle     = document.getElementById('miniTitle');
   const mpPlays       = document.querySelectorAll('.mp-play');
   const mpPrevs       = [document.getElementById('miniPrev')];
   const mpNexts       = [document.getElementById('miniNext')];
 
-  const urlInput      = document.getElementById('urlInput');
-  const urlAddBtn     = document.getElementById('urlAddBtn');
-  const fileInput     = document.getElementById('fileInput');
   const ytInput       = document.getElementById('ytInput');
   const ytAddBtn      = document.getElementById('ytAddBtn');
   const ytmInput      = document.getElementById('ytmInput');
@@ -90,10 +83,9 @@
   let autoPlayEnabled = true;
   let autoPlayFetching = false;
   
-  // Track auto-played songs to prevent EXACT song repetition across channels
   const autoPlayHistory = new Set(); 
 
-  // Very strict normalization to catch identical songs from diff channels
+  // Very strict normalization to catch any variant of the same song
   function normalizeTitle(title) {
     return (title || '').toLowerCase()
       .replace(/\(.*?\)/g, '')
@@ -123,7 +115,7 @@
     });
   }
 
-  /* ═══════════════════════ 5. PANEL ENGINE ═══════════════════════ */
+  /* ═══════════════════════ 5. PANEL ENGINE & UI ═══════════════════════ */
   let startY = 0; let isPanelOpen = false;
   function openPanel() {
     if (isPanelOpen) return; isPanelOpen = true;
@@ -156,24 +148,48 @@
     document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
+  // FIX 1: UI Fix for Missing Toggle Button
   function setupToggleBtn(btn, area) {
     if (!btn || !area) return;
+    
+    // Forcing CSS to align the button on the right end of the glowing strip
+    btn.style.position = 'absolute';
+    btn.style.right = '12px';
+    btn.style.top = '50%';
+    btn.style.transform = 'translateY(-50%)';
+    btn.style.background = 'transparent';
+    btn.style.border = 'none';
+    btn.style.color = '#fff';
+    btn.style.fontSize = '16px';
+    btn.style.cursor = 'pointer';
+    btn.style.zIndex = '10';
+    btn.style.padding = '5px';
+    
+    btn.textContent = area.classList.contains('hidden') ? '▼' : '▲';
+    
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const nowHidden = area.classList.toggle('hidden');
+      btn.textContent = nowHidden ? '▼' : '▲';
       btn.classList.toggle('results-open', !nowHidden);
     });
+    
+    // Ensure parent has position relative so absolute positioning works
+    if (btn.parentElement && window.getComputedStyle(btn.parentElement).position === 'static') {
+      btn.parentElement.style.position = 'relative';
+    }
   }
+
   function showResultsArea(area, btn) {
     if (!area) return;
     area.classList.remove('hidden');
-    if (btn) btn.classList.add('results-open');
+    if (btn) btn.textContent = '▲';
   }
 
-  if (toggleListBtnUrl && episodesOverlayUrl) setupToggleBtn(toggleListBtnUrl, episodesOverlayUrl);
-  if (toggleListBtnYt && episodesOverlayYt) setupToggleBtn(toggleListBtnYt, episodesOverlayYt);
-  if (toggleListBtnYtm && ytmResultsArea) setupToggleBtn(toggleListBtnYtm, ytmResultsArea);
-  if (toggleListBtnSp && spResultsArea) setupToggleBtn(toggleListBtnSp, spResultsArea);
+  setupToggleBtn(toggleListBtnUrl, episodesOverlayUrl);
+  setupToggleBtn(toggleListBtnYt, episodesOverlayYt);
+  setupToggleBtn(toggleListBtnYtm, ytmResultsArea);
+  setupToggleBtn(toggleListBtnSp, spResultsArea);
 
   /* ═══════════════════════ 6. SYNC ═══════════════════════ */
   if (mpSyncToggleBtn) {
@@ -263,7 +279,6 @@
   }
 
   async function extractYTAudioUrl(ytId) {
-    // Primary extraction via Spotify81 Downloader Engine
     try {
       const res = await fetch(`https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true&bypassSpotify=true&quality=best`, { 
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } 
@@ -271,9 +286,8 @@
       const d = await res.json(); 
       const url = Array.isArray(d) ? (d[0]?.url || d[0]?.link) : (d.url || d.link);
       if (url) return url;
-    } catch { /* fallback next */ }
+    } catch { }
 
-    // Fallback YTStream
     try {
       const res = await fetch(`https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${ytId}`, {
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'ytstream-download-youtube-videos.p.rapidapi.com' }
@@ -297,7 +311,6 @@
     return null;
   }
 
-  // Pre-fetch logic for zero-delay playback
   async function prefetchNextSong() {
     const nextIdx = currentIdx + 1;
     if (nextIdx < queue.length) {
@@ -309,19 +322,19 @@
     }
   }
 
-  /* ═══════════════════════ 10. SMART VIBE AUTO-PLAY ═══════════════════════ */
-  function buildVibeQueries(title, artist) {
-    const t = title.replace(/\(.*?\)|\[.*?\]/g,'').trim();
-    const a = artist ? artist.replace(/\(.*?\)|\[.*?\]/g,'').trim() : '';
-    return [
-      `${t} similar vibe songs`,
-      `${a} top hits radio`,
-      `trending songs like ${t}`
-    ];
-  }
-
+  /* ═══════════════════════ 10. SMART VIBE AUTO-PLAY (FIX 2) ═══════════════════════ */
   async function fetchVibeNextSongs(title, artist, count = 5) {
-    const queries = buildVibeQueries(title, artist);
+    const baseNorm = normalizeTitle(title); // The exact song we want to avoid repeating
+    const artistQuery = artist ? artist.replace(/\(.*?\)|\[.*?\]/g,'').trim() : '';
+    const cleanTitle = title.replace(/\(.*?\)|\[.*?\]/g,'').trim();
+
+    const queries = [
+      `${artistQuery} top hits radio`,
+      `songs similar to ${cleanTitle} by ${artistQuery}`,
+      `${artistQuery} best tracks`,
+      `trending top charts`
+    ];
+
     const collected = [];
     
     for (const q of queries) {
@@ -337,13 +350,18 @@
           const t2 = item.title || '', a2 = item.channelTitle || '';
           if (t2.toLowerCase().includes('#short')) continue;
           
-          const normTitle = normalizeTitle(t2);
+          const norm2 = normalizeTitle(t2);
           
-          // Strict duplicate prevention for auto-play history
-          if (autoPlayHistory.has(normTitle) || collected.some(c => c.norm === normTitle)) continue;
+          // FIX 2: ULTRA-STRICT DUPLICATE PREVENTION
+          // Block if the new song title CONTAINS the old title, or vice-versa
+          // Example: blocks "Finding Her (Lyric)" if base is "Finding Her"
+          if (norm2.includes(baseNorm) || baseNorm.includes(norm2)) continue; 
+          
+          // Block if already played in history or added in current batch
+          if (autoPlayHistory.has(norm2) || collected.some(c => c.norm === norm2)) continue;
           
           const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
-          collected.push({ ytId: item.videoId, title: t2, artist: a2, thumb, norm: normTitle });
+          collected.push({ ytId: item.videoId, title: t2, artist: a2, thumb, norm: norm2 });
           
           if (collected.length >= count) break;
         }
@@ -373,12 +391,12 @@
         });
       });
       renderQueue();
-      prefetchNextSong(); // Start prefetching the first newly added song immediately
+      prefetchNextSong();
     }
     autoPlayFetching = false;
   }
 
-  /* ═══════════════════════ 11. SPOTIFY SEARCH ═══════════════════════ */
+  /* ═══════════════════════ 11. SPOTIFY SEARCH (FIX 3) ═══════════════════════ */
   async function searchSpotify(query, playlistsOnly = false) {
     if (!query) return;
     spResultsArea.innerHTML = '<div class="mp-loading-pulse">Loading…</div>';
@@ -394,19 +412,45 @@
       const sd = resp?.data?.searchV2 || resp;
 
       let items = [];
-      if (!playlistsOnly) {
-        (sd?.tracksV2?.items || []).forEach(i => items.push({ iType: 'track', data: i.item.data }));
-        (sd?.albums?.items || []).forEach(i => items.push({ iType: 'album', data: i.data }));
+      const seenIds = new Set();
+
+      function addSpItem(type, data) {
+        if (!data) return;
+        const id = data.id || data.uri?.split(':').pop();
+        if (!id || seenIds.has(id)) return;
+        seenIds.add(id);
+        items.push({ iType: type, data });
       }
-      (sd?.playlists?.items || []).forEach(i => items.push({ iType: 'playlist', data: i.data }));
+
+      // FIX 3: SORT - Put Best Matches (Top Results) at the very top
+      if (!playlistsOnly && sd?.topResults?.itemsV2) {
+        sd.topResults.itemsV2.forEach(i => {
+          const d = i.item?.data;
+          if (d) {
+            const t = d.uri?.includes('playlist') ? 'playlist' : d.uri?.includes('album') ? 'album' : 'track';
+            addSpItem(t, d);
+          }
+        });
+      }
+
+      // Then append remaining Tracks & Albums
+      if (!playlistsOnly) {
+        (sd?.tracksV2?.items || []).forEach(i => addSpItem('track', i.item?.data));
+        (sd?.albums?.items || []).forEach(i => addSpItem('album', i.data));
+      }
+
+      // Finally append Playlists
+      (sd?.playlists?.items || []).forEach(i => addSpItem('playlist', i.data));
 
       spResultsArea.innerHTML = '';
+      if (!items.length) { spResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
+
       items.forEach(obj => {
-        const d = obj.data; if (!d || !d.uri) return;
+        const d = obj.data;
         const name = d.name || 'Unknown', isPlaylist = obj.iType === 'playlist', isAlbum = obj.iType === 'album';
         const artist = d.artists?.items?.[0]?.profile?.name || d.ownerV2?.data?.name || 'Spotify';
         const thumb = d.albumOfTrack?.coverArt?.sources?.[0]?.url || d.images?.items?.[0]?.sources?.[0]?.url || d.coverArt?.sources?.[0]?.url || 'https://i.imgur.com/8Q5FqWj.jpeg';
-        const spId = d.id || d.uri.split(':').pop();
+        const spId = d.id || d.uri?.split(':').pop();
 
         const div = document.createElement('div');
         div.className = 'yt-search-item sp-list-item';
@@ -484,7 +528,6 @@
   /* ═══════════════════════ 13. QUEUE & RENDERER ═══════════════════════ */
   function addToQueue(item) {
     queue.push(item);
-    // Add manually played songs to auto-play history so auto-play doesn't re-suggest them
     autoPlayHistory.add(normalizeTitle(item.title)); 
     renderQueue(); 
     playQueueItem(queue.length-1);
@@ -508,10 +551,7 @@
     if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item });
     renderMedia(item);
     
-    // Auto-play logic: If user reached the very end of the queue, fetch 5 more
     if (autoPlayEnabled && i === queue.length - 1) triggerAutoPlayLoad();
-    
-    // Pre-fetch the exact next item to ensure zero delay
     prefetchNextSong(); 
   }
 
@@ -595,12 +635,10 @@
     navigator.mediaSession.setActionHandler('nexttrack', playNext);
   }
 
-  /* ═══════════════════════ 15. SYNC NETWORK & DEBUG LOG ═══════════════════════ */
+  /* ═══════════════════════ 15. DEBUG LOG ═══════════════════════ */
   function broadcastSync(data) { if(window._zxSendSync) window._zxSendSync({type:'musicSync',...data}); }
-  window._zxReceiveSync = function(data) { /* sync logic remains intact */ };
+  window._zxReceiveSync = function(data) { /* sync */ };
+  function dbg(tag, msg, color) { console.log(`[ZX ${tag}] ${msg}`); } 
 
-  const dbgLines = []; let dbgVisible = false;
-  function dbg(tag, msg, color) { console.log(`[ZX ${tag}] ${msg}`); } // Minified Debug for Performance
-
-  dbg('INIT', 'ZeroX Hub v7 (Beast Upgrade) Loaded ✓', '#7ADB8A');
+  dbg('INIT', 'ZeroX Hub v8 Loaded ✓', '#7ADB8A');
 })();
