@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (v5 — UI Clean & Background Fix)
-   ✅ Background Audio Alive (Media Session Playback State)
-   ✅ Clean List Format for YT Music & Spotify Results
-   ✅ No overlap issues, fully responsive
+   ZEROX HUB — player.js (v6 — Search Bar Uniform + SP Sort Fix)
+   ✅ YTM & Spotify search bars = same size as YT section
+   ✅ Debug panel always accessible at bottom
+   ✅ Spotify results: best match order (songs first, then playlists)
+   ✅ All features preserved
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -90,7 +91,7 @@
   let autoPlayFetching = false;
   const prefetchCache = new Map();
   const playedKeys    = new Set();
-  // Clear session tracking when user picks a new song manually
+
   function clearSessionKeys() { playedKeys.clear(); }
 
   function setRemoteAction() {
@@ -205,17 +206,14 @@
       if (isFs) {
         if (iframe) { iframe.style.width = '100vw'; iframe.style.height = '100vh'; }
       } else {
-        // FIX: Restore iframe to container on exit — prevents black screen
         if (iframe) {
           iframe.style.width = '100%';
           iframe.style.height = '100%';
-          // Force GPU repaint — the key to eliminating the black screen
           iframe.style.display = 'none';
           // eslint-disable-next-line no-unused-expressions
-          iframe.offsetHeight; // trigger reflow
+          iframe.offsetHeight;
           iframe.style.display = '';
         }
-        // Also re-show the panel wrap correctly
         if (ytFrameWrap) {
           ytFrameWrap.style.display = 'block';
         }
@@ -416,20 +414,22 @@
         body: JSON.stringify({ terms: query, limit: 20, country: 'IN', market: 'IN' })
       });
       const resp = await res.json();
-      const sd = resp?.data?.searchV2 || resp; let raw = [];
-      if (!playlistsOnly) {
-        (sd?.topResults?.items || sd?.topResultsV2?.itemsV2 || []).forEach(i => raw.push({ ...i, isTop: true }));
-        (sd?.tracksV2?.items || sd?.tracks?.items || []).forEach(i => raw.push(i));
-        (sd?.albumsV2?.items || sd?.albums?.items || []).forEach(i => raw.push(i));
-      }
-      (sd?.playlistsV2?.items || sd?.playlists?.items || []).forEach(i => raw.push(i));
+      const sd = resp?.data?.searchV2 || resp;
 
-      const seen = new Set(); let items = [];
-      raw.forEach(w => {
+      /* ── Collect all raw items with their category ── */
+      let tracks = [], albums = [], playlists = [], artists = [], topResults = [];
+
+      (sd?.topResults?.items || sd?.topResultsV2?.itemsV2 || []).forEach(i => topResults.push({ ...i, _cat: 'top' }));
+      (sd?.tracksV2?.items || sd?.tracks?.items || []).forEach(i => tracks.push({ ...i, _cat: 'track' }));
+      (sd?.albumsV2?.items || sd?.albums?.items || []).forEach(i => albums.push({ ...i, _cat: 'album' }));
+      (sd?.artistsV2?.items || sd?.artists?.items || []).forEach(i => artists.push({ ...i, _cat: 'artist' }));
+      (sd?.playlistsV2?.items || sd?.playlists?.items || []).forEach(i => playlists.push({ ...i, _cat: 'playlist' }));
+
+      /* ── Parse helper ── */
+      function parseItem(w) {
         const item = w?.item?.data || w?.data || w;
-        if (!item?.uri || seen.has(item.uri)) return; seen.add(item.uri);
+        if (!item?.uri) return null;
         const parts = item.uri.split(':'), iType = parts[1], iId = item.id || parts[2];
-        if (playlistsOnly && iType !== 'playlist') return;
         const name = item.name || item.profile?.name || 'Unknown';
         let artist = 'Unknown';
         if (item.artists?.items?.[0]?.profile?.name) artist = item.artists.items[0].profile.name;
@@ -438,30 +438,83 @@
         let thumb = 'https://i.imgur.com/8Q5FqWj.jpeg';
         if (item.albumOfTrack?.coverArt?.sources?.[0]?.url) thumb = item.albumOfTrack.coverArt.sources[0].url;
         else if (item.images?.items?.[0]?.sources?.[0]?.url) thumb = item.images.items[0].sources[0].url;
-        items.push({ name, artist, iType, iId, thumb, isTop: w.isTop });
+        return { name, artist, iType, iId, thumb, uri: item.uri, _cat: w._cat };
+      }
+
+      /* ── Build ordered list: songs first (best match), then albums, then playlists, artists last ── */
+      const seen = new Set();
+      let orderedItems = [];
+
+      // 1. Top result tracks first (best match songs)
+      topResults.forEach(w => {
+        const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+        if (p.iType === 'track') { p.isTop = true; orderedItems.push(p); }
       });
 
-      renderSpotifyCards(items, query.toLowerCase());
-    } catch (e) { spResultsArea.innerHTML = '<p class="mp-empty">🚨 API Error!</p>'; }
+      // 2. If playlistsOnly skip songs
+      if (!playlistsOnly) {
+        // All tracks
+        tracks.forEach(w => {
+          const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+          if (p.iType === 'track') orderedItems.push(p);
+        });
+
+        // Albums
+        albums.forEach(w => {
+          const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+          if (p.iType === 'album') orderedItems.push(p);
+        });
+
+        // Top result non-track (album/artist from top)
+        topResults.forEach(w => {
+          const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+          if (p.iType !== 'track' && p.iType !== 'playlist') { p.isTop = true; orderedItems.push(p); }
+        });
+      }
+
+      // 3. Playlists
+      playlists.forEach(w => {
+        const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+        if (p.iType === 'playlist') orderedItems.push(p);
+      });
+
+      // 4. Top result playlists
+      topResults.forEach(w => {
+        const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+        if (p.iType === 'playlist') { p.isTop = true; orderedItems.push(p); }
+      });
+
+      // 5. Artists last
+      if (!playlistsOnly) {
+        artists.forEach(w => {
+          const p = parseItem(w); if (!p || seen.has(p.uri)) return; seen.add(p.uri);
+          if (p.iType === 'artist') orderedItems.push(p);
+        });
+      }
+
+      renderSpotifyCards(orderedItems, query.toLowerCase());
+    } catch (e) {
+      dbg('SPOTIFY', '❌ Search error: ' + e.message, '#ff4444');
+      spResultsArea.innerHTML = '<p class="mp-empty">🚨 API Error!</p>';
+    }
   }
 
   function renderSpotifyCards(items, lq) {
     spResultsArea.innerHTML = '';
     if (!items.length) { spResultsArea.innerHTML = '<p class="mp-empty">No results found.</p>'; return; }
-    items.forEach((data, idx) => {
-      const isTop = data.isTop || (idx === 0 && lq && data.name.toLowerCase().includes(lq.split(' ')[0]));
+    items.forEach((data) => {
       const isPlaylist = data.iType === 'playlist', isAlbum = data.iType === 'album', isArtist = data.iType === 'artist';
       const k = songKey(data.name, data.artist);
-      
+
       const div = document.createElement('div');
-      div.className = 'yt-search-item sp-list-item'; // Exact clean list layout
+      div.className = 'yt-search-item sp-list-item';
       const typeExtra = (isPlaylist||isAlbum||isArtist) ? `<span class="sp-playlist-badge">${data.iType.toUpperCase()}</span>` : '';
-      const topBadge = isTop ? `<span class="sp-best-badge">🏆 BEST MATCH</span><br>` : '';
-      
+      const topBadge = data.isTop ? `<span class="sp-best-badge">🏆 BEST</span> ` : '';
+
       div.innerHTML = `
         <img src="${data.thumb}" class="yt-search-thumb" style="border-radius:${isArtist?'50%':'7px'}" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
         <div class="yt-search-info">
-          ${topBadge}<span class="yt-search-title">${data.name}</span> ${typeExtra}
+          <div class="yt-search-title">${topBadge}${data.name} ${typeExtra}</div>
           <div class="yt-search-sub">${data.artist}</div>
         </div>
         <span style="font-size:15px;color:#1db954;flex-shrink:0">${isArtist ? '👤' : isPlaylist||isAlbum ? '📂' : '▶'}</span>
@@ -470,10 +523,12 @@
       div.onclick = async () => {
         if (isPlaylist) {
           showToast('📂 Loading Playlist…');
+          dbg('SPOTIFY', 'Loading playlist: ' + data.iId, '#1db954');
           const tracks = await fetchPlaylistTracks(data.iId);
           renderSpotifyCards(tracks.map(t=>({name:t.title,artist:t.artist,iType:'track',iId:t.id,thumb:t.image,isTop:false})), '');
         } else if (isAlbum) {
           showToast('📂 Loading Album…');
+          dbg('SPOTIFY', 'Loading album: ' + data.iId, '#1db954');
           const tracks = await fetchAlbumTracks(data.iId);
           renderSpotifyCards(tracks.map(t=>({name:t.title,artist:t.artist,iType:'track',iId:t.id,thumb:t.image,isTop:false})), '');
         } else if (isArtist) {
@@ -526,10 +581,9 @@
         const tl = t.toLowerCase(); if (tl.includes('#short')||tl.includes('m4a')||tl.includes('reels')) return;
         const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
         const ytId = item.videoId, k = songKey(t, a);
-        
-        // Exact clean list layout
+
         const div = document.createElement('div');
-        div.className = 'yt-search-item ytm-list-item'; 
+        div.className = 'yt-search-item ytm-list-item';
         div.innerHTML = `
           <img src="${thumb}" class="yt-search-thumb" onerror="this.src='https://i.imgur.com/8Q5FqWj.jpeg'"/>
           <div class="yt-search-info">
@@ -589,7 +643,7 @@
   function showPremiumCard(src) {
     cinemaMode.classList.add('hidden'); premiumMusicCard.classList.remove('hidden'); spotifyMode.classList.add('hidden');
     premiumMusicCard.classList.remove('source-ytm','source-sp');
-    if (src==='spotify') { pmcSourceBadge.textContent = '🌐 Spotify'; pmcSourceBadge.className = 'pmc-source-badge sp'; premiumMusicCard.classList.add('source-sp'); } 
+    if (src==='spotify') { pmcSourceBadge.textContent = '🌐 Spotify'; pmcSourceBadge.className = 'pmc-source-badge sp'; premiumMusicCard.classList.add('source-sp'); }
     else { pmcSourceBadge.textContent = '🎵 YT Music'; pmcSourceBadge.className = 'pmc-source-badge ytm'; premiumMusicCard.classList.add('source-ytm'); }
   }
 
@@ -701,10 +755,9 @@
     if (isPlaying&&['stream','youtube_audio','ytmusic','spotify_yt'].includes(activeType)) {
       vinylRecord?.classList.add('playing'); premiumMusicCard?.classList.add('playing');
     } else { vinylRecord?.classList.remove('playing'); if(!isPlaying)premiumMusicCard?.classList.remove('playing'); }
-    
-    // Background Play Fix: Update OS media state
+
     if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
     }
   }
   function setTrackInfo(title,sub) { if(musicTitle)musicTitle.textContent=title; if(musicArtist)musicArtist.textContent=sub; if(miniTitle)miniTitle.textContent=`${title} • ${sub}`; }
@@ -742,9 +795,9 @@
     }
   };
 
-  /* ═══════════════════════ INIT ═══════════════════════ */
-
-  /* ── DEBUG PANEL ── */
+  /* ════════════════════════════════════════════════════════
+     DEBUG PANEL (emuda-style pinned bottom log)
+  ════════════════════════════════════════════════════════ */
   const MAX_DBG = 60;
   const dbgLines = [];
   let dbgVisible = false;
@@ -771,36 +824,39 @@
     ).join('');
   }
 
-  // Inject debug panel into DOM
+  /* Inject debug panel — always pinned to bottom, above everything */
   (function injectDebugPanel() {
-    const panel = document.createElement('div');
-    panel.id = 'zxDebugPanel';
-    panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99998;background:rgba(5,0,8,0.97);border-top:1px solid rgba(180,80,255,0.25);font-family:JetBrains Mono,monospace;max-height:0;transition:max-height 0.3s ease;overflow:hidden;';
-    panel.innerHTML = `
-      <div id="zxDebugToggle" style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px;cursor:pointer;border-bottom:1px solid rgba(180,80,255,0.12);">
-        <span style="font-size:10px;font-weight:700;color:rgba(180,80,255,0.7);letter-spacing:0.1em;">🛠 DEBUG LOG</span>
+    const dbgPanel = document.createElement('div');
+    dbgPanel.id = 'zxDebugPanel';
+    dbgPanel.innerHTML = `
+      <div id="zxDebugToggle">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="zxDbgDot" style="width:7px;height:7px;border-radius:50%;background:#E8436A;display:inline-block;animation:dbgDotPulse 1.5s ease-in-out infinite"></span>
+          <span style="font-size:10px;font-weight:700;color:rgba(180,80,255,0.85);letter-spacing:0.08em;font-family:JetBrains Mono,monospace">🛠 ZX DEBUG</span>
+        </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span id="zxDebugCount" style="font-size:9px;color:rgba(255,255,255,0.3)">0 entries</span>
-          <button id="zxDebugClear" style="font-size:9px;background:rgba(232,67,106,0.12);border:1px solid rgba(232,67,106,0.25);border-radius:4px;color:#E8436A;cursor:pointer;padding:1px 6px">clear</button>
+          <span id="zxDebugCount" style="font-size:9px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace">0 entries</span>
+          <button id="zxDebugClear" style="font-size:9px;background:rgba(232,67,106,0.12);border:1px solid rgba(232,67,106,0.25);border-radius:4px;color:#E8436A;cursor:pointer;padding:1px 6px;font-family:Sora,sans-serif">clear</button>
           <span id="zxDebugArrow" style="font-size:10px;color:rgba(255,255,255,0.4)">▲</span>
         </div>
       </div>
-      <div id="zxDebugLog" style="padding:6px 10px;max-height:200px;overflow-y:auto;"></div>
+      <div id="zxDebugLog"></div>
     `;
-    document.body.appendChild(panel);
+    document.body.appendChild(dbgPanel);
 
-    const toggle = document.getElementById('zxDebugToggle');
-    const arrow = document.getElementById('zxDebugArrow');
-    const count = document.getElementById('zxDebugCount');
+    const toggleEl = document.getElementById('zxDebugToggle');
+    const arrowEl  = document.getElementById('zxDebugArrow');
+    const countEl  = document.getElementById('zxDebugCount');
     const clearBtn = document.getElementById('zxDebugClear');
 
-    toggle.addEventListener('click', (e) => {
+    toggleEl.addEventListener('click', (e) => {
       if (e.target === clearBtn || clearBtn.contains(e.target)) return;
       dbgVisible = !dbgVisible;
-      panel.style.maxHeight = dbgVisible ? '240px' : '0';
-      arrow.textContent = dbgVisible ? '▼' : '▲';
-      if (dbgVisible) { renderDbg(); }
+      dbgPanel.classList.toggle('zx-dbg-open', dbgVisible);
+      arrowEl.textContent = dbgVisible ? '▼' : '▲';
+      if (dbgVisible) renderDbg();
     });
+
     clearBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       dbgLines.length = 0;
@@ -808,13 +864,12 @@
       if (el) el.innerHTML = '';
     });
 
-    // Keep count updated
     setInterval(() => {
-      if (count) count.textContent = dbgLines.length + ' entries';
+      if (countEl) countEl.textContent = dbgLines.length + ' entries';
     }, 500);
   })();
 
-  // Patch audio events to log
+  /* Patch audio events to log */
   nativeAudio.addEventListener('play',  () => dbg('AUDIO', '▶ play — src: ' + (nativeAudio.src ? nativeAudio.src.slice(0,60) + '…' : 'none'), '#7ADB8A'));
   nativeAudio.addEventListener('pause', () => dbg('AUDIO', '⏸ paused at ' + nativeAudio.currentTime.toFixed(1) + 's', '#FFB5C8'));
   nativeAudio.addEventListener('ended', () => dbg('AUDIO', '⏹ ended', '#aaa'));
@@ -822,7 +877,7 @@
   nativeAudio.addEventListener('stalled', () => dbg('AUDIO', '⚠️ stalled (network slow?)', '#ffaa44'));
   nativeAudio.addEventListener('waiting', () => dbg('AUDIO', '⏳ waiting/buffering', '#ffaa44'));
 
-  dbg('INIT', 'ZeroX Hub loaded ✓', '#7ADB8A');
+  dbg('INIT', 'ZeroX Hub v6 loaded ✓', '#7ADB8A');
 
   renderQueue();
 
