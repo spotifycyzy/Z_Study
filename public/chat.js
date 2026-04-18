@@ -524,11 +524,13 @@ function handleReactionUI(msgId, reactions) {
 
 function handleDeleteMsgUI(msgId) {
   const row = messagesInner.querySelector(`[data-id="${msgId}"]`);
-  if (row) {
-    const b = row.querySelector('.msg-bubble');
-    if (b) b.innerHTML = '<em style="opacity:0.35;font-size:12px">Message deleted</em>';
-    const bEl = row.querySelector('.msg-bubble'); 
-    if (bEl) { const clone = bEl.cloneNode(true); bEl.parentNode.replaceChild(clone, bEl); }
+  if (!row) return;
+  const b = row.querySelector('.msg-bubble');
+  if (b) {
+    b.innerHTML = '<em style="opacity:0.35;font-size:12px">Message deleted</em>';
+    // Remove context menu listener by cloning only the bubble (not whole row)
+    const clone = b.cloneNode(true);
+    b.parentNode.replaceChild(clone, b);
   }
 }
 
@@ -546,12 +548,24 @@ replyBarCancel.addEventListener('click', () => { replyTo=null; replyBar.classLis
 /* ════════════════════════════════════════════════════════
    SEND MESSAGE (Firebase Engine)
 ════════════════════════════════════════════════════════ */
+/* ── Telegram-style input bar: show send when typing, media when empty ── */
+const inputBar = document.getElementById('inputBar');
+const sendBtnEl = document.getElementById('sendBtn');
+function updateInputBar() {
+  const hasText = msgInput.value.trim().length > 0;
+  inputBar.classList.toggle('has-text', hasText);
+  sendBtnEl.style.display = hasText ? 'flex' : 'none';
+}
+// init
+updateInputBar();
+
 sendBtn.addEventListener('click', sendMsg);
 msgInput.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
 msgInput.addEventListener('input', () => {
   msgInput.style.height = 'auto';
   msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
   handleTyping();
+  updateInputBar();
 });
 
 async function sendMsg() {
@@ -563,7 +577,7 @@ async function sendMsg() {
 
   msgInput.value = ''; msgInput.style.height = 'auto';
   replyTo = null; replyBar.classList.remove('active');
-  stopTyping();
+  stopTyping(); updateInputBar();
 
   try { await addDoc(collection(db, "rooms", ZEROX_CONFIG.roomId, "messages"), payload); } catch(e) { console.error(e); }
 }
