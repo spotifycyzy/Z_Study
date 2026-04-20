@@ -654,3 +654,176 @@ body { padding-top: 50px; padding-bottom: 30px; }
 #chatApp.player-open .blossom {
   animation-duration: 16s !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   PRO 4.0 — NEW NEON UI COMPONENTS
+   Appended at end of player.css — safe to remove this block alone.
+══════════════════════════════════════════════════════════════════ */
+
+/* ── PLAYBACK MODE BUTTON (PMC bottom-left, neon SVG) ── */
+.pmc-mode-btn {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,181,200,0.25);
+  background: rgba(12,0,16,0.7);
+  color: rgba(255,181,200,0.65);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.25,1,0.5,1);
+  backdrop-filter: blur(4px);
+}
+.pmc-mode-btn .pmc-mode-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px;
+}
+.pmc-mode-btn .pmc-mode-icon svg { display: block; }
+
+/* Normal mode — subtle pink */
+.pmc-mode-btn.pmc-mode-normal {
+  border-color: rgba(232,67,106,0.35);
+  color: rgba(232,67,106,0.75);
+}
+.pmc-mode-btn.pmc-mode-normal:hover {
+  border-color: #E8436A;
+  color: #FFB5C8;
+  box-shadow: 0 0 10px rgba(232,67,106,0.4), 0 0 20px rgba(232,67,106,0.15);
+  background: rgba(232,67,106,0.1);
+}
+
+/* Shuffle mode — neon cyan/purple */
+.pmc-mode-btn.pmc-mode-shuffle {
+  border-color: rgba(120,80,255,0.55);
+  color: #B080FF;
+  box-shadow: 0 0 8px rgba(120,80,255,0.3);
+  background: rgba(120,80,255,0.08);
+  animation: modeShuffle 2.5s ease-in-out infinite;
+}
+@keyframes modeShuffle {
+  0%,100% { box-shadow: 0 0 6px rgba(120,80,255,0.3), 0 0 12px rgba(120,80,255,0.1); }
+  50%     { box-shadow: 0 0 12px rgba(120,80,255,0.6), 0 0 24px rgba(120,80,255,0.25); }
+}
+
+/* Loop mode — neon green */
+.pmc-mode-btn.pmc-mode-loop {
+  border-color: rgba(29,185,84,0.55);
+  color: #1db954;
+  box-shadow: 0 0 8px rgba(29,185,84,0.3);
+  background: rgba(29,185,84,0.08);
+  animation: modeLoop 1.8s ease-in-out infinite;
+}
+@keyframes modeLoop {
+  0%,100% { box-shadow: 0 0 6px rgba(29,185,84,0.3); }
+  50%     { box-shadow: 0 0 14px rgba(29,185,84,0.65), 0 0 28px rgba(29,185,84,0.2); }
+}
+
+/* ── SPOTIFY DISCOVERY SWITCH (PMC top-right, Spotify-only) ── */
+.pmc-sp-disc-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(29,185,84,0.35);
+  background: rgba(0,12,8,0.7);
+  color: rgba(29,185,84,0.75);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.22s;
+  backdrop-filter: blur(4px);
+}
+.pmc-sp-disc-btn:hover {
+  border-color: #1db954;
+  box-shadow: 0 0 10px rgba(29,185,84,0.45);
+  background: rgba(29,185,84,0.1);
+}
+/* Discovery active = ✨ neon gold glow */
+.pmc-sp-disc-btn.disc-active {
+  border-color: rgba(255,200,50,0.7);
+  color: #ffd700;
+  background: rgba(255,200,50,0.08);
+  box-shadow: 0 0 10px rgba(255,200,50,0.4), 0 0 22px rgba(255,200,50,0.15);
+  animation: discActive 2s ease-in-out infinite;
+}
+@keyframes discActive {
+  0%,100% { box-shadow: 0 0 8px rgba(255,200,50,0.4); }
+  50%     { box-shadow: 0 0 18px rgba(255,200,50,0.75), 0 0 34px rgba(255,200,50,0.25); }
+}
+
+/* ── PLAYLIST EXIT BUTTON (left side of strip, symmetrical) ── */
+.playlist-exit-btn {
+  /* Mirrors the results-toggle-btn geometry but on the left */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  height: 18px;
+  background: transparent;
+  border: 1.5px solid;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  color: rgba(255,100,100,0.8);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  /* Glow outline matching the strip — red tint for "exit" */
+  box-shadow: 0 0 0 1.5px rgba(232,67,106,0.45),
+              0 0 6px rgba(232,67,106,0.2);
+  border-color: transparent;
+}
+.playlist-exit-btn:hover {
+  color: #ff6666;
+  box-shadow: 0 0 0 1.5px rgba(255,80,80,0.75),
+              0 0 12px rgba(255,80,80,0.4);
+  background: rgba(255,60,60,0.08);
+}
+
+/* ── RESULTS HEADER STRIP layout with left exit btn ── */
+/* strip already uses position:relative; justify-content:flex-end */
+/* Exit btn is flex-shrink:0, inserted as first child → left */
+/* Glow strip sits absolutely between them */
+#spStripRow .results-glow-strip {
+  /* Shift strip to leave room for both buttons */
+  left: 60px;   /* after exit btn (~48px) + gap */
+  right: 34px;  /* before toggle btn */
+}
+
+/* ── PERFORMANCE: pause chatApp grid when player open ── */
+#chatApp.player-open { animation-play-state: paused !important; }
+#chatApp.player-open .chat-sparkle,
+#chatApp.player-open .blossom {
+  animation-duration: 18s !important;
+  animation-play-state: paused !important;
+}
+
+/* ── Additional: sp-play-btn / sp-folder-btn (if not in base CSS) ── */
+.sp-play-btn {
+  font-size: 14px; color: #1db954; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(29,185,84,0.1); border: 1px solid rgba(29,185,84,0.28);
+  cursor: pointer; transition: all 0.2s;
+}
+.sp-play-btn:hover { background: rgba(29,185,84,0.22); box-shadow: 0 0 8px rgba(29,185,84,0.4); }
+.sp-folder-btn {
+  font-size: 14px; flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(180,80,255,0.08); border: 1px solid rgba(180,80,255,0.22);
+  cursor: pointer; transition: all 0.2s;
+}
+.sp-folder-btn:hover { background: rgba(180,80,255,0.2); box-shadow: 0 0 8px rgba(180,80,255,0.3); }
+.sp-folder-item { border-color: rgba(180,80,255,0.15) !important; }
+/* ── END PRO 4.0 STYLES ── */
