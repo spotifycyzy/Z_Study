@@ -827,3 +827,43 @@ body { padding-top: 50px; padding-bottom: 30px; }
 .sp-folder-btn:hover { background: rgba(180,80,255,0.2); box-shadow: 0 0 8px rgba(180,80,255,0.3); }
 .sp-folder-item { border-color: rgba(180,80,255,0.15) !important; }
 /* ── END PRO 4.0 STYLES ── */
+
+/* ═══════════════════════════════════════════════════════
+   PRO 4.3 — additions
+═══════════════════════════════════════════════════════ */
+
+/* Empty states for results areas */
+.sp-empty-state, .ytm-empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 20px 10px; gap: 6px;
+  color: rgba(255,232,239,0.3); font-size: 12px; text-align: center;
+}
+.sp-empty-icon, .ytm-empty-icon {
+  font-size: 28px; margin-bottom: 4px; opacity: 0.6;
+}
+
+/* Artwork ring (pmc-artwork-ring) */
+.pmc-artwork-ring {
+  position: absolute; inset: -6px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  pointer-events: none; z-index: 0;
+}
+
+/* Progress thumb dot */
+.pmc-progress-thumb {
+  position: absolute; top: 50%; right: -1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; transform: translateY(-50%) scale(0);
+  transition: transform 0.15s;
+  box-shadow: 0 0 4px rgba(255,255,255,0.6);
+}
+.pmc-progress-bar:hover .pmc-progress-thumb { transform: translateY(-50%) scale(1); }
+
+/* Watchdog console suppressor (cosmetic — prod should silence) */
+/* No extra CSS needed — watchdog is JS-only */
+
+/* ✨ Discovery button — visible state enhancement */
+#pmcSpDiscBtn:not(.hidden) {
+  /* Breathing animation when active in playlist */
+}
+#premiumMusicCard.source-sp:not([class*="hidden"]) #pmcSpDiscBtn { display: flex; }
