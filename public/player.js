@@ -208,26 +208,47 @@
   // Topic channels look like "Artist - Topic" — fine for auto, but keep for user search
   const TOPIC_SUFFIX = /\s*-\s*topic\s*$/i;
 
-  async function ytSearch(query, max = 8, strictMusicOnly = false) {
+  async function ytSearch(query, max = 8, strictMusicOnly = false, expectedDurSecs = 0) {
     try {
       const r = await fetch(
         `https://${YT_ALT_HOST}/search?query=${encodeURIComponent(query)}&geo=IN&type=video`,
         { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': YT_ALT_HOST } }
       );
       const d = await r.json();
-      return (d.data || []).filter(i => {
+      let items = (d.data || []);
+
+      // ANTI-AD FIX 1: Sort so Topic channels come first (official audio, no ads)
+      items.sort((a, b) => {
+        const aTopic = TOPIC_SUFFIX.test(a.channelTitle || '');
+        const bTopic = TOPIC_SUFFIX.test(b.channelTitle || '');
+        if (aTopic && !bTopic) return -1;
+        if (bTopic && !aTopic) return  1;
+        return 0;
+      });
+
+      items = items.filter(i => {
         const t = (i.title || '').toLowerCase();
-        const ch = (i.channelTitle || '').toLowerCase();
         // Block shorts/reels
         if (t.includes('#short') || t.includes('shorts') || t.includes('reels')) return false;
         // Block obvious ads
         if (AD_TITLE_PATTERNS.test(i.title) || AD_CHANNEL_PATTERNS.test(i.channelTitle)) return false;
-        // In strictMusicOnly mode also block podcasts, news, compilations
         if (strictMusicOnly) {
           if (/\b(podcast|news|radio\s*ad|compilation\b|megamix\b)\b/i.test(i.title)) return false;
         }
+
+        // ANTI-AD FIX 2: Duration check — if expected duration known,
+        // reject videos with duration differing by >20% (catches pre-roll ads, wrong versions)
+        if (expectedDurSecs > 0 && i.lengthSeconds) {
+          const vidDur = parseInt(i.lengthSeconds) || 0;
+          if (vidDur > 0) {
+            const pct = Math.abs(vidDur - expectedDurSecs) / expectedDurSecs;
+            if (pct > 0.2) return false;  // >20% difference → likely wrong track
+          }
+        }
         return true;
-      }).slice(0, max);
+      });
+
+      return items.slice(0, max);
     } catch { return []; }
   }
 
@@ -353,8 +374,50 @@
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && isPlaying) {
       await acquireWakeLock();
+      // Micro-resume: some browsers pause audio on tab-switch; force-resume if needed
+      if (nativeAudio.paused && ['ytmusic','spotify_yt','stream'].includes(activeType)) {
+        try { await nativeAudio.play(); } catch {}
+      }
     }
   });
+
+  /*
+   * BACKGROUND PERSISTENCE FIX: checkPlayback watchdog
+   * Runs every 5 s. If audio should be playing but isn't (ended undetected
+   * in background), force-triggers playNext().
+   * Also updates MediaSession playback state continuously so Android keeps
+   * the session alive.
+   */
+  let _lastTimeCheck = 0;
+  let _lastCheckedTime = -1;
+  setInterval(() => {
+    // Keep MediaSession alive with explicit state push
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+
+    if (!isPlaying || !['ytmusic','spotify_yt','stream'].includes(activeType)) return;
+    if (!nativeAudio.src) return;
+
+    const now = nativeAudio.currentTime;
+    const dur = nativeAudio.duration;
+
+    // Detect stalled (currentTime hasn't moved in 5 s while supposedly playing)
+    if (now === _lastCheckedTime && !nativeAudio.paused) {
+      // Stalled — try resume
+      nativeAudio.play().catch(() => {});
+    }
+    _lastCheckedTime = now;
+
+    // Detect silent 'ended' (currentTime at or past duration, but ended event wasn't fired)
+    if (dur && dur > 0 && now >= dur - 0.3) {
+      if (Date.now() - _lastTimeCheck > 4000) { // debounce
+        _lastTimeCheck = Date.now();
+        console.log('[ZX watchdog] End detected, triggering playNext');
+        playNext();
+      }
+    }
+  }, 5000);
 
   /* ═══ 9. PLAYBACK MODE ENGINE ═══ */
   const MODE_ICONS  = { normal: '➡️', shuffle: '🔀', loop: '🔂' };
@@ -415,7 +478,9 @@
   }
 
   function showSpDiscBtn(show) {
-    document.getElementById('pmcSpDiscBtn')?.classList.toggle('hidden', !show);
+    // PRO 4.3: ✨ button is ONLY visible when actively playing from a playlist
+    const shouldShow = show && inSpotifyPlaylist;
+    document.getElementById('pmcSpDiscBtn')?.classList.toggle('hidden', !shouldShow);
   }
 
   /* ═══ 10. AUTO-PLAY ENGINE — FIX 2 & FIX 3 ═══ */
@@ -430,51 +495,98 @@
    * fetch the next batch, so the chain never breaks.
    * The 5th track IS the seed for batch N+1.
    */
+  /*
+   * SHUFFLE MODE — 10+10 Randomizer (PRO 4.3 spec)
+   *
+   * Cycle:
+   *  1. Fetch 10 similar tracks for current seed → randomly pick 5 → add to queue
+   *  2. Use 4th & 5th tracks of this batch as NEXT seeds
+   *  3. Fetch 10 similar for each (20 total)
+   *  4. Shuffle 20, deduplicate against last 2 batches, pick 5 → repeat
+   */
+  const shuffleLastTwoBatches = new Set(); // dedup across 2 batches
+
   async function buildShuffleBatch() {
     const seed = playerState.shuffleSeed || { title: '', artist: '' };
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(seed.title, seed.artist);
 
-    let tracks = [];
+    // Step 1: Fetch 10 similar tracks for current seed
+    let pool10 = await lfmSimilarTracks(ct, ca, 10);
+    // Filter dedup
+    pool10 = pool10.filter(t =>
+      !autoPlayHistory.has(normTitle(t.title)) &&
+      !shuffleLastTwoBatches.has(normTitle(t.title))
+    );
+    // Pick 5 randomly from the 10
+    shuffle(pool10);
+    const batch1 = pool10.slice(0, 5);
 
-    // Songs 1-3: track.getSimilar
-    let sim = await lfmSimilarTracks(ct, ca, 15);
-    sim = sim.filter(t => !autoPlayHistory.has(normTitle(t.title)));
-    tracks.push(...sim.slice(0, 3));
-
-    // Songs 4-5: similar artist deep-dive
-    const simArtists = await lfmSimilarArtists(ca, 10);
-    const nextArtist = simArtists.find(
-      a => a.toLowerCase() !== ca.toLowerCase() && !playerState.usedArtists.has(a.toLowerCase())
-    ) || simArtists[0];
-
-    if (nextArtist) {
-      playerState.usedArtists.add(nextArtist.toLowerCase());
-      let art = await lfmArtistTopTracks(nextArtist, 8);
-      art = art.filter(t => !autoPlayHistory.has(normTitle(t.title)));
-      tracks.push(...art.slice(0, 2));
-    }
-
-    // Failsafe: YouTube fallback if Last.fm yields < 2
-    if (tracks.length < 2) {
-      const fq = `songs similar to "${ct}" by "${ca}"`;
-      const ytItems = await ytSearch(fq, 8, true);
+    // If we couldn't fill 5, YT fallback
+    if (batch1.length < 5) {
+      const ytItems = await ytSearch(`songs similar to "${ct}" by "${ca}"`, 10, true);
       for (const y of ytItems) {
-        if (tracks.length >= 5) break;
-        if (!autoPlayHistory.has(normTitle(y.title)))
-          tracks.push({ title: y.title, artist: y.channelTitle || ca, _yt: y });
+        if (batch1.length >= 5) break;
+        const n = normTitle(y.title);
+        if (!autoPlayHistory.has(n) && !shuffleLastTwoBatches.has(n))
+          batch1.push({ title: y.title, artist: y.channelTitle || ca, _yt: y });
       }
     }
 
-    const batch = tracks.slice(0, 5);
+    // Step 2: 4th & 5th tracks become next batch seeds
+    const seed4 = batch1[3] || batch1[batch1.length - 1] || seed;
+    const seed5 = batch1[4] || batch1[batch1.length - 1] || seed;
 
-    // FIX 2: Set the 5th track (last of batch) as the seed for the NEXT batch
-    if (batch.length > 0) {
-      const last = batch[batch.length - 1];
-      playerState.shuffleSeed = { title: last.title, artist: last.artist || ca };
+    // Step 3: Fetch 10 similar for each seed (20 total)
+    const [sim4, sim5] = await Promise.all([
+      lfmSimilarTracks(seed4.title || ct, seed4.artist || ca, 10),
+      lfmSimilarTracks(seed5.title || ct, seed5.artist || ca, 10),
+    ]);
+
+    // Step 4: Merge 20, shuffle, dedup last 2 batches, pick 5
+    const pool20 = [...sim4, ...sim5].filter((t, i, arr) => {
+      const n = normTitle(t.title);
+      const isDup = arr.findIndex(x => normTitle(x.title) === n) !== i;
+      return !isDup && !autoPlayHistory.has(n) && !shuffleLastTwoBatches.has(n);
+    });
+    shuffle(pool20);
+    const batch2 = pool20.slice(0, 5);
+
+    // If batch2 too small, add YT fallback
+    if (batch2.length < 3 && (seed4.title || seed5.title)) {
+      const q = `${seed4.artist || ca} ${seed5.artist || ca} similar hits`;
+      const yt2 = await ytSearch(q, 8, true);
+      for (const y of yt2) {
+        if (batch2.length >= 5) break;
+        const n = normTitle(y.title);
+        if (!autoPlayHistory.has(n) && !shuffleLastTwoBatches.has(n))
+          batch2.push({ title: y.title, artist: y.channelTitle || ca, _yt: y });
+      }
+    }
+
+    // Combine both sub-batches → full 10-track delivery (5 from batch1, 5 from batch2)
+    const fullBatch = [...batch1, ...batch2].slice(0, 10);
+
+    // Rotate dedup window: move current batch contents in
+    if (shuffleLastTwoBatches.size > 40) shuffleLastTwoBatches.clear();
+    fullBatch.forEach(t => shuffleLastTwoBatches.add(normTitle(t.title)));
+
+    // Next seed = last track of batch (tracks 4/5 of fullBatch)
+    const nextSeedTrack = fullBatch[4] || fullBatch[fullBatch.length - 1];
+    if (nextSeedTrack) {
+      playerState.shuffleSeed = { title: nextSeedTrack.title, artist: nextSeedTrack.artist || ca };
     }
     playerState.shuffleBatchPos = 0;
 
-    return batch;
+    return fullBatch;
+  }
+
+  /* Fisher-Yates shuffle in-place */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 
   /*
@@ -486,57 +598,72 @@
    * which is always the closest stylistically, not just any random one.
    * After 10 songs that similar artist becomes the new "current artist".
    */
+  /*
+   * NORMAL MODE — Artist/Vibe Hybrid (PRO 4.3 spec)
+   *
+   * 5-track batch:
+   *  Tracks 1-3: Same artist's top tracks (deduped)
+   *  Tracks 4-5: Fetch 5 vibe-similar tracks → pick 2 randomly
+   *  Next batch seed: artists of tracks 4 & 5
+   */
   async function buildNormalBatch(seedTitle, seedArtist) {
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(seedTitle, seedArtist);
-    let tracks = [];
+    const artist = playerState.normalArtist || ca;
+    if (!playerState.normalArtist) playerState.normalArtist = ca;
 
-    const batchPos = playerState.normalBatchPos;
+    // ── Tracks 1-3: same artist top tracks ──
+    let artistTracks = await lfmArtistTopTracks(artist, 12);
+    artistTracks = artistTracks.filter(t =>
+      !autoPlayHistory.has(normTitle(t.title)) &&
+      normTitle(t.title) !== normTitle(ct)
+    );
+    const tracks13 = artistTracks.slice(0, 3);
 
-    if (batchPos < 5) {
-      // Phase 1 (songs 1-5): same artist
-      if (!playerState.normalArtist) playerState.normalArtist = ca;
-      let art = await lfmArtistTopTracks(playerState.normalArtist, 10);
-      art = art.filter(t =>
-        !autoPlayHistory.has(normTitle(t.title)) &&
-        normTitle(t.title) !== normTitle(ct)
-      );
-      tracks = art.slice(0, 5 - batchPos);
-    } else {
-      // Phase 2 (songs 6-10): switch to MOST SIMILAR artist (FIX 3)
-      if (!playerState.normalSimilarArtist) {
-        const simArtists = await lfmSimilarArtists(playerState.normalArtist || ca, 10);
-        // Pick rank-1 result that we haven't used yet
-        const next = simArtists.find(
-          a => a.toLowerCase() !== (playerState.normalArtist || ca).toLowerCase()
-            && !playerState.usedArtists.has(a.toLowerCase())
-        ) || simArtists[0] || ca;
-        playerState.normalSimilarArtist = next;
-        playerState.usedArtists.add(next.toLowerCase());
-      }
-      let art = await lfmArtistTopTracks(playerState.normalSimilarArtist, 10);
-      art = art.filter(t => !autoPlayHistory.has(normTitle(t.title)));
-      tracks = art.slice(0, 5);
-
-      // After phase 2 completes: rotate — similar artist becomes the new current artist
-      if (batchPos >= 9) {
-        playerState.normalArtist = playerState.normalSimilarArtist;
-        playerState.normalSimilarArtist = '';
-        playerState.normalBatchPos = 0;
+    // ── Tracks 4-5: vibe-similar (5 candidates → 2 random) ──
+    let vibePool = await lfmSimilarTracks(ct, artist, 8);
+    vibePool = vibePool.filter(t =>
+      !autoPlayHistory.has(normTitle(t.title)) &&
+      t.artist.toLowerCase() !== artist.toLowerCase()
+    );
+    // YT fallback if LFM comes up short
+    if (vibePool.length < 2) {
+      const ytV = await ytSearch(`songs similar to "${ct}" by "${artist}"`, 8, true);
+      for (const y of ytV) {
+        if (vibePool.length >= 5) break;
+        if (!autoPlayHistory.has(normTitle(y.title)))
+          vibePool.push({ title: y.title, artist: y.channelTitle || artist, _yt: y });
       }
     }
+    shuffle(vibePool);
+    const tracks45 = vibePool.slice(0, 2);
 
-    // Failsafe
-    if (tracks.length < 2) {
-      const fq = `songs similar to "${ct}" by "${ca}"`;
+    const batch = [...tracks13, ...tracks45];
+
+    // ── Next batch seed: artists of tracks 4 & 5 ──
+    // Store them for next call — the triggerAutoPlayLoad loop will pick the right seed
+    const nextArtist4 = tracks45[0]?.artist || artist;
+    const nextArtist5 = tracks45[1]?.artist || artist;
+    // We rotate: pick the one we haven't used yet
+    const nextArtistChoice = [nextArtist4, nextArtist5]
+      .find(a => a && a.toLowerCase() !== artist.toLowerCase() && !playerState.usedArtists.has(a.toLowerCase()))
+      || nextArtist4 || artist;
+    playerState.usedArtists.add(artist.toLowerCase());
+    playerState.normalArtist = nextArtistChoice;   // becomes new "current artist" for next batch
+    playerState.normalSimilarArtist = '';
+    playerState.normalBatchPos = 0;
+
+    // Failsafe minimum
+    if (batch.length < 2) {
+      const fq = `top songs by "${artist}"`;
       const ytItems = await ytSearch(fq, 8, true);
       for (const y of ytItems) {
-        if (tracks.length >= 5) break;
+        if (batch.length >= 5) break;
         if (!autoPlayHistory.has(normTitle(y.title)))
-          tracks.push({ title: y.title, artist: y.channelTitle || ca, _yt: y });
+          batch.push({ title: y.title, artist: y.channelTitle || artist, _yt: y });
       }
     }
 
-    return tracks.slice(0, 5);
+    return batch.slice(0, 5);
   }
 
   async function triggerAutoPlayLoad() {
@@ -672,11 +799,12 @@
     btn.id = 'spPlaylistExitBtn'; btn.className = 'playlist-exit-btn hidden';
     btn.title = 'Exit Playlist'; btn.textContent = '✕ Exit';
     btn.addEventListener('click', () => {
+      // FIX 4.3: Exit clears the RESULTS UI but does NOT stop playback or clear queue
       spResultsArea.innerHTML = '<div class="sp-empty-state"><div class="sp-empty-icon">🌐</div><p>Search global music tracks</p></div>';
-      queue = []; currentIdx = 0; renderQueue();
-      inSpotifyPlaylist = false; spotifyPlaylistEnded = false;
+      inSpotifyPlaylist = false;
+      spotifyPlaylistEnded = false;
       btn.classList.add('hidden');
-      showToast('📋 Playlist cleared');
+      showToast('📋 Playlist exited — music continues');
     });
     strip.insertBefore(btn, strip.firstChild);
   }
@@ -963,7 +1091,8 @@
             isPlaying = true;
             updatePlayBtn();
             premiumMusicCard.classList.add('playing');
-            await acquireWakeLock(); // FIX 6: keep screen/tab alive
+            await acquireWakeLock(); // keep screen/tab alive
+            prefetchAhead();         // zero-delay: start fetching next 2 tracks immediately
           })
           .catch(() => showToast('Tap ▶ to play'));
       } else if (item.ytId) {
@@ -975,7 +1104,7 @@
   }
 
   /* ═══ 19. HELPERS & EVENTS ═══ */
-  function showCinemaMode() { cinemaMode.classList.remove('hidden'); premiumMusicCard.classList.add('hidden'); spotifyMode.classList.add('hidden'); }
+  function showCinemaMode() { cinemaMode.classList.remove('hidden'); premiumMusicCard.classList.add('hidden'); spotifyMode.classList.add('hidden'); showSpDiscBtn(false); }
   function setPMCInfo(t, a, img) { pmcTitle.textContent = t; pmcArtist.textContent = a; pmcArtwork.src = img || 'https://i.imgur.com/8Q5FqWj.jpeg'; pmcBgBlur.style.backgroundImage = `url('${pmcArtwork.src}')`; }
   function setTrackInfo(t, a)    { if (musicTitle) musicTitle.textContent = t; if (miniTitle) miniTitle.textContent = `${t} • ${a}`; }
   function fmtTime(s)            { if (!s || isNaN(s)) return '0:00'; const m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc.toString().padStart(2, '0')}`; }
@@ -1063,7 +1192,7 @@
     injectPlaylistExitBtn();
     updateModeBtn();
     renderQueue();
-    console.log('[ZX PRO 4.1] Critical fixes applied ✓ | Wake Lock: ' + ('wakeLock' in navigator ? 'supported' : 'not supported'));
+    console.log('[ZX PRO 4.3] Artist/Vibe Hybrid + 10+10 Shuffle + Anti-Ad + Watchdog ✓ | Wake Lock: ' + ('wakeLock' in navigator ? 'supported' : 'not supported'));
   })();
 
 })();
