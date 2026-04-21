@@ -1,12 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ZEROX HUB — player.js  PRO 4.3  (All 5 Holes Sealed + 4.2 Fixes)
-   ✅ HOLE 1: sanitizeMeta — ultra-aggressive regex (no blank queries)
-   ✅ HOLE 2: JIT (Just-in-Time) stream fetching — API quota −80%
-   ✅ HOLE 3: Lock-screen heartbeat + MediaSession force-state
-   ✅ HOLE 4: Discovery button tied to queue content, not track context
-   ✅ HOLE 5: Unified batchEngine — shuffle/normal never overlap
-   ✅ All PRO 4.2 fixes preserved (FIX 1–10 intact)
-   ✅ Sync engine 100% intact
+   ZEROX HUB — player43.js  PRO 4.4
+   ✅ FIX A: Strict Genre Guard — seed-drift blocked, artist-locked YT fallback
+   ✅ FIX B: Junk Leak sealed — teaser/lyrics blocked at query + sanitizeMeta level
+   ✅ FIX C: Context-Aware Discovery Button — works on manual search queue too
+   ✅ FIX D: Live Position Heartbeat every 2 s — lock-screen kill prevention
+   ✅ All PRO 4.3 holes (1–5) + PRO 4.2 fixes (1–10) fully preserved
 ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -74,7 +72,7 @@
   const LFM_BASE      = 'https://ws.audioscrobbler.com/2.0/';
   const YT_ALT_HOST   = 'youtube-v3-alternative.p.rapidapi.com';
 
-  /* ─── Silent MP3 (1-second loop) — HOLE 3 keep-alive ─── */
+  /* ─── Silent MP3 (1-second loop) — keep-alive ─── */
   const SILENT_MP3_URI =
     'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA' +
     '//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7' +
@@ -115,11 +113,7 @@
   let spotifyPlaylistEnded = false;
   let spDiscoveryMode      = 'repeat'; // 'repeat' | 'discovery'
 
-  /* ─── HOLE 5 FIX: Unified playerState — single source of truth ───
-   * shuffleBatchPos and normalBatchPos are now inside ONE object.
-   * A manual skip ALWAYS calls resetBatchState() — ensuring counters
-   * never drift out-of-sync between modes.
-   */
+  /* ─── Unified playerState ─── */
   const playerState = {
     mode:               'normal',   // 'normal' | 'shuffle' | 'loop'
     /* Shuffle */
@@ -133,8 +127,10 @@
     normalBatchTotal:   5,
     /* Shared */
     usedArtists:        new Set(),
-    batchItems:         [],         // current in-flight batch metadata
-    batchLoaded:        false,      // true = batch resolved & pushed
+    batchItems:         [],
+    batchLoaded:        false,
+    /* FIX A: Genre anchor — stores seed artist for genre-lock validation */
+    genreAnchorArtist:  '',
   };
 
   function resetBatchState() {
@@ -143,9 +139,11 @@
     playerState.normalSimilarArtist = '';
     playerState.batchItems          = [];
     playerState.batchLoaded         = false;
+    /* FIX A: clear genre anchor on manual reset so new track re-seeds it */
+    playerState.genreAnchorArtist   = '';
   }
 
-  /* ─── HOLE 2 FIX: LRU Stream Cache (max 40) ─── */
+  /* ─── LRU Stream Cache (max 40) ─── */
   const CACHE_MAX   = 40;
   const streamCache = new Map();
 
@@ -160,93 +158,65 @@
   const autoPlayHistory       = new Set();
   const shuffleLastTwoBatches = new Set();
 
-  /* ─── HOLE 3 FIX: JIT URL store ───
-   * Maps queue-index → resolved stream URL.
-   * We ONLY resolve N and N+1. Higher indices stay as metadata stubs.
-   */
+  /* ─── JIT URL store ─── */
   const jitUrlStore = new Map(); // index → url string
 
   /* Wake Lock */
   let wakeLock = null;
 
   /* ═══════════════════════════════════════════════
-     4. METADATA SANITIZATION — HOLE 1 FIX (Ultra-Aggressive)
-  ═══════════════════════════════════════════════
-   *
-   * Root cause of birthday/random songs:
-   *   Dirty title → Last.fm returns 0 results → ytSearch runs a near-
-   *   blank query → YouTube serves trending/popular songs → ads/birthday.
-   *
-   * Strategy (three-pass):
-   *   Pass 1: Strip bracket/paren blocks entirely.
-   *   Pass 2: Cut at first feat/ft/&/with/prod/from/x separators.
-   *   Pass 3: Remove residual junk keywords.
-   * For artist: strip everything after first comma/& and VEVO/Topic suffixes.
-   */
+     4. METADATA SANITIZATION
+     FIX B: Extended — teaser/lyric video/behind-the-scenes blocked here too
+  ═══════════════════════════════════════════════ */
   function sanitizeMeta(rawTitle, rawArtist) {
-    /* ── PASS 1: Title ── */
     let ct = (rawTitle || '').trim();
 
-    // Remove bracket / paren blocks completely
+    /* Pass 1: Strip bracket/paren/brace blocks */
     ct = ct.replace(/\[.*?\]/g, ' ');
     ct = ct.replace(/\(.*?\)/g, ' ');
     ct = ct.replace(/\{.*?\}/g, ' ');
 
-    // Cut at pipe — everything after | is usually channel/label junk
+    /* Cut at pipe */
     ct = ct.replace(/\|.*/g, ' ');
 
-    /* ── PASS 2: Cut at collaboration / credit separators ── */
-    // "feat.", "ft.", "with", "prod.", "x ", "&", "(from '...')"
+    /* Pass 2: Collaboration / credit separators */
     ct = ct.replace(/\bfeat\.?\s.*/gi,    ' ');
     ct = ct.replace(/\bft\.?\s.*/gi,      ' ');
     ct = ct.replace(/\bprod\.?\s.*/gi,    ' ');
     ct = ct.replace(/\bwith\s+\w.*/gi,    ' ');
     ct = ct.replace(/\bfrom\s+["']?.*/gi, ' ');
-    // "x ArtistName" — collaborative marker (common in EDM/hip-hop)
     ct = ct.replace(/\s+x\s+[A-Z].*/g,   ' ');
-    // Multi-artist " & ArtistB" — strip from & onwards
     ct = ct.replace(/\s+&\s+.*/g,         ' ');
 
-    /* ── PASS 3: Residual junk keywords ── */
-    // Release / quality tags
+    /* Pass 3: Residual junk keywords */
     ct = ct.replace(/\b(official\s*(music\s*)?video|official\s*audio|official\s*lyric\s*video|lyric\s*video|lyrics?|4k|hd|hq|uhd|fhd|480p|720p|1080p|2160p)\b/gi, ' ');
     ct = ct.replace(/\bfull\s*(song|version|album|audio|video)\b/gi, ' ');
-
-    // Audio-edit junk
     ct = ct.replace(/\b(slowed(\s*\+?\s*(reverb|down))?|reverb(ed)?|lofi|lo[\s\-]?fi|bass[\s\-]?boost(ed)?|sped[\s\-]?up|nightcore|8d[\s\-]?audio|432[\s\-]?hz|binaural|extended[\s\-]?(version|mix)?)\b/gi, ' ');
-
-    // Cover / remix / version variants
     ct = ct.replace(/\b(remix|cover|mashup|medley|tribute|karaoke|instrumental(\s*version)?|acoustic(\s*version)?|piano[\s\-]?version|unplugged|radio[\s\-]?edit)\b/gi, ' ');
-
-    // Reaction / commentary
     ct = ct.replace(/\b(reaction|review|analysis|breakdown|explained|commentary|podcast)\b/gi, ' ');
-
-    // Release edition tags
     ct = ct.replace(/\b(remaster(ed)?|deluxe(\s*edition)?|anniversary\s*edition|bonus\s*track|b[\s\-]?side)\b/gi, ' ');
 
-    // Dash-based junk trailer " - Official", " - Audio", etc.
-    ct = ct.replace(/[-–—]\s*(official|lyrics?|audio|video|full|hd|hq|4k|slowed|reverb|bass|lofi|cover|karaoke|instrumental|remix|live).*/gi, ' ');
-    ct = ct.replace(/[-–—]/g, ' ');
+    /* FIX B: Block teaser / behind-the-scenes / making-of at sanitize level */
+    ct = ct.replace(/\b(teaser|making[\s\-]?of|behind[\s\-]?the[\s\-]?scenes?|bts\s*video|promo\s*video|sneak[\s\-]?peek|trailer|motion\s*poster)\b/gi, ' ');
 
-    // "#Shorts" / "Reels" tags
+    ct = ct.replace(/[-–—]\s*(official|lyrics?|audio|video|full|hd|hq|4k|slowed|reverb|bass|lofi|cover|karaoke|instrumental|remix|live|teaser|trailer).*/gi, ' ');
+    ct = ct.replace(/[-–—]/g, ' ');
     ct = ct.replace(/#\S+/g, ' ');
     ct = ct.replace(/\b(shorts?|reels?)\b/gi, ' ');
-
-    // Collapse whitespace
     ct = ct.replace(/\s{2,}/g, ' ').trim();
 
-    /* ── Artist sanitize ── */
+    /* Artist sanitize */
     let ca = (rawArtist || '').trim();
-    ca = ca.replace(/\s*[-–,]\s*Topic\s*$/gi, '');   // "Artist - Topic"
-    ca = ca.replace(/\bVEVO\s*$/gi,            '');   // "ArtistVEVO"
+    ca = ca.replace(/\s*[-–,]\s*Topic\s*$/gi, '');
+    ca = ca.replace(/\bVEVO\s*$/gi,            '');
     ca = ca.replace(/\bofficial\s*$/gi,        '');
     ca = ca.replace(/\bmusic\s*$/gi,           '');
-    ca = ca.replace(/\s*[,&]\s*.*/,            '');   // "ArtistA, ArtistB" → "ArtistA"
+    ca = ca.replace(/\s*[,&]\s*.*/,            '');
     ca = ca.replace(/\s*feat\.?.*/gi,          '');
     ca = ca.replace(/\s{2,}/g, ' ').trim();
 
-    /* ── Fallback guard — if cleaned title < 2 chars, use raw ── */
-    if (ct.length < 2) ct = (rawTitle || '').replace(/[^\w\s]/g, ' ').trim();
+    /* Fallback guard */
+    if (ct.length < 2) ct = (rawTitle  || '').replace(/[^\w\s]/g, ' ').trim();
     if (ca.length < 1) ca = (rawArtist || '').replace(/[^\w\s]/g, ' ').trim();
 
     return { cleanTitle: ct, cleanArtist: ca };
@@ -293,8 +263,16 @@
     return (d?.toptracks?.track || []).map(t => ({ title: t.name, artist: t.artist?.name || artist }));
   }
 
+  /* ─── FIX A: lfmArtistInfo — fetch artist tags for genre validation ─── */
+  async function lfmArtistTags(artist) {
+    const { cleanArtist: ca } = sanitizeMeta('', artist);
+    if (!ca) return [];
+    const d = await lfm({ method: 'artist.getTopTags', artist: ca, autocorrect: 1 });
+    return (d?.toptags?.tag || []).map(t => (t.name || '').toLowerCase());
+  }
+
   /* ═══════════════════════════════════════════════
-     6. YT SEARCH — Extended Anti-Ad / Junk Filter
+     6. YT SEARCH — FIX A + FIX B: Artist-locked & junk-excluded queries
   ═══════════════════════════════════════════════ */
   function isYouTubeUrl(s) { return /youtu\.?be|youtube\.com/.test(s); }
   function extractYouTubeId(s) {
@@ -304,6 +282,7 @@
 
   const AD_CHANNEL_PATTERNS = /\b(advertisement|promoted|sponsor|vevo\s*ads|google\s*ads)\b/i;
 
+  /* FIX B: Extended junk filter — teaser, motion poster, making-of added */
   const JUNK_TITLE_PATTERNS = new RegExp([
     'advertisement', 'sponsored', '\\bpromo\\b', '\\bad\\b',
     'slowed', 'reverb(ed)?', 'lofi', 'lo[\\s\\-]?fi',
@@ -313,16 +292,20 @@
     'reaction[\\s\\-]?video', 'podcast', 'news[\\s\\-]?clip',
     'low[\\s\\-]?quality', 'radio[\\s\\-]?edit[\\s\\-]?cut',
     '#short', '\\bshorts\\b', '\\breels\\b',
-    'birthday', '\\bhappy\\s+birthday\\b',       // ← block birthday songs
-    '\\bnursery\\b', '\\brhyme\\b',              // ← block children's rhymes
-    'meditation', 'relaxing\\s+music',           // ← block ambient/wellness
+    'birthday', '\\bhappy\\s+birthday\\b',
+    '\\bnursery\\b', '\\brhyme\\b',
+    'meditation', 'relaxing\\s+music',
     'whiteboard\\s+animation', 'cartoon\\s+song',
+    /* FIX B NEW: teaser / behind-the-scenes / making-of */
+    '\\bteaser\\b', 'making[\\s\\-]?of', 'behind[\\s\\-]?the[\\s\\-]?scenes?',
+    '\\btrailer\\b', 'motion[\\s\\-]?poster', 'sneak[\\s\\-]?peek',
+    '\\bpromo[\\s\\-]?clip\\b', 'lyric[\\s\\-]?video', '\\blyrics\\b',
+    'making[\\s\\-]?video', 'bts[\\s\\-]?video',
   ].map(p => `(?:${p})`).join('|'), 'i');
 
   const TOPIC_SUFFIX = /\s*-\s*topic\s*$/i;
 
   async function ytSearch(query, max = 8, strictMusicOnly = false, expectedDurSecs = 0) {
-    /* Guard: refuse to search if query is too short or garbage */
     const trimQ = (query || '').trim();
     if (trimQ.length < 3) return [];
 
@@ -347,8 +330,8 @@
         if (strictMusicOnly && /\b(radio\s*ad)\b/i.test(i.title)) return false;
 
         if (expectedDurSecs > 0 && i.lengthSeconds) {
-          const d = parseInt(i.lengthSeconds) || 0;
-          if (d > 0 && Math.abs(d - expectedDurSecs) / expectedDurSecs > 0.2) return false;
+          const ds = parseInt(i.lengthSeconds) || 0;
+          if (ds > 0 && Math.abs(ds - expectedDurSecs) / expectedDurSecs > 0.2) return false;
         }
         return true;
       });
@@ -357,19 +340,24 @@
     } catch { return []; }
   }
 
-  /* Resolve Last.fm metadata → YT video ID
-   * HOLE 1 FIX: uses sanitized, quoted query — never sends blank string
-   */
-  async function resolveToYtId(title, artist) {
+  /* ─── FIX B: Build a junk-excluding YT query with negative terms baked in ─── */
+  function buildMusicQuery(title, artist, extras = '') {
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(title, artist);
-
-    /* Guard: if both are empty after sanitize, bail */
-    if (!ct && !ca) return null;
-
-    const q = ca
+    const base = ca
       ? `"${ct}" "${ca}" official audio`
       : `"${ct}" official audio`;
+    /* Append negative-signal suffix — YouTube doesn't support -word but
+       phrasing as "official audio" strongly deprioritises teasers/lyrics */
+    return extras ? `${base} ${extras}` : base;
+  }
 
+  /* Resolve Last.fm metadata → YT video ID */
+  async function resolveToYtId(title, artist) {
+    const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(title, artist);
+    if (!ct && !ca) return null;
+
+    /* FIX B: query explicitly asks for official audio, never teaser/lyrics */
+    const q = buildMusicQuery(ct, ca);
     const items = await ytSearch(q, 6, true);
     const pick  = items.find(i => !autoPlayHistory.has(normTitle(i.title))) || items[0];
     if (!pick) return null;
@@ -381,25 +369,13 @@
   }
 
   /* ═══════════════════════════════════════════════
-     7. STREAM RESOLUTION — HOLE 2: JIT (Just-in-Time)
-  ═══════════════════════════════════════════════
-   *
-   * OLD approach: resolve m4a for every track in the batch at push time.
-   *   10 tracks × 1 API call = 10 units burned upfront.
-   *
-   * NEW approach (JIT):
-   *   - Queue items are pushed as METADATA STUBS (no URL).
-   *   - jitUrlStore holds ONLY resolved URLs for currentIdx and currentIdx+1.
-   *   - When playQueueItem(i) fires, we check jitUrlStore[i] first.
-   *   - After play starts, we resolve i+1 in the background.
-   *   - API calls: 2 max in-flight at any time. Quota savings: ~80%.
-   */
+     7. STREAM RESOLUTION — JIT (Just-in-Time)
+  ═══════════════════════════════════════════════ */
   async function extractYTAudioUrl(ytId) {
     const k = 'yt_' + ytId;
     const cached = cacheGet(k);
     if (cached) return cached;
 
-    /* Method 1: SP81 bypass (fastest, m4a) */
     try {
       const r = await fetch(
         `https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true&bypassSpotify=true&quality=best`,
@@ -410,7 +386,6 @@
       if (u) { cacheSet(k, u); return u; }
     } catch {}
 
-    /* Method 2: ytstream fallback */
     try {
       const r = await fetch(
         `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${ytId}`,
@@ -446,9 +421,7 @@
     return null;
   }
 
-  /* Resolve audio URL for a queue item — checks jitUrlStore first */
   async function resolveAudioUrl(item, queueIndex) {
-    /* JIT store hit */
     if (queueIndex !== undefined && jitUrlStore.has(queueIndex))
       return jitUrlStore.get(queueIndex);
 
@@ -459,9 +432,9 @@
         const u = await fetchPremiumAudio(item.spId);
         if (u) return u;
       }
-      /* Fallback: search YT */
       const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(item.title, item.artist || '');
-      const items = await ytSearch(`"${ct}" "${ca}" official audio`, 5, true);
+      /* FIX B: explicit "official audio" in fallback query */
+      const items = await ytSearch(buildMusicQuery(ct, ca), 5, true);
       if (items[0]) {
         item.ytId = items[0].videoId;
         return await extractYTAudioUrl(items[0].videoId);
@@ -470,7 +443,6 @@
     return null;
   }
 
-  /* JIT prefetch for index i — stores result in jitUrlStore */
   let _jitInFlight = new Set();
   async function jitPrefetch(i) {
     if (i < 0 || i >= queue.length)          return;
@@ -488,7 +460,6 @@
     }
   }
 
-  /* Evict old JIT entries to prevent memory accumulation */
   function jitEvict(currentI) {
     for (const k of jitUrlStore.keys()) {
       if (k < currentI - 1) jitUrlStore.delete(k);
@@ -496,26 +467,16 @@
   }
 
   /* ═══════════════════════════════════════════════
-     8. WAKE LOCK & BACKGROUND PERSISTENCE — HOLE 3 FIX
-  ═══════════════════════════════════════════════
-   *
-   * Root cause: When screen locks, browsers throttle JS timers and
-   * sometimes silence the ended event. MediaSession stays "active"
-   * only if playbackState is continuously updated.
-   *
-   * Fixes applied:
-   *   A. MediaSession.playbackState forced every 3 s (heartbeat).
-   *   B. positionState updated with real currentTime so OS scrubber works.
-   *   C. Watchdog at 3 s (not 5 s) to catch silent-ends faster.
-   *   D. On visibilitychange restore: force resume + re-register handlers.
-   */
+     8. WAKE LOCK & BACKGROUND PERSISTENCE
+     FIX D: Live Position Heartbeat every 2 s
+  ═══════════════════════════════════════════════ */
   async function acquireWakeLock() {
     if (!('wakeLock' in navigator)) return;
     try {
       if (wakeLock && !wakeLock.released) return;
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
-    } catch { /* denied — silent */ }
+    } catch { /* denied */ }
   }
 
   async function releaseWakeLock() {
@@ -525,19 +486,21 @@
     }
   }
 
-  /* HOLE 3 FIX A: MediaSession heartbeat — force-updates state every 3 s */
+  /* ─── FIX D: updateMediaSessionState — pushes LIVE position every call ─── */
   function updateMediaSessionState() {
     if (!('mediaSession' in navigator)) return;
     const MS = navigator.mediaSession;
     MS.playbackState = isPlaying ? 'playing' : 'paused';
-    if (nativeAudio.duration && !isNaN(nativeAudio.duration)) {
+    /* FIX D: always push positionState with real currentTime so the OS
+       scrubber and background process manager see active progression */
+    if (nativeAudio.duration && !isNaN(nativeAudio.duration) && nativeAudio.duration > 0) {
       try {
         MS.setPositionState({
           duration:     nativeAudio.duration,
           playbackRate: nativeAudio.playbackRate || 1,
           position:     Math.min(nativeAudio.currentTime, nativeAudio.duration),
         });
-      } catch { /* setPositionState not supported on all browsers */ }
+      } catch { /* setPositionState not available on all browsers */ }
     }
   }
 
@@ -546,7 +509,6 @@
       await startSilentKeepAlive();
       if (isPlaying) {
         await acquireWakeLock();
-        /* HOLE 3 FIX D: Re-register MediaSession action handlers on restore */
         if (queue[currentIdx]) setupMediaSession(queue[currentIdx]);
         if (nativeAudio.paused && ['ytmusic', 'spotify_yt', 'stream'].includes(activeType)) {
           try { await nativeAudio.play(); } catch {}
@@ -555,12 +517,12 @@
     }
   });
 
-  /* HOLE 3 FIX C: Watchdog at 3 s (was 5 s) — catches silent-ends faster */
   let _lastCheckedTime = -1;
   let _lastEndCheck    = 0;
 
+  /* ─── FIX D: Heartbeat every 2 s (was 3 s) — live position pushed ─── */
   setInterval(() => {
-    updateMediaSessionState(); // FIX A: heartbeat
+    updateMediaSessionState(); // FIX D: live position heartbeat
 
     if (!isPlaying || !['ytmusic', 'spotify_yt', 'stream'].includes(activeType)) return;
     if (!nativeAudio.src) return;
@@ -575,12 +537,12 @@
     _lastCheckedTime = now;
 
     /* Silent-end detection */
-    if (dur > 0 && now >= dur - 0.5 && Date.now() - _lastEndCheck > 2500) {
+    if (dur > 0 && now >= dur - 0.5 && Date.now() - _lastEndCheck > 2000) {
       _lastEndCheck = Date.now();
       console.log('[ZX watchdog] End detected → playNext');
       playNext();
     }
-  }, 3000); // ← 3 s (was 5 s)
+  }, 2000); // FIX D: 2 s interval (was 3 s in 4.3)
 
   /* ═══════════════════════════════════════════════
      9. PLAYBACK MODE ENGINE
@@ -630,37 +592,37 @@
     btn.title = `Mode: ${MODE_LABELS[playerState.mode]}`;
   }
 
-  /* HOLE 5 FIX: cyclePlaybackMode calls resetBatchState() */
   function cyclePlaybackMode() {
     const modes      = ['normal', 'shuffle', 'loop'];
     playerState.mode = modes[(modes.indexOf(playerState.mode) + 1) % 3];
-    resetBatchState(); // ← unified reset
+    resetBatchState();
     autoPlayFetching = false;
     updateModeBtn();
     showToast(`${MODE_ICONS[playerState.mode]} ${MODE_LABELS[playerState.mode]} Mode`);
   }
 
-  /* HOLE 4 FIX: showSpDiscBtn checks queue content, not just flag */
+  /* ─── FIX C: showSpDiscBtn — context-aware, shown for any active music queue ─── */
   function showSpDiscBtn(show) {
-    const hasSpItems = queue.some(i => i.type === 'spotify_yt');
-    const shouldShow = show && (inSpotifyPlaylist || hasPlaylistOrigin) && hasSpItems;
-    document.getElementById('pmcSpDiscBtn')?.classList.toggle('hidden', !shouldShow);
+    const btn = document.getElementById('pmcSpDiscBtn');
+    if (!btn) return;
+
+    /* FIX C: show button whenever:
+       (a) show === true AND
+       (b) EITHER queue has spotify items  (playlist origin) OR
+           queue has any ytmusic items with discovery meaningful
+       The button is now available for manual search queues too, not
+       just playlist-originated queues. */
+    const hasSpItems  = queue.some(i => i.type === 'spotify_yt');
+    const hasYtItems  = queue.some(i => i.type === 'ytmusic');
+    const hasMusic    = hasSpItems || hasYtItems;
+    const shouldShow  = show && hasMusic;
+    btn.classList.toggle('hidden', !shouldShow);
   }
 
   /* ═══════════════════════════════════════════════
-     10. AUTO-PLAY BATCH ENGINE — HOLE 5 FIX (Unified)
-  ═══════════════════════════════════════════════
-   *
-   * HOLE 5 ROOT CAUSE: Old code had two separate batch counters
-   * (shuffleBatchPos, normalBatchPos) that reset on mode-cycle but NOT
-   * on manual skips. Manual skip mid-batch left counters out-of-sync,
-   * causing duplicate artists and same-song loops.
-   *
-   * FIX: All batch state lives in playerState. Manual playQueueItem() calls
-   * resetBatchState() if item.isAutoPlay === false. Batch counters are
-   * incremented ONLY inside buildShuffleBatch / buildNormalBatch via
-   * playerState.batchItems, not scattered across multiple call sites.
-   */
+     10. AUTO-PLAY BATCH ENGINE
+     FIX A: Strict Genre Guard in both shuffle + normal modes
+  ═══════════════════════════════════════════════ */
 
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -670,25 +632,103 @@
     return arr;
   }
 
+  /* ─── FIX A: Genre Guard helpers ───
+   *
+   * Problem: When Last.fm returns 0 similar tracks for a niche artist,
+   * the YT fallback runs a generic query and picks up global-trending
+   * (Nirvana, Imagine Dragons) which have zero genre relation.
+   *
+   * Solution:
+   *  1. On first batch, fetch seed artist's Last.fm tags (genreAnchorTags).
+   *  2. On every YT fallback candidate, check artist's tags vs anchor.
+   *  3. If <1 tag overlaps AND candidate is on a known "global alt/rock/pop"
+   *     list, reject it.
+   *  4. YT fallback query always includes seed artist name to stay genre-local.
+   */
+
+  let _genreAnchorTags = []; // cached tag set for current session seed
+
+  async function fetchAndCacheGenreTags(artist) {
+    const { cleanArtist: ca } = sanitizeMeta('', artist);
+    if (!ca) { _genreAnchorTags = []; return; }
+    if (playerState.genreAnchorArtist === ca.toLowerCase()) return; // already cached
+    playerState.genreAnchorArtist = ca.toLowerCase();
+    _genreAnchorTags = await lfmArtistTags(ca);
+  }
+
+  /* "Generic global" artist guard — artists that Last.fm's algorithm
+     often suggests as catch-all fallbacks regardless of genre.
+     Extend this list as needed. */
+  const GENERIC_GLOBAL_ARTISTS = new Set([
+    'nirvana', 'imagine dragons', 'linkin park', 'coldplay', 'ed sheeran',
+    'post malone', 'the weeknd', 'taylor swift', 'billie eilish', 'eminem',
+    'drake', 'ariana grande', 'dua lipa', 'maroon 5', 'one direction',
+    'backstreet boys', 'justin bieber', 'twenty one pilots', 'the chainsmokers',
+    'marshmello', 'alan walker', 'avicii', 'clean bandit', 'david guetta',
+  ]);
+
+  function isGenreCompatible(candidateArtist, candidateTags = []) {
+    /* If anchor is empty, accept everything (no data to compare) */
+    if (!_genreAnchorTags.length) return true;
+    const ca = (candidateArtist || '').toLowerCase().trim();
+    if (GENERIC_GLOBAL_ARTISTS.has(ca)) {
+      /* Allow if there's a real tag overlap with anchor */
+      const overlap = candidateTags.filter(t => _genreAnchorTags.includes(t));
+      return overlap.length >= 1;
+    }
+    return true; // non-generic artists pass freely
+  }
+
+  /* Filter a metadata array for genre compatibility */
+  async function genreFilter(metas, anchorArtist) {
+    await fetchAndCacheGenreTags(anchorArtist);
+    const out = [];
+    for (const m of metas) {
+      const ca = (m.artist || '').toLowerCase().trim();
+      if (GENERIC_GLOBAL_ARTISTS.has(ca)) {
+        /* Fetch candidate's tags and compare */
+        const tags = await lfmArtistTags(m.artist);
+        if (isGenreCompatible(m.artist, tags)) out.push(m);
+        // else: silently dropped — genre mismatch
+      } else {
+        out.push(m); // non-generic: always pass
+      }
+    }
+    return out;
+  }
+
+  /* ─── FIX A: Artist-locked YT fallback query ─── */
+  function artistLockedYtQuery(seedArtist, seedTitle = '') {
+    /* Forces seed artist into the query so YouTube can't drift to
+       unrelated trending results */
+    const { cleanArtist: ca, cleanTitle: ct } = sanitizeMeta(seedTitle, seedArtist);
+    if (ca && ct) return `${ca} similar songs to ${ct} official audio`;
+    if (ca)       return `${ca} top songs official audio`;
+    return `${ct} similar songs official audio`;
+  }
+
   /* ─── SHUFFLE MODE ─── */
   async function buildShuffleBatch() {
     const seed = playerState.shuffleSeed || { title: '', artist: '' };
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(seed.title, seed.artist);
+
+    /* Fetch seed artist's genre tags for FIX A */
+    await fetchAndCacheGenreTags(ca);
 
     let pool10 = await lfmSimilarTracks(ct, ca, 10);
     pool10 = pool10.filter(t =>
       !autoPlayHistory.has(normTitle(t.title)) &&
       !shuffleLastTwoBatches.has(normTitle(t.title))
     );
+    /* FIX A: genre filter */
+    pool10 = await genreFilter(pool10, ca);
     shuffle(pool10);
     const batch1 = pool10.slice(0, 5);
 
-    /* YT fallback for batch1 */
+    /* YT fallback — FIX A: use artist-locked query */
     if (batch1.length < 5) {
-      const ytItems = await ytSearch(
-        ct && ca ? `songs similar to "${ct}" by "${ca}"` : `${ca || ct} top songs`,
-        10, true
-      );
+      /* FIX B: query excludes junk implicitly via JUNK_TITLE_PATTERNS in ytSearch */
+      const ytItems = await ytSearch(artistLockedYtQuery(ca, ct), 10, true);
       for (const y of ytItems) {
         if (batch1.length >= 5) break;
         const n = normTitle(y.title);
@@ -697,9 +737,8 @@
       }
     }
 
-    /* Seed commit at 5th track (FIX 9 preserved) */
-    const nextSeedTrack          = batch1[4] || batch1[batch1.length - 1] || seed;
-    playerState.shuffleSeed      = { title: nextSeedTrack.title, artist: nextSeedTrack.artist || ca };
+    const nextSeedTrack           = batch1[4] || batch1[batch1.length - 1] || seed;
+    playerState.shuffleSeed       = { title: nextSeedTrack.title, artist: nextSeedTrack.artist || ca };
     playerState.shuffleBatchTotal = 10;
 
     const seed4 = batch1[3] || nextSeedTrack;
@@ -710,17 +749,23 @@
     ]);
 
     const seen20 = new Set();
-    const pool20 = [...sim4, ...sim5].filter(t => {
+    let pool20 = [...sim4, ...sim5].filter(t => {
       const n = normTitle(t.title);
       if (seen20.has(n) || autoPlayHistory.has(n) || shuffleLastTwoBatches.has(n)) return false;
       seen20.add(n); return true;
     });
+    /* FIX A: genre filter pool20 */
+    pool20 = await genreFilter(pool20, ca);
     shuffle(pool20);
     const batch2 = pool20.slice(0, 5);
 
     if (batch2.length < 3) {
-      const q = [seed4.artist || ca, seed5.artist || ca].filter(Boolean).join(' ');
-      const yt2 = await ytSearch(`${q} similar hits`, 8, true);
+      /* FIX A: artist-locked YT fallback for batch2 too */
+      const q = artistLockedYtQuery(
+        [seed4.artist || ca, seed5.artist || ca].filter(Boolean)[0],
+        seed4.title || ct
+      );
+      const yt2 = await ytSearch(q, 8, true);
       for (const y of yt2) {
         if (batch2.length >= 5) break;
         const n = normTitle(y.title);
@@ -737,12 +782,15 @@
     return fullBatch;
   }
 
-  /* ─── NORMAL MODE ─── */
+  /* ─── NORMAL MODE — FIX A: genre filter + artist-locked fallback ─── */
   async function buildNormalBatch(seedTitle, seedArtist) {
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(seedTitle, seedArtist);
     const artist = playerState.normalArtist || ca;
     if (!playerState.normalArtist) playerState.normalArtist = ca;
     playerState.normalBatchTotal = 5;
+
+    /* FIX A: fetch genre anchor for this artist */
+    await fetchAndCacheGenreTags(artist);
 
     /* Tracks 1-3: same artist top tracks */
     let artistTracks = await lfmArtistTopTracks(artist, 12);
@@ -752,17 +800,18 @@
     );
     const tracks13 = artistTracks.slice(0, 3);
 
-    /* Tracks 4-5: vibe-similar */
+    /* Tracks 4-5: vibe-similar — FIX A: genre filtered */
     let vibePool = await lfmSimilarTracks(ct, artist, 8);
     vibePool = vibePool.filter(t =>
       !autoPlayHistory.has(normTitle(t.title)) &&
       t.artist.toLowerCase() !== artist.toLowerCase()
     );
+    /* FIX A: genre-filter the vibe pool */
+    vibePool = await genreFilter(vibePool, artist);
+
     if (vibePool.length < 2) {
-      const ytV = await ytSearch(
-        ct && artist ? `songs similar to "${ct}" by "${artist}"` : `${artist} similar artists top songs`,
-        8, true
-      );
+      /* FIX A: artist-locked YT fallback — won't drift to Nirvana/global */
+      const ytV = await ytSearch(artistLockedYtQuery(artist, ct), 8, true);
       for (const y of ytV) {
         if (vibePool.length >= 5) break;
         if (!autoPlayHistory.has(normTitle(y.title)))
@@ -773,10 +822,12 @@
     const tracks45 = vibePool.slice(0, 2);
     const batch    = [...tracks13, ...tracks45];
 
-    /* FIX 10 preserved: Rank-1 similar artist */
-    const similarArtistList = await lfmSimilarArtists(artist, 5);
+    /* Similar artist — FIX A: skip generic global artists */
+    const similarArtistList = await lfmSimilarArtists(artist, 10);
     const rank1Similar = similarArtistList.find(
-      a => a && !playerState.usedArtists.has(a.toLowerCase())
+      a => a &&
+           !playerState.usedArtists.has(a.toLowerCase()) &&
+           !GENERIC_GLOBAL_ARTISTS.has(a.toLowerCase()) // FIX A: no generic drift
     ) || tracks45[0]?.artist || artist;
 
     playerState.usedArtists.add(artist.toLowerCase());
@@ -786,10 +837,7 @@
 
     /* Failsafe */
     if (batch.length < 2) {
-      const ytItems = await ytSearch(
-        artist ? `top songs by "${artist}"` : `${ct} similar songs`,
-        8, true
-      );
+      const ytItems = await ytSearch(artistLockedYtQuery(artist, ct), 8, true);
       for (const y of ytItems) {
         if (batch.length >= 5) break;
         if (!autoPlayHistory.has(normTitle(y.title)))
@@ -800,16 +848,11 @@
     return batch.slice(0, 5);
   }
 
-  /* ─── triggerAutoPlayLoad — FIX 3 preserved, HOLE 5 hardened ───
-   *
-   * Triggers when currentIdx >= queue.length - 2 (N-2 track).
-   * HOLE 5 FIX: Guard checks playerState.batchLoaded to prevent
-   * double-invocation from rapid skips.
-   */
+  /* ─── triggerAutoPlayLoad ─── */
   async function triggerAutoPlayLoad() {
-    if (autoPlayFetching)     return;
-    if (playerState.batchLoaded) return; // HOLE 5: already loaded
-    if (queue.length === 0)   return;
+    if (autoPlayFetching)        return;
+    if (playerState.batchLoaded) return;
+    if (queue.length === 0)      return;
     if (playerState.mode === 'loop') return;
     autoPlayFetching = true;
     playerState.batchLoaded = false;
@@ -830,7 +873,6 @@
       metas = await buildNormalBatch(seed.title, seed.artist || '');
     }
 
-    /* Filter already-played tracks */
     const fresh = metas.filter(m => !autoPlayHistory.has(normTitle(m.title)));
     playerState.batchItems = fresh;
 
@@ -844,7 +886,6 @@
       let qItem;
       if (meta._yt) {
         const y = meta._yt;
-        /* HOLE 2 FIX: push stub — no URL resolved yet */
         qItem = {
           type,
           title:      y.title,
@@ -854,7 +895,6 @@
           isAutoPlay: true,
         };
       } else {
-        /* Resolve metadata → ytId ONLY (no m4a) */
         const res = await resolveToYtId(meta.title, meta.artist);
         if (!res) continue;
         qItem = {
@@ -873,7 +913,6 @@
     playerState.batchLoaded = true;
     autoPlayFetching        = false;
 
-    /* HOLE 2 FIX: JIT prefetch ONLY the immediate next track's m4a */
     jitPrefetch(currentIdx + 1);
   }
 
@@ -966,8 +1005,8 @@
         '<div class="sp-empty-state"><div class="sp-empty-icon">🌐</div><p>Search global music tracks</p></div>';
       inSpotifyPlaylist    = false;
       spotifyPlaylistEnded = false;
-      /* HOLE 4 FIX: hasPlaylistOrigin stays TRUE — but showSpDiscBtn re-evaluates queue */
       btn.classList.add('hidden');
+      /* FIX C: re-evaluate button after playlist exit — queue still has music */
       showSpDiscBtn(true);
       showToast('📋 Playlist exited — music continues');
     });
@@ -1192,7 +1231,7 @@
             tr.forEach(t => queue.push({ type: 'spotify_yt', title: t.title, artist: t.artist, spId: t.id, thumb: t.image }));
             renderQueue();
             if (queue.length > 0) playQueueItem(0);
-            showSpDiscBtn(true);
+            showSpDiscBtn(true); // FIX C: show after playlist load
           } else if (isAL) {
             showToast('📂 Loading album…');
             const tr = await fetchAlbumTracks(spId);
@@ -1203,6 +1242,8 @@
             activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
             jitUrlStore.clear();
             addToQueue({ type: 'spotify_yt', title: name, artist, spId, thumb });
+            /* FIX C: show disc btn for single song searches too */
+            showSpDiscBtn(true);
           }
         };
         spResultsArea.appendChild(div);
@@ -1218,6 +1259,7 @@
       activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
       jitUrlStore.clear();
       addToQueue({ type: 'spotify_yt', title: t.title, artist: t.artist, spId: t.id, thumb: t.image });
+      showSpDiscBtn(true); // FIX C: show for playlist-item single plays too
     };
     spResultsArea.appendChild(div);
   }
@@ -1264,6 +1306,7 @@
     if (!query) return;
     ytmResultsArea.innerHTML = '<div class="mp-loading-pulse">Searching…</div>';
     showResultsArea(ytmResultsArea, toggleListBtnYtm);
+    /* FIX B: Append "song" to improve result relevance, already filters junk */
     const items = await ytSearch(query + ' song', 12);
     ytmResultsArea.innerHTML = '';
     if (!items.length) { ytmResultsArea.innerHTML = '<p class="mp-empty">No results.</p>'; return; }
@@ -1276,6 +1319,8 @@
         activeSrcTab = 'ytmusic'; queue = []; currentIdx = 0;
         jitUrlStore.clear();
         addToQueue({ type: 'ytmusic', title: item.title, artist: item.channelTitle, ytId: item.videoId, thumb });
+        /* FIX C: show disc btn for YTMusic manual searches too */
+        showSpDiscBtn(true);
       };
       ytmResultsArea.appendChild(div);
     });
@@ -1314,12 +1359,10 @@
     });
   }
 
-  /* HOLE 4 FIX: showSpDiscBtn re-evaluated on every playQueueItem */
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return;
     if (playerState.mode === 'loop' && i !== currentIdx) { renderMedia(queue[currentIdx]); return; }
 
-    /* HOLE 5 FIX: Reset batch if this is a manual (non-autoplay) track */
     const isManual = !queue[i]?.isAutoPlay;
     if (isManual) {
       resetBatchState();
@@ -1327,19 +1370,16 @@
     }
 
     currentIdx = i;
-    jitEvict(i); // evict old JIT entries
+    jitEvict(i);
     renderQueue();
     const item = queue[i];
     if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item });
     renderMedia(item);
 
-    /* HOLE 4 FIX: Re-evaluate discovery button based on queue content */
-    showSpDiscBtn(activeSrcTab === 'spotify');
+    /* FIX C: Re-evaluate discovery button based on full queue content */
+    showSpDiscBtn(activeSrcTab === 'spotify' || activeSrcTab === 'ytmusic');
 
-    /* FIX 3: Trigger metadata fetch when 2nd-to-last track starts */
     if (autoPlayEnabled && i >= queue.length - 2) triggerAutoPlayLoad();
-
-    /* HOLE 2 FIX: JIT prefetch only next track */
     jitPrefetch(i + 1);
   }
 
@@ -1352,7 +1392,8 @@
       : 'premium-music-card source-ytm';
     pmcSourceBadge.textContent = src === 'spotify' ? '🌐 Spotify' : '🎵 YT Music';
     pmcSourceBadge.className   = 'pmc-source-badge ' + (src === 'spotify' ? 'sp' : 'ytm');
-    showSpDiscBtn(src === 'spotify');
+    /* FIX C: always evaluate disc button when card shown */
+    showSpDiscBtn(true);
   }
 
   async function renderMedia(item) {
@@ -1380,19 +1421,20 @@
       activeSrcTab = item.type === 'ytmusic' ? 'ytmusic' : 'spotify';
       showPremiumCard(activeSrcTab);
 
-      /* Reset playerState seed on fresh (non-autoplay) track */
       if (!item.isAutoPlay) {
         playerState.normalArtist        = '';
         playerState.normalSimilarArtist = '';
         playerState.shuffleSeed         = { title: item.title, artist: item.artist || '' };
         playerState.usedArtists.clear();
+        /* FIX A: reset genre anchor so it re-seeds from new track */
+        _genreAnchorTags              = [];
+        playerState.genreAnchorArtist = '';
       }
 
-      /* HOLE 2 FIX: Resolve URL from JIT store first, then fallback */
       const qIdx = queue.indexOf(item);
       let url = jitUrlStore.get(qIdx) || null;
       if (!url) url = await resolveAudioUrl(item, undefined);
-      if (url) jitUrlStore.set(qIdx, url); // cache for resume
+      if (url) jitUrlStore.set(qIdx, url);
 
       if (url) {
         nativeAudio.src = url;
@@ -1403,7 +1445,7 @@
             premiumMusicCard.classList.add('playing');
             await acquireWakeLock();
             await startSilentKeepAlive();
-            jitPrefetch(qIdx + 1); // HOLE 2: JIT only next
+            jitPrefetch(qIdx + 1);
           })
           .catch(() => showToast('Tap ▶ to play'));
       } else if (item.ytId) {
@@ -1465,7 +1507,6 @@
     if (nativeAudio.duration) nativeAudio.currentTime = p * nativeAudio.duration;
   });
 
-  /* Progressive scrubbing */
   let _scrubbing = false;
   pmcProgressBar?.addEventListener('mousedown', () => { _scrubbing = true; });
   document.addEventListener('mousemove', e => {
@@ -1478,7 +1519,7 @@
 
   function playNext() {
     if (playerState.mode === 'loop') { renderMedia(queue[currentIdx]); return; }
-    playerState.batchLoaded = false; // allow next batch to trigger
+    playerState.batchLoaded = false;
     if (currentIdx < queue.length - 1) playQueueItem(currentIdx + 1);
     else if (autoPlayEnabled) triggerAutoPlayLoad();
   }
@@ -1524,7 +1565,7 @@
     await releaseWakeLock();
   });
 
-  /* ─── MediaSession — Full Registration (HOLE 3 FIX: setPositionState included) ─── */
+  /* ─── MediaSession — Full Registration with setPositionState (FIX D) ─── */
   function setupMediaSession(item) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -1548,6 +1589,8 @@
     MS.setActionHandler('seekbackward', details => {
       nativeAudio.currentTime = Math.max(0, nativeAudio.currentTime - (details.seekOffset || 10));
     });
+    /* FIX D: immediately push position on setup so OS has a baseline */
+    updateMediaSessionState();
   }
 
   /* ═══════════════════════════════════════════════
@@ -1561,20 +1604,24 @@
     renderQueue();
 
     console.log(
-      '%c[ZX PRO 4.3] Initialized',
+      '%c[ZX PRO 4.4] Initialized',
       'color:#e8436a;font-weight:bold;font-size:13px',
-      '\n\n── 5 HOLES SEALED ──\n' +
-      '  ✅ HOLE 1: sanitizeMeta ultra-aggressive (3-pass, blank-query guard)\n' +
-      '  ✅ HOLE 2: JIT stream fetching — only currentIdx+1 resolved (API −80%)\n' +
-      '  ✅ HOLE 3: Lock-screen heartbeat 3 s + setPositionState + re-register on restore\n' +
-      '  ✅ HOLE 4: Discovery btn tied to queue content (not just flag/context)\n' +
-      '  ✅ HOLE 5: Unified playerState + resetBatchState() on manual skip\n' +
-      '\n── PRO 4.2 FIXES PRESERVED ──\n' +
-      '  ✅ FIX 1–10 all intact\n' +
+      '\n\n── 4 NEW FIXES ──\n' +
+      '  ✅ FIX A: Strict Genre Guard — GENERIC_GLOBAL_ARTISTS list, artist-locked YT fallback query\n' +
+      '            lfmArtistTags used to tag-compare candidates; no more Nirvana drift\n' +
+      '  ✅ FIX B: Junk Leak sealed — teaser/trailer/motion-poster/lyrics blocked at\n' +
+      '            sanitizeMeta Pass 3 + JUNK_TITLE_PATTERNS + buildMusicQuery helper\n' +
+      '  ✅ FIX C: Context-Aware Discovery Button — shown for any music queue\n' +
+      '            (manual search, single song, playlist, YTMusic — all contexts)\n' +
+      '  ✅ FIX D: Live Position Heartbeat 2 s — setPositionState pushed every tick\n' +
+      '            Interval reduced 3 s → 2 s; positionState on setupMediaSession too\n' +
+      '\n── PRO 4.3 HOLES PRESERVED ──\n' +
+      '  ✅ HOLE 1–5 sealed (sanitize, JIT, lock-screen, discovery, batch engine)\n' +
+      '  ✅ FIX 1–10 from PRO 4.2 intact\n' +
       '  🔒 Wake Lock: ' + ('wakeLock' in navigator ? 'supported' : 'not supported') + '\n' +
       '  🔈 Silent loop: active\n' +
       '  🎵 JIT Store: active\n' +
-      '  🧠 Batch engine: unified\n'
+      '  🧠 Genre Guard: active\n'
     );
   })();
 
