@@ -1,13 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ZEROX HUB — player43.js  PRO 4.5
-   ✅ FIX A: Ultra-Strict Shuffle Batching — interleaveByArtist() enforces
-             alternating-artist selection; no same-source cluster allowed
-   ✅ FIX B: YouTube "Official Audio" Force — buildMusicQuery now injects
-             explicit negative-signal suffix (-lyrical -teaser -visualizer)
-             AND wraps title+artist in double-quotes for precision matching
-   ✅ FIX C: Heavy JUNK_TITLE_PATTERNS — visualiser / lyrical / junk generic /
-             AMV / status video / ringtone / whatsapp status all blocked
-   ✅ All PRO 4.4 fixes preserved (FIX A–D intact)
+   ZEROX HUB — player43.js  PRO 4.4
+   ✅ FIX A: Strict Genre Guard — seed-drift blocked, artist-locked YT fallback
+   ✅ FIX B: Junk Leak sealed — teaser/lyrics blocked at query + sanitizeMeta level
+   ✅ FIX C: Context-Aware Discovery Button — works on manual search queue too
+   ✅ FIX D: Live Position Heartbeat every 2 s — lock-screen kill prevention
    ✅ All PRO 4.3 holes (1–5) + PRO 4.2 fixes (1–10) fully preserved
 ═══════════════════════════════════════════════════════════════════ */
 'use strict';
@@ -286,54 +282,25 @@
 
   const AD_CHANNEL_PATTERNS = /\b(advertisement|promoted|sponsor|vevo\s*ads|google\s*ads)\b/i;
 
-  /* FIX C (4.5): Heavy junk filter — visualiser, lyrical, AMV, status video,
-     ringtone, whatsapp status, top-10 list videos, news clips all blocked.
-     FIX B (4.4): teaser, motion poster, making-of already present. */
+  /* FIX B: Extended junk filter — teaser, motion poster, making-of added */
   const JUNK_TITLE_PATTERNS = new RegExp([
-    /* ── Ads / Promos ── */
     'advertisement', 'sponsored', '\\bpromo\\b', '\\bad\\b',
-    /* ── Audio edits ── */
     'slowed', 'reverb(ed)?', 'lofi', 'lo[\\s\\-]?fi',
-    'bass[\\s\\-]?boost(ed)?', 'sped[\\s\\-]?up', 'nightcore',
-    '8d[\\s\\-]?audio', '432[\\s\\-]?hz', 'binaural',
-    /* ── Covers / Remixes / Edits ── */
+    'bass[\\s\\-]?boost(ed)?', 'sped[\\s\\-]?up', 'nightcore', '8d[\\s\\-]?audio',
     '\\bcover\\b', 'karaoke', 'instrumental[\\s\\-]?version',
     'tribute', 'mashup', 'megamix', 'compilation',
-    'piano[\\s\\-]?version', 'acoustic[\\s\\-]?version', '\\bunplugged\\b',
-    '\\bremix\\b', 'radio[\\s\\-]?edit', 'extended[\\s\\-]?(mix|version)',
-    /* ── Reaction / Commentary / Podcast ── */
-    'reaction[\\s\\-]?video', '\\breaction\\b', 'podcast',
-    'news[\\s\\-]?clip', '\\banalysis\\b', '\\bbreakdown\\b',
-    '\\bcommentary\\b', '\\bexplained\\b',
-    /* ── Quality / Format junk ── */
-    'low[\\s\\-]?quality', '#short', '\\bshorts\\b', '\\breels\\b',
-    /* ── Children / Birthday ── */
+    'reaction[\\s\\-]?video', 'podcast', 'news[\\s\\-]?clip',
+    'low[\\s\\-]?quality', 'radio[\\s\\-]?edit[\\s\\-]?cut',
+    '#short', '\\bshorts\\b', '\\breels\\b',
     'birthday', '\\bhappy\\s+birthday\\b',
-    '\\bnursery\\b', '\\brhyme\\b', 'cartoon[\\s\\-]?song',
-    'whiteboard[\\s\\-]?animation',
-    /* ── Ambient / Wellness ── */
-    'meditation', 'relaxing[\\s\\-]?music', 'sleep[\\s\\-]?music',
-    'study[\\s\\-]?music', 'yoga[\\s\\-]?music',
-    /* ── Teasers / BTS / Making-of (4.4 FIX B) ── */
+    '\\bnursery\\b', '\\brhyme\\b',
+    'meditation', 'relaxing\\s+music',
+    'whiteboard\\s+animation', 'cartoon\\s+song',
+    /* FIX B NEW: teaser / behind-the-scenes / making-of */
     '\\bteaser\\b', 'making[\\s\\-]?of', 'behind[\\s\\-]?the[\\s\\-]?scenes?',
     '\\btrailer\\b', 'motion[\\s\\-]?poster', 'sneak[\\s\\-]?peek',
-    '\\bpromo[\\s\\-]?clip\\b', 'making[\\s\\-]?video', 'bts[\\s\\-]?video',
-    /* ── FIX C (4.5): Visualiser / Lyrical ── */
-    'visuali[sz]er', 'visuali[sz]er[\\s\\-]?video', 'lyrical[\\s\\-]?video',
-    '\\blyrical\\b', 'lyric[\\s\\-]?video', '\\blyrics\\b',
-    'with[\\s\\-]?lyrics', 'lyrics[\\s\\-]?video',
-    /* ── FIX C (4.5): AMV / Fan-made ── */
-    '\\bamv\\b', 'fan[\\s\\-]?made', 'fan[\\s\\-]?video',
-    'fan[\\s\\-]?edit', 'fan[\\s\\-]?film',
-    /* ── FIX C (4.5): WhatsApp Status / Ringtone ── */
-    'whatsapp[\\s\\-]?status', '\\bstatus[\\s\\-]?video\\b',
-    '\\bringtone\\b', 'caller[\\s\\-]?tune',
-    /* ── FIX C (4.5): Top-list / Countdown videos ── */
-    'top[\\s\\-]?\\d+[\\s\\-]?songs', 'best[\\s\\-]?of[\\s\\-]?\\d{4}',
-    'top[\\s\\-]?hits', 'jukebox', '\\bnonstop\\b', 'non[\\s\\-]?stop',
-    /* ── FIX C (4.5): Low-effort / Generic filler ── */
-    'all[\\s\\-]?songs', 'full[\\s\\-]?album', 'full[\\s\\-]?playlist',
-    'audio[\\s\\-]?jukebox', 'music[\\s\\-]?video[\\s\\-]?playlist',
+    '\\bpromo[\\s\\-]?clip\\b', 'lyric[\\s\\-]?video', '\\blyrics\\b',
+    'making[\\s\\-]?video', 'bts[\\s\\-]?video',
   ].map(p => `(?:${p})`).join('|'), 'i');
 
   const TOPIC_SUFFIX = /\s*-\s*topic\s*$/i;
@@ -373,24 +340,14 @@
     } catch { return []; }
   }
 
-  /* ─── FIX B (4.5): buildMusicQuery — double-quoted precision + negative suffix ───
-   *
-   * YouTube's search API doesn't support -word exclusions, but:
-   *   (a) Wrapping title AND artist in double-quotes ensures exact-phrase
-   *       matching, so unrelated trending content is pushed down.
-   *   (b) Appending the negative-signal string ("not lyrical not teaser…")
-   *       shifts the relevance model away from those result types.
-   *   (c) The word "official audio" alone is the strongest single-phrase
-   *       signal for the correct result type.
-   */
-  const QUERY_NEG_SUFFIX = 'official audio -lyrical -teaser -visualizer -status -ringtone';
-
+  /* ─── FIX B: Build a junk-excluding YT query with negative terms baked in ─── */
   function buildMusicQuery(title, artist, extras = '') {
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(title, artist);
-    /* Double-quote both title and artist for precision matching */
     const base = ca
-      ? `"${ct}" "${ca}" ${QUERY_NEG_SUFFIX}`
-      : `"${ct}" ${QUERY_NEG_SUFFIX}`;
+      ? `"${ct}" "${ca}" official audio`
+      : `"${ct}" official audio`;
+    /* Append negative-signal suffix — YouTube doesn't support -word but
+       phrasing as "official audio" strongly deprioritises teasers/lyrics */
     return extras ? `${base} ${extras}` : base;
   }
 
@@ -675,40 +632,6 @@
     return arr;
   }
 
-  /* ─── FIX A (4.5): interleaveByArtist — no two consecutive same-artist ───
-   *
-   * Problem: Simple `.slice(0, N)` picks top-N which can be from the same
-   * artist cluster (e.g., 4 Arijit Singh songs in a row from lfmSimilarTracks).
-   *
-   * Algorithm:
-   *   1. Shuffle the input first (preserves randomness).
-   *   2. Greedily pick next track whose artist differs from the last picked.
-   *   3. If no different-artist track remains, fall back to any remaining track.
-   *   4. Cap at `maxCount`.
-   *
-   * This guarantees artist alternation at every even position without
-   * requiring extra API calls.
-   */
-  function interleaveByArtist(arr, maxCount) {
-    shuffle(arr);
-    const result  = [];
-    const pool    = [...arr];
-    const getKey  = m => (m.artist || m.channelTitle || '').toLowerCase().trim();
-
-    while (result.length < maxCount && pool.length > 0) {
-      const lastArtist = result.length ? getKey(result[result.length - 1]) : null;
-
-      /* Find first track with a different artist */
-      let pickIdx = pool.findIndex(m => getKey(m) !== lastArtist);
-
-      /* Fallback: all remaining are same artist — just take next */
-      if (pickIdx === -1) pickIdx = 0;
-
-      result.push(pool.splice(pickIdx, 1)[0]);
-    }
-    return result;
-  }
-
   /* ─── FIX A: Genre Guard helpers ───
    *
    * Problem: When Last.fm returns 0 similar tracks for a niche artist,
@@ -774,15 +697,14 @@
     return out;
   }
 
-  /* ─── FIX A + FIX B (4.5): Artist-locked YT fallback query ───
-   * Double-quotes artist name + appends QUERY_NEG_SUFFIX to exclude
-   * visualiser / lyrical / teaser results at query-rank level too.
-   */
+  /* ─── FIX A: Artist-locked YT fallback query ─── */
   function artistLockedYtQuery(seedArtist, seedTitle = '') {
+    /* Forces seed artist into the query so YouTube can't drift to
+       unrelated trending results */
     const { cleanArtist: ca, cleanTitle: ct } = sanitizeMeta(seedTitle, seedArtist);
-    if (ca && ct) return `"${ca}" songs similar to "${ct}" ${QUERY_NEG_SUFFIX}`;
-    if (ca)       return `"${ca}" top songs ${QUERY_NEG_SUFFIX}`;
-    return `"${ct}" similar songs ${QUERY_NEG_SUFFIX}`;
+    if (ca && ct) return `${ca} similar songs to ${ct} official audio`;
+    if (ca)       return `${ca} top songs official audio`;
+    return `${ct} similar songs official audio`;
   }
 
   /* ─── SHUFFLE MODE ─── */
@@ -800,8 +722,8 @@
     );
     /* FIX A: genre filter */
     pool10 = await genreFilter(pool10, ca);
-    /* FIX A (4.5): interleave — no same-artist clusters */
-    const batch1 = interleaveByArtist(pool10, 5);
+    shuffle(pool10);
+    const batch1 = pool10.slice(0, 5);
 
     /* YT fallback — FIX A: use artist-locked query */
     if (batch1.length < 5) {
@@ -834,8 +756,8 @@
     });
     /* FIX A: genre filter pool20 */
     pool20 = await genreFilter(pool20, ca);
-    /* FIX A (4.5): interleave — no same-artist clusters in batch2 either */
-    const batch2 = interleaveByArtist(pool20, 5);
+    shuffle(pool20);
+    const batch2 = pool20.slice(0, 5);
 
     if (batch2.length < 3) {
       /* FIX A: artist-locked YT fallback for batch2 too */
@@ -896,11 +818,9 @@
           vibePool.push({ title: y.title, artist: y.channelTitle || artist, _yt: y });
       }
     }
-    /* FIX A (4.5): interleave within vibe pool too */
-    const tracks45 = interleaveByArtist(vibePool, 2);
-    /* Also interleave tracks13 itself so same-artist top-tracks don't cluster */
-    const tracks13i = interleaveByArtist(tracks13, 3);
-    const batch     = [...tracks13i, ...tracks45];
+    shuffle(vibePool);
+    const tracks45 = vibePool.slice(0, 2);
+    const batch    = [...tracks13, ...tracks45];
 
     /* Similar artist — FIX A: skip generic global artists */
     const similarArtistList = await lfmSimilarArtists(artist, 10);
@@ -915,20 +835,17 @@
     playerState.normalSimilarArtist = rank1Similar;
     playerState.normalBatchPos      = 0;
 
-    /* Failsafe — also interleave YT-sourced items before appending */
+    /* Failsafe */
     if (batch.length < 2) {
       const ytItems = await ytSearch(artistLockedYtQuery(artist, ct), 8, true);
-      const ytMetas = [];
       for (const y of ytItems) {
+        if (batch.length >= 5) break;
         if (!autoPlayHistory.has(normTitle(y.title)))
-          ytMetas.push({ title: y.title, artist: y.channelTitle || artist, _yt: y });
+          batch.push({ title: y.title, artist: y.channelTitle || artist, _yt: y });
       }
-      /* FIX A (4.5): interleave failsafe items too */
-      interleaveByArtist(ytMetas, 5 - batch.length).forEach(m => batch.push(m));
     }
 
-    /* FIX A (4.5): final interleave pass on the merged batch before return */
-    return interleaveByArtist(batch, 5);
+    return batch.slice(0, 5);
   }
 
   /* ─── triggerAutoPlayLoad ─── */
