@@ -65,7 +65,7 @@
   nativeAudio.setAttribute('webkit-playsinline', '');
 
   /* ═══ 2. API KEYS ═══ */
-  const RAPID_API_KEY = 'da0d895439msheac2f60c49aa9d0p1cb891jsne02d1eaab2fd';
+  const RAPID_API_KEY = '7ed79a66damsh741c9e46a516e82p1d0e5ejsn982a87fa3f59';
   const SP81_HOST     = 'spotify81.p.rapidapi.com';
   const LFM_KEY       = '64e3a55c11e6aa253b65f16ba5cf5047';
   const LFM_BASE      = 'https://ws.audioscrobbler.com/2.0/';
