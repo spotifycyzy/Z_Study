@@ -876,7 +876,8 @@
     }
 
     const nextSeedTrack     = batch1[4] || batch1[batch1.length - 1] || seed;
-    playerState.shuffleSeed = { title: nextSeedTrack.title, artist: nextSeedTrack.artist || ca };
+    /* FIX 8: Preserve clean Last.fm metadata in shuffle seed chain */
+    playerState.shuffleSeed = { title: nextSeedTrack.lfmTitle || nextSeedTrack.title, artist: nextSeedTrack.lfmArtist || nextSeedTrack.artist || ca };
 
     const seed4 = batch1[3] || nextSeedTrack;
     const seed5 = batch1[4] || nextSeedTrack;
@@ -1002,19 +1003,23 @@
     playerState.batchLoaded = false;
 
     const seed = queue[queue.length - 1];
+    /* FIX 8: Prefer clean Last.fm metadata for seeding — avoids sending YouTube
+       garbage titles to Last.fm which causes "no results" → trash fallback loop */
+    const seedTitle  = seed.lfmTitle  || seed.title;
+    const seedArtist = seed.lfmArtist || seed.artist || '';
 
     if (activeSrcTab === 'spotify' && spotifyPlaylistEnded && spDiscoveryMode === 'discovery') {
       spotifyPlaylistEnded = false;
-      playerState.shuffleSeed = { title: seed.title, artist: seed.artist || '' };
+      playerState.shuffleSeed = { title: seedTitle, artist: seedArtist };
     }
 
     let metas;
     if (playerState.mode === 'shuffle') {
       if (!playerState.shuffleSeed)
-        playerState.shuffleSeed = { title: seed.title, artist: seed.artist || '' };
+        playerState.shuffleSeed = { title: seedTitle, artist: seedArtist };
       metas = await buildShuffleBatch();
     } else {
-      metas = await buildNormalBatch(seed.title, seed.artist || '');
+      metas = await buildNormalBatch(seedTitle, seedArtist);
     }
 
     /* FIX 5: Filter with deep fingerprint */
@@ -1033,10 +1038,14 @@
         const dur = parseInt(y.lengthSeconds) || 0;
         if (dur > 0 && !passesDurationGuard(dur, false)) continue;
 
+        /* FIX 8: Sanitize YouTube title for display, preserve Last.fm metadata for seeding */
+        const { cleanTitle: dispTitle, cleanArtist: dispArtist } = sanitizeMeta(y.title, y.channelTitle || meta.artist || '');
         qItem = {
           type,
-          title:      y.title,
-          artist:     y.channelTitle || '',
+          title:      dispTitle || meta.title || y.title,
+          artist:     dispArtist || meta.artist || y.channelTitle || '',
+          lfmTitle:   meta.title,
+          lfmArtist:  meta.artist,
           ytId:       y.videoId,
           thumb:      y.thumbnail?.[1]?.url || y.thumbnail?.[0]?.url || '',
           isAutoPlay: true,
@@ -1053,6 +1062,8 @@
           type,
           title:      meta.title,
           artist:     meta.artist,
+          lfmTitle:   meta.title,
+          lfmArtist:  meta.artist,
           ytId:       res.ytId,
           thumb:      res.thumb,
           isAutoPlay: true,
@@ -1510,7 +1521,9 @@
       const el = document.createElement('div');
       el.className = 'mp-queue-item' + (i === currentIdx ? ' playing' : '');
       const icon = { youtube: '🎬', ytmusic: '🎵', spotify_yt: '🌐', stream: '☁️' }[item.type] || '🎵';
-      el.innerHTML = `<span style="font-size:10px;opacity:.5;flex-shrink:0">${icon}</span><span class="qi-title">${item.title}</span><button class="qi-del">✕</button>`;
+      /* FIX 8: Show clean title in queue list */
+      const qTitle = item.lfmTitle || item.title;
+      el.innerHTML = `<span style="font-size:10px;opacity:.5;flex-shrink:0">${icon}</span><span class="qi-title">${qTitle}</span><button class="qi-del">✕</button>`;
       el.querySelector('.qi-del').onclick = e => {
         e.stopPropagation();
         queue.splice(i, 1);
@@ -1572,8 +1585,11 @@
     if (ytFrameWrap) ytFrameWrap.style.display = 'none';
     if (ytPlayer && isYtReady) ytPlayer.pauseVideo();
 
-    setPMCInfo(item.title, item.artist || 'Unknown', item.thumb);
-    setTrackInfo(item.title, item.artist || 'Unknown');
+    /* FIX 8: Display clean title/artist, not YouTube garbage */
+    const displayTitle  = item.lfmTitle  || item.title;
+    const displayArtist = item.lfmArtist || item.artist || 'Unknown';
+    setPMCInfo(displayTitle, displayArtist, item.thumb);
+    setTrackInfo(displayTitle, displayArtist);
     setupMediaSession(item);
 
     if (item.type === 'youtube') {
@@ -1591,7 +1607,8 @@
       if (!item.isAutoPlay) {
         playerState.normalArtist        = '';
         playerState.normalSimilarArtist = '';
-        playerState.shuffleSeed         = { title: item.title, artist: item.artist || '' };
+        /* FIX 8: Use clean Last.fm metadata for shuffle seed */
+        playerState.shuffleSeed         = { title: item.lfmTitle || item.title, artist: item.lfmArtist || item.artist || '' };
         playerState.usedArtists.clear();
         _genreAnchorTags              = [];
         playerState.genreAnchorArtist = '';
