@@ -1,4 +1,4 @@
-export const PLAYER_49_CODE = `/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════
    ZEROX HUB — player49.js  PRO 4.9
    ✅ FIX 1: Natural Query Strategy — "Track" by "Artist" format
    ✅ FIX 2: Music Category Enforcement — Topic/OAC channel priority
@@ -180,50 +180,50 @@ export const PLAYER_49_CODE = `/* ═══════════════�
   function sanitizeMeta(rawTitle, rawArtist) {
     let ct = (rawTitle || '').trim();
 
-    ct = ct.replace(/\\[.*?\\]/g, ' ');
-    ct = ct.replace(/\\(.*?\\)/g, ' ');
-    ct = ct.replace(/\\{.*?\\}/g, ' ');
-    ct = ct.replace(/\\|.*/g, ' ');
-    ct = ct.replace(/\\bfeat\\.?\\s.*/gi, ' ');
-    ct = ct.replace(/\\bft\\.?\\s.*/gi, ' ');
-    ct = ct.replace(/\\bprod\\.?\\s.*/gi, ' ');
-    ct = ct.replace(/\\bwith\\s+\\w.*/gi, ' ');
-    ct = ct.replace(/\\bfrom\\s+["']?.*/gi, ' ');
-    ct = ct.replace(/\\s+x\\s+[A-Z].*/g, ' ');
-    ct = ct.replace(/\\s+&\\s+.*/g, ' ');
+    ct = ct.replace(/\[.*?\]/g, ' ');
+    ct = ct.replace(/\(.*?\)/g, ' ');
+    ct = ct.replace(/\{.*?\}/g, ' ');
+    ct = ct.replace(/\|.*/g, ' ');
+    ct = ct.replace(/\bfeat\.?\s.*/gi, ' ');
+    ct = ct.replace(/\bft\.?\s.*/gi, ' ');
+    ct = ct.replace(/\bprod\.?\s.*/gi, ' ');
+    ct = ct.replace(/\bwith\s+\w.*/gi, ' ');
+    ct = ct.replace(/\bfrom\s+["']?.*/gi, ' ');
+    ct = ct.replace(/\s+x\s+[A-Z].*/g, ' ');
+    ct = ct.replace(/\s+&\s+.*/g, ' ');
 
-    ct = ct.replace(/\\b(official\\s*(music\\s*)?video|official\\s*audio|official\\s*lyric\\s*video|lyric\\s*video|lyrics?|4k|hd|hq|uhd|fhd|480p|720p|1080p|2160p)\\b/gi, ' ');
-    ct = ct.replace(/\\bfull\\s*(song|version|album|audio|video)\\b/gi, ' ');
-    ct = ct.replace(/\\b(slowed(\\s*\\+?\\s*(reverb|down))?|reverb(ed)?|lofi|lo[\\s\\-]?fi|bass[\\s\\-]?boost(ed)?|sped[\\s\\-]?up|nightcore|8d[\\s\\-]?audio|432[\\s\\-]?hz|binaural|extended[\\s\\-]?(version|mix)?)\\b/gi, ' ');
-    ct = ct.replace(/\\b(remix|cover|mashup|medley|tribute|karaoke|instrumental(\\s*version)?|acoustic(\\s*version)?|piano[\\s\\-]?version|unplugged|radio[\\s\\-]?edit)\\b/gi, ' ');
-    ct = ct.replace(/\\b(reaction|review|analysis|breakdown|explained|commentary|podcast)\\b/gi, ' ');
-    ct = ct.replace(/\\b(remaster(ed)?|deluxe(\\s*edition)?|anniversary\\s*edition|bonus\\s*track|b[\\s\\-]?side)\\b/gi, ' ');
-    ct = ct.replace(/\\b(teaser|making[\\s\\-]?of|behind[\\s\\-]?the[\\s\\-]?scenes?|bts\\s*video|promo\\s*video|sneak[\\s\\-]?peek|trailer|motion\\s*poster)\\b/gi, ' ');
+    ct = ct.replace(/\b(official\s*(music\s*)?video|official\s*audio|official\s*lyric\s*video|lyric\s*video|lyrics?|4k|hd|hq|uhd|fhd|480p|720p|1080p|2160p)\b/gi, ' ');
+    ct = ct.replace(/\bfull\s*(song|version|album|audio|video)\b/gi, ' ');
+    ct = ct.replace(/\b(slowed(\s*\+?\s*(reverb|down))?|reverb(ed)?|lofi|lo[\s\-]?fi|bass[\s\-]?boost(ed)?|sped[\s\-]?up|nightcore|8d[\s\-]?audio|432[\s\-]?hz|binaural|extended[\s\-]?(version|mix)?)\b/gi, ' ');
+    ct = ct.replace(/\b(remix|cover|mashup|medley|tribute|karaoke|instrumental(\s*version)?|acoustic(\s*version)?|piano[\s\-]?version|unplugged|radio[\s\-]?edit)\b/gi, ' ');
+    ct = ct.replace(/\b(reaction|review|analysis|breakdown|explained|commentary|podcast)\b/gi, ' ');
+    ct = ct.replace(/\b(remaster(ed)?|deluxe(\s*edition)?|anniversary\s*edition|bonus\s*track|b[\s\-]?side)\b/gi, ' ');
+    ct = ct.replace(/\b(teaser|making[\s\-]?of|behind[\s\-]?the[\s\-]?scenes?|bts\s*video|promo\s*video|sneak[\s\-]?peek|trailer|motion\s*poster)\b/gi, ' ');
 
-    ct = ct.replace(/\\b(scene|deleted\\s*scene|fight\\s*scene|climax\\s*scene|action\\s*scene|movie\\s*scene|film\\s*scene)\\b/gi, ' ');
-    ct = ct.replace(/\\b(advertisement|ad\\s*film|brand\\s*film|commercial)\\b/gi, ' ');
-    ct = ct.replace(/\\b(netflix|amazon\\s*prime|disney\\s*plus|hotstar|zee5|sony\\s*liv|jio\\s*cinema|mx\\s*player)\\b/gi, ' ');
-    ct = ct.replace(/\\b(extended\\s*cut|director.?s\\s*cut|uncut|uncensored|raw\\s*footage|bloopers?)\\b/gi, ' ');
-    ct = ct.replace(/\\b(promo|promotional|teaser\\s*trailer|official\\s*trailer|theatrical\\s*trailer)\\b/gi, ' ');
-    ct = ct.replace(/\\b(web\\s*series|short\\s*film|mini\\s*series|episode\\s*\\d+|ep\\s*\\d+|season\\s*\\d+)\\b/gi, ' ');
+    ct = ct.replace(/\b(scene|deleted\s*scene|fight\s*scene|climax\s*scene|action\s*scene|movie\s*scene|film\s*scene)\b/gi, ' ');
+    ct = ct.replace(/\b(advertisement|ad\s*film|brand\s*film|commercial)\b/gi, ' ');
+    ct = ct.replace(/\b(netflix|amazon\s*prime|disney\s*plus|hotstar|zee5|sony\s*liv|jio\s*cinema|mx\s*player)\b/gi, ' ');
+    ct = ct.replace(/\b(extended\s*cut|director.?s\s*cut|uncut|uncensored|raw\s*footage|bloopers?)\b/gi, ' ');
+    ct = ct.replace(/\b(promo|promotional|teaser\s*trailer|official\s*trailer|theatrical\s*trailer)\b/gi, ' ');
+    ct = ct.replace(/\b(web\s*series|short\s*film|mini\s*series|episode\s*\d+|ep\s*\d+|season\s*\d+)\b/gi, ' ');
 
-    ct = ct.replace(/[-–—]\\s*(official|lyrics?|audio|video|full|hd|hq|4k|slowed|reverb|bass|lofi|cover|karaoke|instrumental|remix|live|teaser|trailer|scene|promo|netflix).*/gi, ' ');
+    ct = ct.replace(/[-–—]\s*(official|lyrics?|audio|video|full|hd|hq|4k|slowed|reverb|bass|lofi|cover|karaoke|instrumental|remix|live|teaser|trailer|scene|promo|netflix).*/gi, ' ');
     ct = ct.replace(/[-–—]/g, ' ');
-    ct = ct.replace(/#\\S+/g, ' ');
-    ct = ct.replace(/\\b(shorts?|reels?)\\b/gi, ' ');
-    ct = ct.replace(/\\s{2,}/g, ' ').trim();
+    ct = ct.replace(/#\S+/g, ' ');
+    ct = ct.replace(/\b(shorts?|reels?)\b/gi, ' ');
+    ct = ct.replace(/\s{2,}/g, ' ').trim();
 
     let ca = (rawArtist || '').trim();
-    ca = ca.replace(/\\s*-\\s*Topic\\s*$/gi, '');
-    ca = ca.replace(/\\bVEVO\\s*$/gi, '');
-    ca = ca.replace(/\\bofficial\\s*$/gi, '');
-    ca = ca.replace(/\\bmusic\\s*$/gi, '');
-    ca = ca.replace(/\\s*[,&]\\s*.*/,  '');
-    ca = ca.replace(/\\s*feat\\.?.*/gi, '');
-    ca = ca.replace(/\\s{2,}/g, ' ').trim();
+    ca = ca.replace(/\s*-\s*Topic\s*$/gi, '');
+    ca = ca.replace(/\bVEVO\s*$/gi, '');
+    ca = ca.replace(/\bofficial\s*$/gi, '');
+    ca = ca.replace(/\bmusic\s*$/gi, '');
+    ca = ca.replace(/\s*[,&]\s*.*/,  '');
+    ca = ca.replace(/\s*feat\.?.*/gi, '');
+    ca = ca.replace(/\s{2,}/g, ' ').trim();
 
-    if (ct.length < 2) ct = (rawTitle  || '').replace(/[^\\w\\s]/g, ' ').trim();
-    if (ca.length < 1) ca = (rawArtist || '').replace(/[^\\w\\s]/g, ' ').trim();
+    if (ct.length < 2) ct = (rawTitle  || '').replace(/[^\w\s]/g, ' ').trim();
+    if (ca.length < 1) ca = (rawArtist || '').replace(/[^\w\s]/g, ' ').trim();
 
     return { cleanTitle: ct, cleanArtist: ca };
   }
@@ -239,21 +239,21 @@ export const PLAYER_49_CODE = `/* ═══════════════�
   function deepFingerprint(title, artist) {
     /* Step 1: Strip from first separator onward — THE MOON FIX */
     let s = (title || '').toLowerCase();
-    const sepIdx = s.search(/[([|\\-:]/);
+    const sepIdx = s.search(/[([|\-:]/);
     if (sepIdx > 0) s = s.slice(0, sepIdx).trim();
 
     /* Step 2: Process artist — same separator logic */
     let a = (artist || '').toLowerCase();
-    const artSepIdx = a.search(/[([|\\-:]/);
+    const artSepIdx = a.search(/[([|\-:]/);
     if (artSepIdx > 0) a = a.slice(0, artSepIdx).trim();
 
     /* Step 3: Strip channel noise from artist */
-    a = a.replace(/\\s*topic\\s*$/i, '').replace(/\\bvevo\\b/gi, '').trim();
+    a = a.replace(/\s*topic\s*$/i, '').replace(/\bvevo\b/gi, '').trim();
 
     /* Step 4: Combine and strip filler words */
     const combined = (s + ' ' + a);
     const clean = combined
-      .replace(/\\b(official|audio|video|lyric|lyrics|music|song|full|hd|hq|4k|uhd|the|a|an)\\b/g, '')
+      .replace(/\b(official|audio|video|lyric|lyrics|music|song|full|hd|hq|4k|uhd|the|a|an)\b/g, '')
       .replace(/[^a-z0-9]/g, '')
       .trim();
     return clean;
@@ -261,8 +261,8 @@ export const PLAYER_49_CODE = `/* ═══════════════�
 
   function normTitle(t) {
     return (t || '').toLowerCase()
-      .replace(/\\[.*?\\]/g, '').replace(/\\(.*?\\)/g, '')
-      .replace(/\\b(official|audio|video|lyric|feat\\..*|ft\\..*|slowed|reverb|bass|lofi|remix|cover)\\b/g, '')
+      .replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '')
+      .replace(/\b(official|audio|video|lyric|feat\..*|ft\..*|slowed|reverb|bass|lofi|remix|cover)\b/g, '')
       .replace(/[^a-z0-9]/g, '')
       .trim();
   }
@@ -321,48 +321,48 @@ export const PLAYER_49_CODE = `/* ═══════════════�
   /* ═══════════════════════════════════════════════
      6. YT SEARCH ENGINE — PRO 4.9 UPGRADES
   ═══════════════════════════════════════════════ */
-  function isYouTubeUrl(s) { return /youtu\\.?be|youtube\\.com/.test(s); }
+  function isYouTubeUrl(s) { return /youtu\.?be|youtube\.com/.test(s); }
   function extractYouTubeId(s) {
-    const m = s.match(/(?:v=|youtu\\.be\\/|embed\\/|shorts\\/)([a-zA-Z0-9_-]{11})/);
+    const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
   }
 
   const BLOCKED_CHANNEL_PATTERNS = new RegExp([
-    'netflix', 'amazon\\\\s*prime\\\\s*video', 'disney\\\\+?', 'hotstar', 'zee5',
-    'sony\\\\s*liv', 'jio\\\\s*cinema', 'mx\\\\s*player', 'voot', 'alt\\\\s*balaji',
-    'movie\\\\s*clips?', 'film\\\\s*clips?', 'scene\\\\s*vault', 'movieclips',
-    'filmi\\\\s*clip', 'movie\\\\s*scene', 'bollywood\\\\s*scene',
-    'advertisement', 'promoted', 'sponsor', 'vevo\\\\s*ads', 'google\\\\s*ads',
-    'news18', 'ndtv', 'aaj\\\\s*tak', 'zee\\\\s*news', 'india\\\\s*tv',
-    'republic\\\\s*tv', 'times\\\\s*now', 'tv9',
-    'comedy\\\\s*central', 'stand\\\\s*up', 'roast',
+    'netflix', 'amazon\\s*prime\\s*video', 'disney\\+?', 'hotstar', 'zee5',
+    'sony\\s*liv', 'jio\\s*cinema', 'mx\\s*player', 'voot', 'alt\\s*balaji',
+    'movie\\s*clips?', 'film\\s*clips?', 'scene\\s*vault', 'movieclips',
+    'filmi\\s*clip', 'movie\\s*scene', 'bollywood\\s*scene',
+    'advertisement', 'promoted', 'sponsor', 'vevo\\s*ads', 'google\\s*ads',
+    'news18', 'ndtv', 'aaj\\s*tak', 'zee\\s*news', 'india\\s*tv',
+    'republic\\s*tv', 'times\\s*now', 'tv9',
+    'comedy\\s*central', 'stand\\s*up', 'roast',
   ].map(p => '(?:' + p + ')').join('|'), 'i');
 
   const JUNK_TITLE_PATTERNS = new RegExp([
-    'advertisement', 'sponsored', '\\\\bpromo\\\\b',
-    'slowed', 'reverb(ed)?', 'lofi', 'lo[\\\\s\\\\-]?fi',
-    'bass[\\\\s\\\\-]?boost(ed)?', 'sped[\\\\s\\\\-]?up', 'nightcore', '8d[\\\\s\\\\-]?audio',
-    '\\\\bcover\\\\b', 'karaoke', 'instrumental[\\\\s\\\\-]?version',
+    'advertisement', 'sponsored', '\\bpromo\\b',
+    'slowed', 'reverb(ed)?', 'lofi', 'lo[\\s\\-]?fi',
+    'bass[\\s\\-]?boost(ed)?', 'sped[\\s\\-]?up', 'nightcore', '8d[\\s\\-]?audio',
+    '\\bcover\\b', 'karaoke', 'instrumental[\\s\\-]?version',
     'tribute', 'mashup', 'megamix', 'compilation',
-    'reaction[\\\\s\\\\-]?video', 'podcast', 'news[\\\\s\\\\-]?clip',
-    '#short', '\\\\bshorts\\\\b', '\\\\breels\\\\b',
-    'birthday', '\\\\bhappy\\\\s+birthday\\\\b',
-    '\\\\bnursery\\\\b', '\\\\brhyme\\\\b',
-    '\\\\bscene\\\\b', 'deleted\\\\s*scene', 'fight\\\\s*scene', 'climax\\\\s*scene',
-    'action\\\\s*scene', 'movie\\\\s*scene', 'film\\\\s*scene', 'interval\\\\s*scene',
-    '\\\\btrailer\\\\b', 'official\\\\s*trailer', 'theatrical\\\\s*trailer', 'teaser\\\\s*trailer',
-    '\\\\bteaser\\\\b', 'making[\\\\s\\\\-]?of', 'behind[\\\\s\\\\-]?the[\\\\s\\\\-]?scenes?',
-    'motion[\\\\s\\\\-]?poster', 'sneak[\\\\s\\\\-]?peek',
-    'promo[\\\\s\\\\-]?clip', 'lyric[\\\\s\\\\-]?video', '\\\\blyrics\\\\b',
-    '\\\\bnetflix\\\\b', '\\\\bamazon\\\\s*prime\\\\b', '\\\\bhotstar\\\\b', '\\\\bzee5\\\\b',
-    'extended\\\\s*cut', 'director.?s\\\\s*cut', '\\\\buncut\\\\b', '\\\\buncensored\\\\b',
-    'web\\\\s*series', 'short\\\\s*film', 'mini\\\\s*series',
+    'reaction[\\s\\-]?video', 'podcast', 'news[\\s\\-]?clip',
+    '#short', '\\bshorts\\b', '\\breels\\b',
+    'birthday', '\\bhappy\\s+birthday\\b',
+    '\\bnursery\\b', '\\brhyme\\b',
+    '\\bscene\\b', 'deleted\\s*scene', 'fight\\s*scene', 'climax\\s*scene',
+    'action\\s*scene', 'movie\\s*scene', 'film\\s*scene', 'interval\\s*scene',
+    '\\btrailer\\b', 'official\\s*trailer', 'theatrical\\s*trailer', 'teaser\\s*trailer',
+    '\\bteaser\\b', 'making[\\s\\-]?of', 'behind[\\s\\-]?the[\\s\\-]?scenes?',
+    'motion[\\s\\-]?poster', 'sneak[\\s\\-]?peek',
+    'promo[\\s\\-]?clip', 'lyric[\\s\\-]?video', '\\blyrics\\b',
+    '\\bnetflix\\b', '\\bamazon\\s*prime\\b', '\\bhotstar\\b', '\\bzee5\\b',
+    'extended\\s*cut', 'director.?s\\s*cut', '\\buncut\\b', '\\buncensored\\b',
+    'web\\s*series', 'short\\s*film', 'mini\\s*series',
   ].map(p => '(?:' + p + ')').join('|'), 'i');
 
   /* ★ U2: JUNK_AUTOPLAY_PATTERNS — patterns that auto-reject in auto-play context.
      These are separate from JUNK_TITLE_PATTERNS (which is used in all searches).
      Applied specifically during auto-play result scoring. */
-  const AUTOPLAY_REJECT_PATTERNS = /\\b(remix|dj\\s+\\w|\\bcover\\b|fan[\\s-]?made)\\b/i;
+  const AUTOPLAY_REJECT_PATTERNS = /\b(remix|dj\s+\w|\bcover\b|fan[\s-]?made)\b/i;
 
   /* ★ U2: officialTitleScore — +200 for official, -1000 for remix/cover/fan-made.
      Applied AFTER duration guard passes. Score is folded into _musicScore.
@@ -370,15 +370,15 @@ export const PLAYER_49_CODE = `/* ═══════════════�
   function officialTitleScore(title) {
     const t = (title || '').toLowerCase();
     /* Official releases get a +200 bonus */
-    if (/official\\s*(audio|music\\s*video|video)|full\\s*audio/i.test(t)) return 200;
+    if (/official\s*(audio|music\s*video|video)|full\s*audio/i.test(t)) return 200;
     /* Remix / DJ / Cover / Fan-made get -1000 (auto-reject) */
     if (AUTOPLAY_REJECT_PATTERNS.test(t)) return -1000;
     return 0;
   }
 
-  const TOPIC_SUFFIX      = /\\s*-\\s*topic\\s*$/i;
-  const OAC_PATTERNS      = /\\b(official\\s*artist\\s*channel|oac)\\b/i;
-  const MUSIC_TOPIC_WORDS = /\\b(music|songs?|audio|vevo|records?|official)\\b/i;
+  const TOPIC_SUFFIX      = /\s*-\s*topic\s*$/i;
+  const OAC_PATTERNS      = /\b(official\s*artist\s*channel|oac)\b/i;
+  const MUSIC_TOPIC_WORDS = /\b(music|songs?|audio|vevo|records?|official)\b/i;
 
   function channelMusicScore(channelTitle) {
     const ct = (channelTitle || '').toLowerCase();
@@ -1828,28 +1828,28 @@ export const PLAYER_49_CODE = `/* ═══════════════�
     console.log(
       '%c[ZX PRO 4.9] Initialized ✅',
       'color:#e8436a;font-weight:bold;font-size:14px',
-      '\\n\\n═══════════════════════════════════════════\\n' +
-      '  PRO 4.9 — OFFICIAL-ONLY ENGINE\\n' +
-      '═══════════════════════════════════════════\\n' +
-      '  ★ U1: Metadata Lock (currentMetadata)\\n' +
-      '        LFM/Spotify title+artist locked ONLY.\\n' +
-      '        YouTube video title NEVER used as seed.\\n' +
-      '  ★ U2: Official Re-ranking\\n' +
-      '        +200 → Official Audio/Music Video/Full Audio\\n' +
-      '        -1000 → Remix / DJ / Cover / Fan-made (auto-reject)\\n' +
-      '  ★ U3: Aggressive Fingerprinting (MOON Fix)\\n' +
-      '        Strips after (, [, -, |, : before hashing.\\n' +
-      '        MOON (Official) = MOON - Channa Me = "moon"\\n' +
-      '  ★ U4: Auto-Play Official Fallback\\n' +
-      '        buildSimilarFallbackQuery() always appends\\n' +
-      '        "official audio" — prevents remix ranking.\\n' +
-      '\\n─── PRO 4.4–4.8 PRESERVED ─────────────────\\n' +
-      '  ✅ FIX 1-7 all preserved from PRO 4.8\\n' +
-      '  ✅ JIT Prefetch + LRU Cache (40 entries)\\n' +
-      '  ✅ Genre Guard + Live Heartbeat (2s)\\n' +
-      '  ✅ Cinema / Sync / Wake Lock / Keep-Alive\\n' +
-      '═══════════════════════════════════════════\\n'
+      '\n\n═══════════════════════════════════════════\n' +
+      '  PRO 4.9 — OFFICIAL-ONLY ENGINE\n' +
+      '═══════════════════════════════════════════\n' +
+      '  ★ U1: Metadata Lock (currentMetadata)\n' +
+      '        LFM/Spotify title+artist locked ONLY.\n' +
+      '        YouTube video title NEVER used as seed.\n' +
+      '  ★ U2: Official Re-ranking\n' +
+      '        +200 → Official Audio/Music Video/Full Audio\n' +
+      '        -1000 → Remix / DJ / Cover / Fan-made (auto-reject)\n' +
+      '  ★ U3: Aggressive Fingerprinting (MOON Fix)\n' +
+      '        Strips after (, [, -, |, : before hashing.\n' +
+      '        MOON (Official) = MOON - Channa Me = "moon"\n' +
+      '  ★ U4: Auto-Play Official Fallback\n' +
+      '        buildSimilarFallbackQuery() always appends\n' +
+      '        "official audio" — prevents remix ranking.\n' +
+      '\n─── PRO 4.4–4.8 PRESERVED ─────────────────\n' +
+      '  ✅ FIX 1-7 all preserved from PRO 4.8\n' +
+      '  ✅ JIT Prefetch + LRU Cache (40 entries)\n' +
+      '  ✅ Genre Guard + Live Heartbeat (2s)\n' +
+      '  ✅ Cinema / Sync / Wake Lock / Keep-Alive\n' +
+      '═══════════════════════════════════════════\n'
     );
   })();
 
-})();`;
+})();
