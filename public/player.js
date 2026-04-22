@@ -252,10 +252,41 @@
     s = s.replace(/\b(remaster|deluxe|edition|bonus|extended|cut|version|mix)\b/g, '');
     s = s.replace(/\b(scene|deleted|trailer|teaser|promo|netflix|advertisement|ad)\b/g, '');
     s = s.replace(/\b(topic|vevo|records|music|entertainment|india|official)\b/g, '');
+    s = s.replace(/\b(tutorial|lesson|how\s*to|learn|practice|fingerstyle|jam|session|guitar|piano|drum|singing|teaching)\b/g, '');
 
     /* Remove all non-alphanumeric */
     s = s.replace(/[^a-z0-9]/g, '');
     return s.trim();
+  }
+
+  /* FIX 9: Title-only fingerprint — catches dupes even when artist field differs */
+  function titleOnlyFingerprint(title) {
+    let s = (title || '').toLowerCase();
+    s = s.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ');
+    s = s.replace(/\b(official|audio|video|lyric|lyrics|music|song|full|hd|hq|4k|uhd|fhd)\b/g, '');
+    s = s.replace(/\b(feat|ft|prod|with|from|by)\b.*/g, '');
+    s = s.replace(/\b(slowed|reverb|lofi|bass|boost|nightcore|8d|sped|up|down)\b/g, '');
+    s = s.replace(/\b(remix|cover|karaoke|instrumental|acoustic|piano|unplugged)\b/g, '');
+    s = s.replace(/\b(topic|vevo|records|music|entertainment|india|official)\b/g, '');
+    s = s.replace(/\b(tutorial|lesson|how\s*to|learn|practice|fingerstyle|jam|session|guitar|piano|drum|singing|teaching)\b/g, '');
+    s = s.replace(/[^a-z0-9]/g, '');
+    return s.trim();
+  }
+
+  /* FIX 9: Title similarity scoring — word overlap between expected and actual */
+  function titleSimilarity(expected, actual) {
+    const normalize = s => (s || '').toLowerCase()
+      .replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '')
+      .replace(/\b(official|audio|video|lyric|lyrics|music|song|full|hd|hq|4k|uhd|fhd)\b/g, '')
+      .replace(/\b(feat|ft|prod|with|from|by)\b.*/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .trim();
+    const wordsA = new Set(normalize(expected).split(/\s+/).filter(w => w.length > 1));
+    const wordsB = new Set(normalize(actual).split(/\s+/).filter(w => w.length > 1));
+    if (wordsA.size === 0) return 0;
+    let matches = 0;
+    for (const w of wordsA) { if (wordsB.has(w)) matches++; }
+    return (matches / wordsA.size) * 100;
   }
 
   /* Legacy normTitle — kept for backward compat with autoPlayHistory / shuffleLastTwoBatches */
@@ -267,16 +298,22 @@
       .trim();
   }
 
-  /* ─── FIX 5: Check playedHistory with deep fingerprint ─── */
+  const _titleOnlyHistory = new Set();
+
+  /* ─── FIX 5 + 9: Check playedHistory with deep fingerprint + title-only ─── */
   function isAlreadyPlayed(title, artist) {
     const fp = deepFingerprint(title, artist);
-    if (!fp || fp.length < 3) return false;
-    return playedHistory.has(fp);
+    if (fp && fp.length >= 3 && playedHistory.has(fp)) return true;
+    const tfp = titleOnlyFingerprint(title);
+    if (tfp && tfp.length >= 3 && _titleOnlyHistory.has(tfp)) return true;
+    return false;
   }
 
   function markPlayed(title, artist) {
     const fp = deepFingerprint(title, artist);
     if (fp && fp.length >= 3) playedHistory.add(fp);
+    const tfp = titleOnlyFingerprint(title);
+    if (tfp && tfp.length >= 3) _titleOnlyHistory.add(tfp);
     autoPlayHistory.add(normTitle(title)); // legacy
   }
 
@@ -348,9 +385,9 @@
     'comedy\\s*central', 'stand\\s*up', 'roast',
   ].map(p => `(?:${p})`).join('|'), 'i');
 
-  /* FIX 4 (Pass 4): Extended junk title patterns */
+  // /* FIX 4 (Pass 4) + FIX 9: Extended junk title patterns — now catches tutorials, covers, lessons */
   const JUNK_TITLE_PATTERNS = new RegExp([
-    'advertisement', 'sponsored', '\\bpromo\\b',
+    'Advertisement', 'sponsored', '\\bpromo\\b',
     'slowed', 'reverb(ed)?', 'lofi', 'lo[\\s\\-]?fi',
     'bass[\\s\\-]?boost(ed)?', 'sped[\\s\\-]?up', 'nightcore', '8d[\\s\\-]?audio',
     '\\bcover\\b', 'karaoke', 'instrumental[\\s\\-]?version',
@@ -362,7 +399,7 @@
     '\\bnursery\\b', '\\brhyme\\b',
     'meditation', 'relaxing\\s+music',
     'whiteboard\\s+animation', 'cartoon\\s+song',
-    /* Pass 4 NEW: movie scenes and streaming content */
+    /* Pass 4: movie scenes and streaming content */
     '\\bscene\\b', 'deleted\\s*scene', 'fight\\s*scene', 'climax\\s*scene',
     'action\\s*scene', 'movie\\s*scene', 'film\\s*scene', 'interval\\s*scene',
     '\\btrailer\\b', 'official\\s*trailer', 'theatrical\\s*trailer', 'teaser\\s*trailer',
@@ -376,17 +413,28 @@
     /* Extended/deleted cuts */
     'extended\\s*cut', 'director.?s\\s*cut', '\\buncut\\b', '\\buncensored\\b',
     'web\\s*series', 'short\\s*film', 'mini\\s*series',
+    /* FIX 9 NEW: tutorials, lessons, covers by instrument, practice sessions */
+    '\\btutorial\\b', '\\blesson\\b', 'how[\\s\\-]?to[\\s\\-]?play',
+    'guitar[\\s\\-]?cover', 'piano[\\s\\-]?cover', 'drum[\\s\\-]?cover',
+    'ukulele[\\s\\-]?cover', 'bass[\\s\\-]?cover', 'violin[\\s\\-]?cover',
+    'fingerstyle', 'tab[\\s\\-]?tutorial', 'chord[\\s\\-]?tutorial',
+    'jam[\\s\\-]?session', 'practice[\\s\\-]?session',
+    '\\blearn\\b.*\\bguitar\\b', '\\blearn\\b.*\\bpiano\\b',
+    'backing[\\s\\-]?track', '\\bplayalong\\b', 'play[\\s\\-]?along',
+    '\\bringtone\\b', '\\bcallerback\\b', 'caller[\\s\\-]?tune',
+    '\\bstatus\\b.*\\bvideo\\b', 'whatsapp[\\s\\-]?status',
+    '\\basmr\\b', '\\bstudy\\s+music\\b', '\\bsleep\\s+music\\b',
   ].map(p => `(?:${p})`).join('|'), 'i');
 
   const TOPIC_SUFFIX      = /\s*-\s*topic\s*$/i;
-  const OAC_PATTERNS      = /\b(official\s*artist\s*channel|oac)\b/i;
+  // const OAC_PATTERNS      = /\b(official\s*artist\s*channel|oac)\b/i;
   const MUSIC_TOPIC_WORDS = /\b(music|songs?|audio|vevo|records?|official)\b/i;
 
   /* ─── FIX 2: Score a channel for "music trustworthiness" ─── */
   function channelMusicScore(channelTitle) {
     const ct = (channelTitle || '').toLowerCase();
     if (TOPIC_SUFFIX.test(channelTitle)) return 100;  // Topic channel = highest trust
-    if (OAC_PATTERNS.test(channelTitle))  return 90;   // Official Artist Channel
+    // if (OAC_PATTERNS.test(channelTitle))  return 90;   // Official Artist Channel
     if (/vevo/i.test(ct))                 return 85;   // VEVO = official
     if (MUSIC_TOPIC_WORDS.test(ct))       return 60;   // Has music keywords
     if (BLOCKED_CHANNEL_PATTERNS.test(ct)) return -999; // Blocked
@@ -458,32 +506,45 @@
     } catch { return []; }
   }
 
-  /* ─── FIX 1 + 2 + 3: resolveToYtId — natural query, official channel priority ─── */
+  /* ─── Track last played channel for publisher preference ─── */
+  let _lastChannel = '';
+
+  /* ─── resolveToYtId — prefer same publisher/channel as current song ─── */
   async function resolveToYtId(title, artist) {
     const { cleanTitle: ct, cleanArtist: ca } = sanitizeMeta(title, artist);
     if (!ct && !ca) return null;
 
-    /* Strategy 1: Natural "X by Y" format — works best for most music searches */
-    const q1 = buildNaturalQuery(ct, ca);
-    let items = await ytSearch(q1, 8, true);
+    /* Search: "Track by Artist" */
+    const q = buildNaturalQuery(ct, ca);
+    let items = await ytSearch(q, 8, true);
 
-    /* Strategy 2: Official audio format if Strategy 1 weak */
-    if (!items.length || items[0]?._musicScore < 60) {
+    /* Fallback: try official audio query if nothing found */
+    if (!items.length) {
       const q2 = buildOfficialQuery(ct, ca);
-      const items2 = await ytSearch(q2, 8, true);
-      /* Merge — topic/OAC from strategy 2 wins over generic from strategy 1 */
-      const seen = new Set(items.map(i => i.videoId));
-      items2.forEach(i => { if (!seen.has(i.videoId)) items.push(i); });
-      items.sort((a, b) => (b._musicScore || 0) - (a._musicScore || 0));
+      items = await ytSearch(q2, 8, true);
     }
 
-    /* FIX 5: Skip already-played fingerprints */
-    const pick = items.find(i =>
-      !isAlreadyPlayed(i.title, i.channelTitle) &&
-      i._musicScore > -900
-    ) || items.find(i => i._musicScore > -900) || items[0];
+    if (!items.length) { console.log('[resolveToYtId] ❌ No results for:', ct, '—', ca); return null; }
 
-    if (!pick) return null;
+    /* Prefer same channel/publisher as the currently playing track.
+       If user is on T-Series, pick T-Series upload. Same channel = correct song. */
+    let pick = null;
+    if (_lastChannel) {
+      const lc = _lastChannel.toLowerCase();
+      pick = items.find(i =>
+        (i.channelTitle || '').toLowerCase() === lc &&
+        !isAlreadyPlayed(i.title, i.channelTitle)
+      );
+      if (pick) console.log(`[resolveToYtId] 🎯 Same channel match: "${pick.channelTitle}"`);
+    }
+
+    /* Otherwise pick first unplayed result — trust YouTube's ranking */
+    if (!pick) pick = items.find(i => !isAlreadyPlayed(i.title, i.channelTitle)) || items[0];
+
+    /* Update last channel for next lookup */
+    _lastChannel = pick.channelTitle || '';
+
+    console.log(`[resolveToYtId] ✅ "${ct}" by "${ca}" → YT: "${pick.title}" (${pick.videoId}) | channel: ${pick.channelTitle}`);
     return {
       ytId:       pick.videoId,
       title:      pick.title,
@@ -521,20 +582,12 @@
   async function extractYTAudioUrl(ytId) {
     const k = 'yt_' + ytId;
     const cached = cacheGet(k);
-    if (cached) return cached;
+    if (cached) { console.log(`[extractAudio] ⚡ Cache hit: ${ytId}`); return cached; }
+    console.log(`[extractAudio] 🔍 Resolving audio for: ${ytId}`);
 
-    /* Attempt 1: SP81 downloader */
-    try {
-      const r = await fetch(
-        `https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true&bypassSpotify=true&quality=best`,
-        { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
-      );
-      const d = await r.json();
-      const u = Array.isArray(d) ? (d[0]?.url || d[0]?.link) : (d.url || d.link);
-      if (u) { cacheSet(k, u); return u; }
-    } catch {}
-
-    /* Attempt 2: ytstream with FIX 6 M4A priority */
+    /* FIX 9: Attempt 1 — ytstream (RELIABLE: uses exact video ID)
+       Moved BEFORE SP81 because SP81 with bypassSpotify often returns
+       wrong audio — it does its own fuzzy search instead of using the exact ID */
     try {
       const r = await fetch(
         `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${ytId}`,
@@ -547,7 +600,7 @@
           f.url && (f.mimeType?.includes('audio') || (!f.qualityLabel && f.url))
         );
         const ranked = rankAudioFormats(allAudio);
-        if (ranked.length) { cacheSet(k, ranked[0].url); return ranked[0].url; }
+        if (ranked.length) { console.log(`[extractAudio] ✅ ytstream OK: ${ytId} (${ranked[0].mimeType})`); cacheSet(k, ranked[0].url); return ranked[0].url; }
       }
       /* Fallback: adaptiveFormats */
       if (d.adaptiveFormats) {
@@ -555,10 +608,22 @@
           f.url && f.mimeType?.includes('audio')
         );
         const ranked = rankAudioFormats(audioOnly);
-        if (ranked.length) { cacheSet(k, ranked[0].url); return ranked[0].url; }
+        if (ranked.length) { console.log(`[extractAudio] ✅ ytstream adaptive OK: ${ytId}`); cacheSet(k, ranked[0].url); return ranked[0].url; }
       }
-    } catch {}
+    } catch (e) { console.log(`[extractAudio] ⚠️ ytstream failed: ${ytId}`, e.message); }
 
+    /* Attempt 2: SP81 downloader (fallback — less reliable with YT IDs) */
+    try {
+      const r = await fetch(
+        `https://${SP81_HOST}/download_track?q=${ytId}&onlyLinks=true&bypassSpotify=true&quality=best`,
+        { headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': SP81_HOST } }
+      );
+      const d = await r.json();
+      const u = Array.isArray(d) ? (d[0]?.url || d[0]?.link) : (d.url || d.link);
+      if (u) { console.log(`[extractAudio] ✅ SP81 fallback OK: ${ytId}`); cacheSet(k, u); return u; }
+    } catch (e) { console.log(`[extractAudio] ⚠️ SP81 failed: ${ytId}`, e.message); }
+
+    console.log(`[extractAudio] ❌ All sources failed: ${ytId}`);
     return null;
   }
 
