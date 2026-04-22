@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   ZEROX HUB — player.js (v8 — The Ultimate Fix)
-   ✅ Hide/Unhide Toggle Button Restored & Placed Right
-   ✅ Ultra-Strict Auto-Play (Blocks exact & similar titles)
-   ✅ Spotify Best Matches Sorted on Top
-   ✅ Smart Background Prefetching & Universal Play
+   ZEROX HUB — player.js (PRO 4.9 HYBRID)
+   ✅ STRICT NORMALIZATION: 'MOON (Official)' & 'MOON [Slowed]' = 'moon'
+   ✅ MASTER METADATA LOCK: YT Titles never overwrite original Seed
+   ✅ ANTI-DRIFT VIBE ENGINE: Query Rotation + DJ/Remix Blocking
+   ✅ SMART PREFETCH & UNIVERSAL SYNC PRESERVED
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -84,8 +84,11 @@
   let autoPlayFetching = false;
   
   const autoPlayHistory = new Set(); 
+  
+  // PRO 4.9 HYBRID: Master Metadata Lock
+  let currentMasterSeed = { title: '', artist: '' };
 
-  // Very strict normalization to catch any variant of the same song
+  // PRO 4.9 HYBRID: Ultra-Strict Normalization (The 'MOON' Fix)
   function normalizeTitle(title) {
     return (title || '').toLowerCase()
       .replace(/\(.*?\)/g, '')
@@ -98,6 +101,15 @@
       .replace(/feat\..*/g, '')
       .replace(/[^a-z0-9]/g, '') 
       .trim();
+  }
+
+  // PRO 4.9 HYBRID: Strict Junk Guards
+  function isJunkTrack(title, channel) {
+    const t = (title || '').toLowerCase();
+    const c = (channel || '').toLowerCase();
+    if (c.includes('dj') || c.includes('remix') || c.includes('rakesh')) return true;
+    if (t.includes('teaser') || t.includes('trailer') || t.includes('scene') || t.includes('8d')) return true;
+    return false;
   }
 
   function setRemoteAction() {
@@ -121,7 +133,6 @@
     if (isPanelOpen) return; isPanelOpen = true;
     panel.classList.add('zx-open'); document.body.style.overflow = 'hidden';
     if (panelToggleBtn) panelToggleBtn.classList.add('active');
-    // Pause heavy chat bg animations while player is open (prevents lag)
     document.getElementById('chatApp')?.classList.add('player-open');
   }
   function closePanel() {
@@ -151,10 +162,8 @@
     document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
   }
 
-  /* ── Toggle buttons: rectangular glow-outlined, CSS-driven ── */
   function setupToggleBtn(btn, area) {
     if (!btn || !area) return;
-    // Initial state driven by CSS + class, not inline style
     btn.classList.toggle('results-open', !area.classList.contains('hidden'));
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -226,7 +235,7 @@
           const thumb = vid.thumbnail?.[1]?.url || vid.thumbnail?.[0]?.url || '';
           const div = document.createElement('div'); div.className = 'yt-search-item';
           div.innerHTML = `<img src="${thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${vid.title||''}</div><div class="yt-search-sub">${vid.channelTitle||''}</div></div><span style="font-size:15px;color:#ff4444;flex-shrink:0">▶</span>`;
-          div.onclick = () => { queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.title||'', ytId: vid.videoId, thumb }); showToast('▶ Playing!'); };
+          div.onclick = () => { queue = []; currentIdx = 0; addToQueue({ type: 'youtube', title: vid.title||'', ytId: vid.videoId, thumb, masterSeed: vid.title }); showToast('▶ Playing!'); };
           ytSearchResultsEl.appendChild(div);
         });
       }).catch(() => { if (ytSearchResultsEl) ytSearchResultsEl.innerHTML = '<p class="mp-empty">Error fetching results.</p>'; });
@@ -288,7 +297,8 @@
     if (item.type === 'ytmusic') return await extractYTAudioUrl(item.ytId);
     if (item.type === 'spotify_yt') {
       if (item.spId) { const spUrl = await fetchPremiumAudio(item.spId); if (spUrl) return spUrl; }
-      const ytRes = await searchYTMusicAudio(item.title + ' ' + (item.artist || ''));
+      // Uses the locked Master Seed to avoid Drift!
+      const ytRes = await searchYTMusicAudio(item.masterSeed + ' ' + (item.artist || ''));
       if (ytRes) { item.ytId = ytRes.ytId; return await extractYTAudioUrl(ytRes.ytId); }
     }
     return null;
@@ -305,21 +315,21 @@
     }
   }
 
-  /* ═══════════════════════ 10. SMART VIBE AUTO-PLAY (FIX 2) ═══════════════════════ */
-  async function fetchVibeNextSongs(title, artist, count = 5) {
-    const baseNorm = normalizeTitle(title); // The exact song we want to avoid repeating
+  /* ═══════════════════════ 10. SMART VIBE AUTO-PLAY (HYBRID) ═══════════════════════ */
+  async function fetchVibeNextSongs(seedTitle, artist, count = 5) {
+    const baseNorm = normalizeTitle(seedTitle); 
     const artistQuery = artist ? artist.replace(/\(.*?\)|\[.*?\]/g,'').trim() : '';
-    const cleanTitle = title.replace(/\(.*?\)|\[.*?\]/g,'').trim();
+    const cleanTitle = seedTitle.replace(/\(.*?\)|\[.*?\]/g,'').trim();
 
-    // 5 rotating query templates as specified
+    // V8 Query Rotation Engine
     const allQueryTemplates = [
-      `similar mood songs as ${cleanTitle}`,
-      `more tracks like ${cleanTitle}`,
+      `similar mood songs as ${cleanTitle} official audio`,
+      `more tracks like ${cleanTitle} official audio`,
       `tracks to play after ${cleanTitle}`,
-      `latest tracks by ${artistQuery}`,
+      `latest tracks by ${artistQuery} official audio`,
       `trending tracks of ${artistQuery}`
     ];
-    // Rotate: pick 3 different ones each call using a counter
+    
     const qOffset = (autoPlayHistory.size) % 5;
     const queries = [
       allQueryTemplates[qOffset % 5],
@@ -340,20 +350,30 @@
         
         for (const item of d.data) {
           const t2 = item.title || '', a2 = item.channelTitle || '';
+          
+          // PRO 4.9: Guard Clauses (Anti-Junk & Anti-Duplicate)
           if (t2.toLowerCase().includes('#short')) continue;
+          if (isJunkTrack(t2, a2)) continue; // Blocks Remix/DJ/Trailers
           
           const norm2 = normalizeTitle(t2);
           
-          // FIX 2: ULTRA-STRICT DUPLICATE PREVENTION
-          // Block if the new song title CONTAINS the old title, or vice-versa
-          // Example: blocks "Finding Her (Lyric)" if base is "Finding Her"
           if (norm2.includes(baseNorm) || baseNorm.includes(norm2)) continue; 
-          
-          // Block if already played in history or added in current batch
           if (autoPlayHistory.has(norm2) || collected.some(c => c.norm === norm2)) continue;
           
           const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
-          collected.push({ ytId: item.videoId, title: t2, artist: a2, thumb, norm: norm2 });
+          
+          // PRO 4.9: Clean Display Name Generator
+          let displayName = t2.split(/[\(\[\-\|]/)[0].trim();
+          if (displayName.length < 2) displayName = t2; // Fallback
+
+          collected.push({ 
+            ytId: item.videoId, 
+            title: displayName, // Cleaned for UI
+            masterSeed: displayName, // Locked for next search
+            artist: a2, 
+            thumb, 
+            norm: norm2 
+          });
           
           if (collected.length >= count) break;
         }
@@ -365,17 +385,21 @@
   async function triggerAutoPlayLoad() {
     if (autoPlayFetching || queue.length === 0) return;
     autoPlayFetching = true;
-    const lastItem = queue[queue.length - 1];
     
-    dbg('AUTOPLAY', 'Fetching next 5 vibes based on: ' + lastItem.title, '#ffaa44');
-    const songs = await fetchVibeNextSongs(lastItem.title, lastItem.artist || '', 5);
+    // Uses the locked Master Seed instead of dirty YT titles
+    const lastItem = queue[queue.length - 1];
+    const seedToUse = lastItem.masterSeed || lastItem.title;
+    
+    dbg('AUTOPLAY', 'Fetching vibes based on MASTER SEED: ' + seedToUse, '#ffaa44');
+    const songs = await fetchVibeNextSongs(seedToUse, lastItem.artist || '', 5);
     
     if (songs.length > 0) {
       songs.forEach(song => {
-        autoPlayHistory.add(song.norm); // Mark as auto-played
+        autoPlayHistory.add(song.norm); 
         queue.push({ 
           type: activeSrcTab === 'spotify' ? 'spotify_yt' : 'ytmusic', 
           title: song.title, 
+          masterSeed: song.masterSeed, // Ensures chain reaction is clean
           artist: song.artist, 
           ytId: song.ytId, 
           thumb: song.thumb,
@@ -388,7 +412,7 @@
     autoPlayFetching = false;
   }
 
-  /* ═══════════════════════ 11. SPOTIFY SEARCH (FIX 3) ═══════════════════════ */
+  /* ═══════════════════════ 11. SPOTIFY SEARCH ═══════════════════════ */
   async function searchSpotify(query, playlistsOnly = false) {
     if (!query) return;
     spResultsArea.innerHTML = '<div class="mp-loading-pulse">Loading…</div>';
@@ -414,7 +438,6 @@
         items.push({ iType: type, data });
       }
 
-      // FIX 3: SORT - Put Best Matches (Top Results) at the very top
       if (!playlistsOnly && sd?.topResults?.itemsV2) {
         sd.topResults.itemsV2.forEach(i => {
           const d = i.item?.data;
@@ -425,22 +448,18 @@
         });
       }
 
-      // Then append remaining Tracks & Albums
       if (!playlistsOnly) {
         (sd?.tracksV2?.items || []).forEach(i => addSpItem('track', i.item?.data));
         (sd?.albums?.items || []).forEach(i => addSpItem('album', i.data));
       }
 
-      // Finally append Playlists
       (sd?.playlists?.items || []).forEach(i => addSpItem('playlist', i.data));
 
-      // Sort: exact matches on top, then contains, then rest
       const queryLower = query.toLowerCase().trim();
       items.sort((a, b) => {
         const na = (a.data.name || '').toLowerCase(), nb = (b.data.name || '').toLowerCase();
         const aExact = na === queryLower, bExact = nb === queryLower;
         const aContains = na.includes(queryLower), bContains = nb.includes(queryLower);
-        // Tracks before playlists/albums for exact matches
         const aTrack = a.iType === 'track', bTrack = b.iType === 'track';
         if (aExact && aTrack && !(bExact && bTrack)) return -1;
         if (bExact && bTrack && !(aExact && aTrack)) return 1;
@@ -462,7 +481,6 @@
 
         const div = document.createElement('div');
         div.className = 'yt-search-item sp-list-item' + (isPlaylist||isAlbum ? ' sp-folder-item' : '');
-        // Tracks get ▶ play button; playlists/albums get 📂 folder icon (no play)
         const rightIcon = (isPlaylist||isAlbum)
           ? `<span class="sp-folder-btn" title="Open ${isAlbum?'album':'playlist'}">📂</span>`
           : `<span class="sp-play-btn">▶</span>`;
@@ -485,7 +503,7 @@
             spResultsArea.innerHTML = ''; tr.forEach(t => addToSpResults(t));
           } else {
             activeSrcTab = 'spotify'; queue = []; currentIdx = 0;
-            addToQueue({ type: 'spotify_yt', title: name, artist, spId, thumb });
+            addToQueue({ type: 'spotify_yt', title: name, masterSeed: name, artist, spId, thumb });
           }
         };
         spResultsArea.appendChild(div);
@@ -496,7 +514,7 @@
   function addToSpResults(t) {
     const div = document.createElement('div'); div.className = 'yt-search-item';
     div.innerHTML = `<img src="${t.image}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${t.title}</div><div class="yt-search-sub">${t.artist}</div></div><span style="font-size:15px;color:#1db954">▶</span>`;
-    div.onclick = () => { activeSrcTab = 'spotify'; queue = []; currentIdx = 0; addToQueue({ type: 'spotify_yt', title: t.title, artist: t.artist, spId: t.id, thumb: t.image }); };
+    div.onclick = () => { activeSrcTab = 'spotify'; queue = []; currentIdx = 0; addToQueue({ type: 'spotify_yt', title: t.title, masterSeed: t.title, artist: t.artist, spId: t.id, thumb: t.image }); };
     spResultsArea.appendChild(div);
   }
 
@@ -524,7 +542,7 @@
     showResultsArea(ytmResultsArea, toggleListBtnYtm);
 
     try {
-      const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query+' song')}&geo=IN&type=video`, {
+      const r = await fetch(`https://youtube-v3-alternative.p.rapidapi.com/search?query=${encodeURIComponent(query+' official audio')}&geo=IN&type=video`, {
         headers: { 'x-rapidapi-key': RAPID_API_KEY, 'x-rapidapi-host': 'youtube-v3-alternative.p.rapidapi.com' }
       });
       const d = await r.json(); ytmResultsArea.innerHTML = '';
@@ -533,7 +551,7 @@
         const div = document.createElement('div'); div.className = 'yt-search-item';
         const thumb = item.thumbnail?.[1]?.url || item.thumbnail?.[0]?.url || '';
         div.innerHTML = `<img src="${thumb}" class="yt-search-thumb"/><div class="yt-search-info"><div class="yt-search-title">${item.title}</div><div class="yt-search-sub">${item.channelTitle}</div></div><span style="font-size:15px;color:#ff4444">▶</span>`;
-        div.onclick = () => { activeSrcTab = 'ytmusic'; queue = []; currentIdx = 0; addToQueue({ type: 'ytmusic', title: item.title, artist: item.channelTitle, ytId: item.videoId, thumb }); };
+        div.onclick = () => { activeSrcTab = 'ytmusic'; queue = []; currentIdx = 0; addToQueue({ type: 'ytmusic', title: item.title, masterSeed: query, artist: item.channelTitle, ytId: item.videoId, thumb }); };
         ytmResultsArea.appendChild(div);
       });
     } catch { ytmResultsArea.innerHTML = '<p class="mp-empty">Error.</p>'; }
@@ -564,6 +582,9 @@
   function playQueueItem(i) {
     if (i < 0 || i >= queue.length) return;
     currentIdx = i; renderQueue(); const item = queue[i];
+    
+    // PRO 4.9: Lock the Master Seed when playing
+    currentMasterSeed = { title: item.masterSeed || item.title, artist: item.artist };
     
     if (synced && !isRemoteAction) broadcastSync({ action: 'change_song', item });
     renderMedia(item);
@@ -657,14 +678,12 @@
     if (window._zxSendSync) window._zxSendSync({ type: 'musicSync', ...data });
   }
 
-  // Full sync receiver — handles all sync actions from remote peers
   window._zxReceiveSync = function(data) {
     if (!synced) return;
     setRemoteAction();
 
     switch (data.action) {
       case 'request_sync': {
-        // Peer joined — send them current state
         if (queue.length > 0) {
           const cur = queue[currentIdx];
           broadcastSync({ action: 'change_song', item: cur, queueSnapshot: queue });
@@ -677,16 +696,11 @@
         break;
       }
       case 'change_song': {
-        // Restore full queue if sent
-        if (data.queueSnapshot && data.queueSnapshot.length > 0) {
-          queue = data.queueSnapshot;
-        }
-        // Find or add the item
+        if (data.queueSnapshot && data.queueSnapshot.length > 0) queue = data.queueSnapshot;
         let idx = queue.findIndex(q => q.title === data.item?.title);
         if (idx === -1) { queue.push(data.item); idx = queue.length - 1; }
         currentIdx = idx;
-        renderQueue();
-        renderMedia(queue[currentIdx]);
+        renderQueue(); renderMedia(queue[currentIdx]);
         break;
       }
       case 'play': {
@@ -719,11 +733,10 @@
     }
   };
 
-  // Also broadcast seek when native audio is seeked
   nativeAudio.addEventListener('seeked', () => {
     if (synced && !isRemoteAction) broadcastSync({ action: 'seek', time: nativeAudio.currentTime });
   });
   function dbg(tag, msg, color) { console.log(`[ZX ${tag}] ${msg}`); } 
 
-  dbg('INIT', 'ZeroX Hub v8 Loaded ✓', '#7ADB8A');
+  dbg('INIT', 'ZeroX Hub PRO 4.9 HYBRID Loaded ✓', '#7ADB8A');
 })();
